@@ -1,222 +1,209 @@
-import { LinearGradient } from 'expo-linear-gradient';
 import React, { useState } from 'react';
-import { useNavigation } from '@react-navigation/native';
-import { 
-  KeyboardAvoidingView, 
-  Platform, 
-  SafeAreaView, 
-  ScrollView, 
-  StyleSheet, 
-  Text, 
-  TextInput, 
-  TouchableOpacity, 
+import {
   View,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  SafeAreaView,
+  TextInput,
   Alert,
-  StatusBar // Importante importar esto
 } from 'react-native';
+import { MaterialIcons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useNavigation } from '@react-navigation/native';
+import ChecklistVehiculo from '@/components/ChecklistVehiculo';
 
-const StaticFormScreen = () => {
+const ChecklistListScreen = () => {
   const navigation = useNavigation<any>();
+  const [numeroPatente, setNumeroPatente] = useState('');
+  const [showForm, setShowForm] = useState(false);
 
-  // ESTADO
-  const [vehicleData, setVehicleData] = useState({
-    concesionario: 'SCANIA - TUCUMÁN', 
-    cliente: '',
-    fecha: new Date().toLocaleDateString('es-AR'),
-    km: '',
-    matricula: '',
-    orden: '',
-    motor: '',
-    chasis: '',
-    operacion: '',
-    tecnico: '',
-    nota: false 
-  });
-
-  const handleChange = (key: string, value: string | boolean) => {
-    setVehicleData(prev => ({ ...prev, [key]: value }));
-  };
-
-  const handleNext = () => {
-    if (!vehicleData.matricula || !vehicleData.cliente) {
-      Alert.alert("Faltan datos", "Por favor completa al menos el Cliente y la Matrícula.");
+  const handleAbrirChecklist = () => {
+    if (!numeroPatente.trim()) {
+      Alert.alert('Error', 'Ingresa el número de patente del vehículo');
       return;
     }
-    navigation.navigate('checklist/checklistitems', { vehicleData });
+
+    // Navegar al componente de checklist
+    navigation.navigate('checklist/checklistitems', {
+      numeroPatente: numeroPatente.toUpperCase(),
+      mecanico: 'Administrador',
+    });
   };
 
   return (
-    <View style={styles.mainContainer}>
+    <SafeAreaView style={styles.container}>
       <LinearGradient colors={['#000000', '#121212']} style={styles.gradient}>
-        {/* SafeAreaView con padding manual para Android */}
-        <SafeAreaView style={styles.safeArea}>
-            <KeyboardAvoidingView 
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            style={{ flex: 1 }}
+        {/* Header */}
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => navigation.goBack()}>
+            <MaterialIcons name="arrow-back" size={24} color="#fff" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Checklist de Vehículos</Text>
+          <View style={styles.headerPlaceholder} />
+        </View>
+
+        {/* Contenido */}
+        <View style={styles.content}>
+          <View style={styles.card}>
+            <View style={styles.cardIcon}>
+              <MaterialIcons name="checklist" size={48} color="#60A5FA" />
+            </View>
+            <Text style={styles.cardTitle}>Nuevo Checklist</Text>
+            <Text style={styles.cardDescription}>
+              Registra la inspección de ingreso de un vehículo al taller
+            </Text>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Número de Patente</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Ej: ABC-123"
+                placeholderTextColor="#666"
+                value={numeroPatente}
+                onChangeText={setNumeroPatente}
+                maxLength={10}
+              />
+            </View>
+
+            <TouchableOpacity
+              style={styles.button}
+              onPress={handleAbrirChecklist}
             >
-            <ScrollView contentContainerStyle={styles.scrollContainer}>
-                <Text style={styles.title}>Recepción de Unidad</Text>
+              <MaterialIcons name="arrow-forward" size={20} color="#fff" />
+              <Text style={styles.buttonText}>Iniciar Checklist</Text>
+            </TouchableOpacity>
+          </View>
 
-                <View style={styles.formContainer}>
-                <Text style={styles.sectionTitle}>Datos Generales</Text>
-
-                <Text style={styles.label}>Concesionario</Text>
-                <TextInput
-                    style={styles.input}
-                    value={vehicleData.concesionario}
-                    onChangeText={(t) => handleChange('concesionario', t)}
-                    placeholderTextColor="#666"
-                />
-
-                <Text style={styles.label}>Nombre del Cliente *</Text>
-                <TextInput
-                    style={styles.input}
-                    placeholder="Ej: Transporte Los Andes"
-                    placeholderTextColor="#666"
-                    value={vehicleData.cliente}
-                    onChangeText={(t) => handleChange('cliente', t)}
-                />
-
-                <View style={styles.row}>
-                    <View style={{ flex: 1, marginRight: 10 }}>
-                    <Text style={styles.label}>Fecha</Text>
-                    <TextInput
-                        style={styles.input}
-                        value={vehicleData.fecha}
-                        onChangeText={(t) => handleChange('fecha', t)}
-                        placeholderTextColor="#666"
-                    />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                    <Text style={styles.label}>Kilometraje</Text>
-                    <TextInput
-                        style={styles.input}
-                        placeholder="Ej: 150000"
-                        keyboardType="numeric"
-                        placeholderTextColor="#666"
-                        value={vehicleData.km}
-                        onChangeText={(t) => handleChange('km', t)}
-                    />
-                    </View>
-                </View>
-
-                <Text style={styles.label}>Dominio (Patente) *</Text>
-                <TextInput
-                    style={styles.input}
-                    placeholder="AA 123 BB"
-                    placeholderTextColor="#666"
-                    autoCapitalize="characters"
-                    value={vehicleData.matricula}
-                    onChangeText={(t) => handleChange('matricula', t)}
-                />
-
-                <Text style={styles.label}>Nro. Orden de Trabajo</Text>
-                <TextInput
-                    style={styles.input}
-                    placeholder="Nº ORDEN"
-                    keyboardType="numeric"
-                    placeholderTextColor="#666"
-                    value={vehicleData.orden}
-                    onChangeText={(t) => handleChange('orden', t)}
-                />
-
-                <Text style={styles.label}>Modelo / Motor</Text>
-                <TextInput
-                    style={styles.input}
-                    placeholder="Ej: R450 / DC13"
-                    placeholderTextColor="#666"
-                    value={vehicleData.motor}
-                    onChangeText={(t) => handleChange('motor', t)}
-                />
-
-                <Text style={styles.label}>Nro. Chasis (Últimos 7)</Text>
-                <TextInput
-                    style={styles.input}
-                    placeholder="Ej: 1234567"
-                    keyboardType="numeric"
-                    placeholderTextColor="#666"
-                    value={vehicleData.chasis}
-                    onChangeText={(t) => handleChange('chasis', t)}
-                />
-
-                <Text style={styles.label}>Técnico Responsable</Text>
-                <TextInput
-                    style={styles.input}
-                    placeholder="Nombre del técnico"
-                    placeholderTextColor="#666"
-                    value={vehicleData.tecnico}
-                    onChangeText={(t) => handleChange('tecnico', t)}
-                />
-
-                <Text style={styles.sectionTitle}>Estado de Ingreso</Text>
-
-                <View style={styles.checkboxContainer}>
-                    <TouchableOpacity 
-                    style={styles.checkboxRow} 
-                    onPress={() => handleChange('nota', false)}
-                    >
-                    <View style={[styles.checkbox, !vehicleData.nota && styles.checkedBox]} />
-                    <Text style={styles.checkboxLabel}>Ingresa SIN observaciones</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity 
-                    style={styles.checkboxRow} 
-                    onPress={() => handleChange('nota', true)}
-                    >
-                    <View style={[styles.checkbox, vehicleData.nota && styles.checkedBox]} />
-                    <Text style={styles.checkboxLabel}>Ingresa CON daños/notas</Text>
-                    </TouchableOpacity>
-                </View>
-
-                <View style={styles.navigationButtons}>
-                    <TouchableOpacity
-                        style={styles.cancelButton}
-                        onPress={() => navigation.goBack()}
-                    >
-                        <Text style={styles.cancelButtonText}>Cancelar</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                    style={styles.nextButton}
-                    onPress={handleNext}
-                    >
-                    <Text style={styles.navButtonText}>Siguiente &gt;</Text>
-                    </TouchableOpacity>
-                </View>
-                </View>
-            </ScrollView>
-            </KeyboardAvoidingView>
-        </SafeAreaView>
+          <View style={styles.infoSection}>
+            <View style={styles.infoCard}>
+              <MaterialIcons name="info" size={20} color="#FACC15" />
+              <Text style={styles.infoText}>
+                El checklist incluye 10 puntos de inspección esenciales para verificar el estado del vehículo
+              </Text>
+            </View>
+          </View>
+        </View>
       </LinearGradient>
-    </View>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  mainContainer: { flex: 1, backgroundColor: '#000' },
-  gradient: { flex: 1 },
-  safeArea: { 
-    flex: 1, 
-    // AJUSTE CRÍTICO: Espacio para la StatusBar en Android
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight! + 10 : 0 
+  container: {
+    flex: 1,
+    backgroundColor: '#000',
   },
-  scrollContainer: { paddingVertical: 20, paddingHorizontal: 16 },
-  title: { color: '#fff', fontSize: 24, fontWeight: '700', textAlign: 'center', marginBottom: 20 },
-  formContainer: { backgroundColor: '#1E1E1E', borderRadius: 16, padding: 20, marginBottom: 20, borderWidth: 1, borderColor: '#333' },
-  sectionTitle: { color: '#FF4C4C', fontSize: 18, fontWeight: '600', borderBottomWidth: 1, borderBottomColor: '#333', paddingBottom: 10, marginBottom: 20, marginTop: 10 },
-  label: { color: '#aaa', fontSize: 12, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 1 },
-  input: { backgroundColor: '#121212', color: '#fff', borderRadius: 8, padding: 14, borderWidth: 1, borderColor: '#333', marginBottom: 16, fontSize: 16 },
-  row: { flexDirection: 'row' },
-  checkboxContainer: { marginVertical: 10 },
-  checkboxRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12, padding: 10, backgroundColor: '#121212', borderRadius: 8 },
-  checkbox: { width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: '#FF4C4C', marginRight: 12 },
-  checkedBox: { backgroundColor: '#FF4C4C' },
-  checkboxLabel: { color: '#fff', fontSize: 14 },
-  navigationButtons: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 20, alignItems: 'center' },
-  cancelButton: { padding: 10 },
-  cancelButtonText: { color: '#666' },
-  nextButton: { backgroundColor: '#FF4C4C', paddingVertical: 14, paddingHorizontal: 30, borderRadius: 10, shadowColor: '#FF4C4C', shadowOffset: {width: 0, height: 4}, shadowOpacity: 0.3, shadowRadius: 5 },
-  navButtonText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
+  gradient: {
+    flex: 1,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#333',
+  },
+  headerTitle: {
+    flex: 1,
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#fff',
+    textAlign: 'center',
+  },
+  headerPlaceholder: {
+    width: 24,
+  },
+  content: {
+    flex: 1,
+    padding: 20,
+    justifyContent: 'center',
+  },
+  card: {
+    backgroundColor: 'rgba(30, 30, 30, 0.95)',
+    borderRadius: 16,
+    padding: 24,
+    alignItems: 'center',
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: '#333',
+  },
+  cardIcon: {
+    width: 80,
+    height: 80,
+    backgroundColor: 'rgba(96, 165, 250, 0.1)',
+    borderRadius: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  cardTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginBottom: 8,
+  },
+  cardDescription: {
+    fontSize: 14,
+    color: '#aaa',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  inputGroup: {
+    width: '100%',
+    marginBottom: 16,
+  },
+  label: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#fff',
+    marginBottom: 8,
+  },
+  input: {
+    backgroundColor: '#121212',
+    borderWidth: 1,
+    borderColor: '#333',
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    color: '#fff',
+    fontSize: 14,
+  },
+  button: {
+    flexDirection: 'row',
+    backgroundColor: '#60A5FA',
+    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    width: '100%',
+  },
+  buttonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  infoSection: {
+    gap: 12,
+  },
+  infoCard: {
+    flexDirection: 'row',
+    gap: 12,
+    backgroundColor: 'rgba(250, 204, 21, 0.1)',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#333',
+  },
+  infoText: {
+    flex: 1,
+    fontSize: 12,
+    color: '#aaa',
+    lineHeight: 18,
+  },
 });
 
-export default StaticFormScreen;
+export default ChecklistListScreen;

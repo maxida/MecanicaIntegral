@@ -19,7 +19,7 @@ import {
 } from 'react-native';
 import { useDispatch } from 'react-redux';
 import { login, loginFailure } from '../redux/slices/loginSlice';
-import { validarCredenciales, obtenerRolPorEmail } from '@/services/userService';
+import { loginWithEmail, obtenerRolUsuario } from '@/services/authService';
 
 const LoginScreen = () => {
   const [username, setUsername] = useState('');
@@ -34,15 +34,7 @@ const LoginScreen = () => {
   const dispatch = useDispatch();
   const navigation = useNavigation<any>();
 
-  // Credenciales de 4 usuarios con diferentes roles
-  const usuarios = [
-    { email: 'santiago@mecanicaintegral.com', password: '123456', nombre: 'Santiago', rol: 'admin' as const },
-    { email: 'ana@mecanicaintegral.com', password: '123456', nombre: 'Ana', rol: 'supervisor' as const },
-    { email: 'juan@mecanicaintegral.com', password: '123456', nombre: 'Juan', rol: 'mecanico' as const },
-    { email: 'carlos@transportes.com', password: '123456', nombre: 'Carlos', rol: 'cliente' as const },
-  ];
-
-  const handleLogin = () => {
+  const handleLogin = async () => {
     setError('');
     
     if (!username.trim() || !password) {
@@ -51,31 +43,32 @@ const LoginScreen = () => {
     }
 
     setIsLoading(true);
-    setTimeout(() => {
-      const usuario = usuarios.find(u => u.email === username.toLowerCase());
+    try {
+      // Autenticarse con Firebase
+      const usuarioAuth = await loginWithEmail(username.trim().toLowerCase(), password);
       
-      if (usuario && usuario.password === password) {
-        // Login exitoso
-        dispatch(login({ 
-          usuario: {
-            username: usuario.email,
-            email: usuario.email,
-            rol: usuario.rol,
-            id: usuario.rol + '_' + Date.now(),
-            nombre: usuario.nombre,
-          },
-          rol: usuario.rol,
-        }));
-        navigation.reset({ index: 0, routes: [{ name: 'home' }] });
-      } else {
-        dispatch(loginFailure({ error: 'Credenciales inválidas' }));
-        setError('Email o contraseña incorrectos');
-      }
+      // Login exitoso
+      dispatch(login({ 
+        usuario: {
+          username: usuarioAuth.email,
+          email: usuarioAuth.email,
+          rol: usuarioAuth.rol,
+          id: usuarioAuth.uid,
+          nombre: usuarioAuth.displayName,
+        },
+        rol: usuarioAuth.rol,
+      }));
+      
+      navigation.reset({ index: 0, routes: [{ name: 'home' }] });
+    } catch (err: any) {
+      dispatch(loginFailure({ error: err.message }));
+      setError(err.message || 'Error al iniciar sesión');
+    } finally {
       setIsLoading(false);
-    }, 1500);
+    }
   };
 
-  // Simular escáner de huella digital con biometría
+  // Biometría - login como Santiago (admin) por defecto
   const handleBiometricLogin = async () => {
     setBiometricModalVisible(true);
     setBiometricLoading(true);
@@ -104,20 +97,29 @@ const LoginScreen = () => {
       const isSuccess = Math.random() > 0.2;
       
       if (isSuccess) {
-        // Login con huella - usuario por defecto Santiago (Admin)
-        const usuarioDefault = usuarios[0];
-        dispatch(login({ 
-          usuario: {
-            username: usuarioDefault.email,
-            email: usuarioDefault.email,
-            rol: usuarioDefault.rol,
-            id: usuarioDefault.rol + '_' + Date.now(),
-            nombre: usuarioDefault.nombre,
-          },
-          rol: usuarioDefault.rol,
-        }));
-        setBiometricModalVisible(false);
-        navigation.reset({ index: 0, routes: [{ name: 'home' }] });
+        // Login con huella - usar Santiago (Admin)
+        const defaultEmail = 'santiago@mit.com';
+        const defaultPassword = '123456';
+        
+        loginWithEmail(defaultEmail, defaultPassword)
+          .then((usuarioAuth) => {
+            dispatch(login({ 
+              usuario: {
+                username: usuarioAuth.email,
+                email: usuarioAuth.email,
+                rol: usuarioAuth.rol,
+                id: usuarioAuth.uid,
+                nombre: usuarioAuth.displayName,
+              },
+              rol: usuarioAuth.rol,
+            }));
+            setBiometricModalVisible(false);
+            navigation.reset({ index: 0, routes: [{ name: 'home' }] });
+          })
+          .catch((err) => {
+            Alert.alert('Error', err.message || 'Error al iniciar sesión');
+            setBiometricModalVisible(false);
+          });
       } else {
         // Mostrar error
         Alert.alert('Error', 'Huella no reconocida. Por favor intenta de nuevo.');

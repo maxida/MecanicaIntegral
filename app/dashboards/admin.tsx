@@ -10,7 +10,7 @@ import {
   TouchableOpacity,
 } from 'react-native';
 
-const AdminDashboard = () => {
+const AdminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
   // Datos simulados de estadísticas
   const stats = [
     { label: 'Reparaciones Hoy', value: '8', color: '#60A5FA', icon: 'build' },
@@ -30,10 +30,22 @@ const AdminDashboard = () => {
     <SafeAreaView style={styles.container}>
       <LinearGradient colors={['#000000', '#121212']} style={styles.gradient}>
         <ScrollView contentContainerStyle={styles.content}>
-          {/* Header */}
+          {/* Header with Logout Button */}
           <View style={styles.header}>
-            <Text style={styles.headerTitle}>Dashboard Admin</Text>
-            <Text style={styles.headerSubtitle}>Gestión Integral</Text>
+            <View style={styles.headerTop}>
+              <View>
+                <Text style={styles.headerTitle}>Dashboard Admin</Text>
+                <Text style={styles.headerSubtitle}>Gestión Integral</Text>
+              </View>
+              {onLogout && (
+                <TouchableOpacity
+                  style={styles.logoutButton}
+                  onPress={onLogout}
+                >
+                  <MaterialIcons name="logout" size={20} color="#FF4C4C" />
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
 
           {/* Stats Grid */}
@@ -113,8 +125,16 @@ const styles = StyleSheet.create({
   content: { paddingHorizontal: 20, paddingVertical: 20, paddingBottom: 40 },
 
   header: { marginBottom: 30 },
+  headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   headerTitle: { fontSize: 28, fontWeight: 'bold', color: '#fff' },
   headerSubtitle: { fontSize: 14, color: '#888', marginTop: 4 },
+  logoutButton: {
+    backgroundColor: '#FF4C4C20',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#FF4C4C40',
+  },
 
   statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 30 },
   statCard: {

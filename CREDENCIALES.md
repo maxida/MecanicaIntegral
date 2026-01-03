@@ -6,10 +6,10 @@
 
 | Rol | Nombre | Email | Contraseña | Descripción |
 |-----|--------|-------|-----------|-------------|
-| **Admin** | Santiago | `santiago@mecanicaintegral.com` | `123456` | Dueño del taller - Acceso completo |
-| **Supervisor** | Ana | `ana@mecanicaintegral.com` | `123456` | Supervisor - Historial en tiempo real |
-| **Mecánico** | Juan | `juan@mecanicaintegral.com` | `123456` | Mecánico - Tareas diarias (máx 3) |
-| **Cliente** | Carlos | `carlos@transportes.com` | `123456` | Dueño de camión - Mi camión + solicitudes |
+| **Admin** | Santiago | `santiago@mit.com` | `123456` | Dueño del taller - Acceso completo |
+| **Supervisor** | Ana | `oasis@mit.com` | `123456` | Supervisor - Historial en tiempo real |
+| **Mecánico** | Juan | `mecanico@mit.com` | `123456` | Mecánico - Tareas diarias (máx 3) |
+| **Cliente** | Carlos | `camion1@mit.com` | `123456` | Dueño de camión - Mi camión + solicitudes |
 
 ---
 

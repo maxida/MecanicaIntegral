@@ -118,16 +118,16 @@ const HomeScreen = () => {
   return (
     <View style={styles.mainContainer}>
       {/* ADMIN Dashboard */}
-      {rol === 'admin' && <AdminDashboard />}
+      {rol === 'admin' && <AdminDashboard onLogout={handleLogout} />}
 
       {/* SUPERVISOR Dashboard */}
-      {rol === 'supervisor' && <SupervisorDashboard />}
+      {rol === 'supervisor' && <SupervisorDashboard onLogout={handleLogout} />}
 
       {/* MECÁNICO Dashboard */}
-      {rol === 'mecanico' && <MecanicoDashboard />}
+      {rol === 'mecanico' && <MecanicoDashboard onLogout={handleLogout} />}
 
       {/* CLIENTE Dashboard */}
-      {rol === 'cliente' && <ClienteDashboard />}
+      {rol === 'cliente' && <ClienteDashboard onLogout={handleLogout} />}
 
       {/* Fallback para cualquier otro rol */}
       {!rol && (

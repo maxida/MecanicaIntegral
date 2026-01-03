@@ -11,7 +11,7 @@ import {
   Alert,
 } from 'react-native';
 
-const MecanicoDashboard = () => {
+const MecanicoDashboard = ({ onLogout }: { onLogout?: () => void }) => {
   const [tareas, setTareas] = useState([
     { id: 1, cliente: 'Juan García', patente: 'ABC-123', trabajo: 'Cambio de aceite y filtro', tiempo: '1h 30min', prioridad: 'Alta', estado: 'En Progreso' },
     { id: 2, cliente: 'Carlos López', patente: 'XYZ-456', trabajo: 'Reparación de frenos', tiempo: '2h', prioridad: 'Alta', estado: 'Pendiente' },
@@ -61,8 +61,20 @@ const MecanicoDashboard = () => {
         <ScrollView contentContainerStyle={styles.content}>
           {/* Header */}
           <View style={styles.header}>
-            <Text style={styles.headerTitle}>Mis Tareas Diarias</Text>
-            <Text style={styles.headerSubtitle}>Máximo 3 tareas por día</Text>
+            <View style={styles.headerTop}>
+              <View>
+                <Text style={styles.headerTitle}>Mis Tareas Diarias</Text>
+                <Text style={styles.headerSubtitle}>Máximo 3 tareas por día</Text>
+              </View>
+              {onLogout && (
+                <TouchableOpacity
+                  style={styles.logoutButton}
+                  onPress={onLogout}
+                >
+                  <MaterialIcons name="logout" size={20} color="#FF4C4C" />
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
 
           {/* Progress Stats */}
@@ -163,8 +175,16 @@ const styles = StyleSheet.create({
   content: { paddingHorizontal: 20, paddingVertical: 20, paddingBottom: 40 },
 
   header: { marginBottom: 25 },
+  headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   headerTitle: { fontSize: 28, fontWeight: 'bold', color: '#fff' },
   headerSubtitle: { fontSize: 14, color: '#888', marginTop: 4 },
+  logoutButton: {
+    backgroundColor: '#FF4C4C20',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#FF4C4C40',
+  },
 
   progressSection: { marginBottom: 25 },
   progressCard: {

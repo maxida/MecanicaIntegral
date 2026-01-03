@@ -8,6 +8,7 @@ export interface Turno {
   descripcion: string;
   estado: 'pendiente' | 'proceso' | 'completado';
   fechaCreacion: string;
+  mecanico?: string | null;
 }
 
 interface TurnosState {

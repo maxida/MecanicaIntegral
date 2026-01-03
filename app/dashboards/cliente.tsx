@@ -10,7 +10,7 @@ import {
   TouchableOpacity,
 } from 'react-native';
 
-const ClienteDashboard = () => {
+const ClienteDashboard = ({ onLogout }: { onLogout?: () => void }) => {
   const camion = {
     patente: 'ABC-123',
     modelo: 'Volvo FH16',
@@ -32,10 +32,22 @@ const ClienteDashboard = () => {
     <SafeAreaView style={styles.container}>
       <LinearGradient colors={['#000000', '#121212']} style={styles.gradient}>
         <ScrollView contentContainerStyle={styles.content}>
-          {/* Header */}
+          {/* Header with Logout Button */}
           <View style={styles.header}>
-            <Text style={styles.headerTitle}>Mi Camión</Text>
-            <Text style={styles.headerSubtitle}>Información y servicios</Text>
+            <View style={styles.headerTop}>
+              <View>
+                <Text style={styles.headerTitle}>Mi Camión</Text>
+                <Text style={styles.headerSubtitle}>Información y servicios</Text>
+              </View>
+              {onLogout && (
+                <TouchableOpacity
+                  style={styles.logoutButton}
+                  onPress={onLogout}
+                >
+                  <MaterialIcons name="logout" size={20} color="#FF4C4C" />
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
 
           {/* Camion Card */}
@@ -139,8 +151,16 @@ const styles = StyleSheet.create({
   content: { paddingHorizontal: 20, paddingVertical: 20, paddingBottom: 40 },
 
   header: { marginBottom: 25 },
+  headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   headerTitle: { fontSize: 28, fontWeight: 'bold', color: '#fff' },
   headerSubtitle: { fontSize: 14, color: '#888', marginTop: 4 },
+  logoutButton: {
+    backgroundColor: '#FF4C4C20',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#FF4C4C40',
+  },
 
   camionCard: {
     backgroundColor: '#1E1E1E',

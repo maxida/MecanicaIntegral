@@ -11,7 +11,7 @@ import {
   FlatList,
 } from 'react-native';
 
-const SupervisorDashboard = () => {
+const SupervisorDashboard = ({ onLogout }: { onLogout?: () => void }) => {
   const [selectedFilter, setSelectedFilter] = useState('todos');
 
   // Datos simulados de reparaciones en tiempo real
@@ -55,10 +55,22 @@ const SupervisorDashboard = () => {
     <SafeAreaView style={styles.container}>
       <LinearGradient colors={['#000000', '#121212']} style={styles.gradient}>
         <ScrollView contentContainerStyle={styles.content}>
-          {/* Header */}
+          {/* Header with Logout Button */}
           <View style={styles.header}>
-            <Text style={styles.headerTitle}>Dashboard Supervisor</Text>
-            <Text style={styles.headerSubtitle}>Tiempo Real</Text>
+            <View style={styles.headerTop}>
+              <View>
+                <Text style={styles.headerTitle}>Dashboard Supervisor</Text>
+                <Text style={styles.headerSubtitle}>Control en Tiempo Real</Text>
+              </View>
+              {onLogout && (
+                <TouchableOpacity
+                  style={styles.logoutButton}
+                  onPress={onLogout}
+                >
+                  <MaterialIcons name="logout" size={20} color="#FF4C4C" />
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
 
           {/* Quick Stats */}
@@ -152,8 +164,16 @@ const styles = StyleSheet.create({
   content: { paddingVertical: 20, paddingBottom: 40 },
 
   header: { paddingHorizontal: 20, marginBottom: 20 },
+  headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   headerTitle: { fontSize: 28, fontWeight: 'bold', color: '#fff' },
   headerSubtitle: { fontSize: 14, color: '#888', marginTop: 4 },
+  logoutButton: {
+    backgroundColor: '#FF4C4C20',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#FF4C4C40',
+  },
 
   statsContainer: {
     flexDirection: 'row',
