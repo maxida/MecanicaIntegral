@@ -1,6 +1,6 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -14,19 +14,24 @@ import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '@/redux/store';
 import { actualizarTurno, setTurnos } from '@/redux/slices/turnosSlice';
 import { actualizarTurnoService, obtenerTurnos, suscribirseATurnos } from '@/services/turnosService';
+import LoadingOverlay from '@/components/LoadingOverlay';
 
 const MecanicoDashboard = ({ onLogout }: { onLogout?: () => void }) => {
   const dispatch = useDispatch();
   const turnos = useSelector((state: RootState) => state.turnos.turnos);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     // Cargar datos iniciales
     const loadTurnos = async () => {
+      setLoading(true);
       try {
         const turnosData = await obtenerTurnos();
         dispatch(setTurnos(turnosData));
       } catch (error) {
         console.error('Error cargando turnos:', error);
+      } finally {
+        setLoading(false);
       }
     };
     loadTurnos();
@@ -58,28 +63,32 @@ const MecanicoDashboard = ({ onLogout }: { onLogout?: () => void }) => {
       {
         text: 'Completar',
         onPress: async () => {
-          try {
-            const now = new Date().toISOString();
-            await actualizarTurnoService(id, { 
-              estado: 'completed',
-              fechaFinTrabajo: now
-            });
-            dispatch(actualizarTurno({ 
-              id, 
-              estado: 'completed',
-              fechaFinTrabajo: now
-            }));
-            Alert.alert('Éxito', 'Tarea completada');
-          } catch (error) {
-            console.error('Error completando tarea:', error);
-            Alert.alert('Error', 'No se pudo completar la tarea');
-          }
-        },
+            setLoading(true);
+            try {
+              const now = new Date().toISOString();
+              await actualizarTurnoService(id, { 
+                estado: 'completed',
+                fechaFinTrabajo: now
+              });
+              dispatch(actualizarTurno({ 
+                id, 
+                estado: 'completed',
+                fechaFinTrabajo: now
+              }));
+              Alert.alert('Éxito', 'Tarea completada');
+            } catch (error) {
+              console.error('Error completando tarea:', error);
+              Alert.alert('Error', 'No se pudo completar la tarea');
+            } finally {
+              setLoading(false);
+            }
+          },
       },
     ]);
   };
 
   const handleIniciarTarea = async (id: string) => {
+    setLoading(true);
     try {
       const now = new Date().toISOString();
       await actualizarTurnoService(id, { 
@@ -93,15 +102,20 @@ const MecanicoDashboard = ({ onLogout }: { onLogout?: () => void }) => {
       }));
     } catch (error) {
       console.error('Error iniciando tarea:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
   const handlePausarTarea = async (id: string) => {
+    setLoading(true);
     try {
       await actualizarTurnoService(id, { estado: 'scheduled' });
       dispatch(actualizarTurno({ id, estado: 'scheduled' }));
     } catch (error) {
       console.error('Error pausando tarea:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -149,6 +163,7 @@ const MecanicoDashboard = ({ onLogout }: { onLogout?: () => void }) => {
     <SafeAreaView style={styles.container}>
       <LinearGradient colors={['#000000', '#121212']} style={styles.gradient}>
         <ScrollView contentContainerStyle={styles.content}>
+          {loading && <LoadingOverlay message="Actualizando..." />}
           {/* Header */}
           <View style={styles.header}>
             <View style={styles.headerTop}>

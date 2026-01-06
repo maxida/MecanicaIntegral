@@ -1,11 +1,11 @@
-import NumberInput from '@/components/NumberInput';
+    import NumberInput from '@/components/NumberInput';
 import PriceInput from '@/components/PriceInput';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Picker } from '@react-native-picker/picker';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { LinearGradient } from 'expo-linear-gradient';
-import React, { useState, useLayoutEffect } from 'react';
+import React, { useState, useLayoutEffect, useEffect } from 'react';
 import {
   Platform,
   SafeAreaView,
@@ -30,6 +30,14 @@ const FormScreen = () => {
   const route = useRoute<any>();
   // Recuperamos el tipo de factura si viene como parámetro (A, B, C, M)
   const tipoFactura = route.params?.tipoFactura || null;
+
+    // Prefill desde parámetros (cuando se viene desde Admin -> Facturar)
+    useEffect(() => {
+        const prefill = route.params?.prefill;
+        if (prefill) {
+            setFormData(prev => ({ ...prev, ...prefill } as FormData));
+        }
+    }, [route.params]);
 
   const [formData, setFormData] = useState<FormData>({
     clientName: '',
@@ -65,6 +73,19 @@ const FormScreen = () => {
   const dispatch = useDispatch();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const flagConFactura = useSelector((state: any) => state.invoice.flagConFactura);
+
+    // Prefill desde params (ej. admin -> facturar turno)
+    const prefill = (route.params && route.params.prefill) ? route.params.prefill : null;
+
+    useEffect(() => {
+        if (prefill) {
+            const mapped: Partial<FormData> = {};
+            if (prefill.Patente) mapped.Patente = prefill.Patente;
+            if (prefill.clientName) mapped.clientName = prefill.clientName;
+            if (prefill.items) mapped.items = prefill.items;
+            setFormData(prev => ({ ...prev, ...mapped } as FormData));
+        }
+    }, [prefill]);
 
   // --- LOGIC HANDLERS (Mantenidos) ---
   const handleChange = <T extends keyof FormData>(name: T, value: FormData[T]) => {

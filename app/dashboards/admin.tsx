@@ -1,6 +1,6 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -8,24 +8,33 @@ import {
   ScrollView,
   SafeAreaView,
   TouchableOpacity,
+  Alert,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import LoadingOverlay from '@/components/LoadingOverlay';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '@/redux/store';
 import { actualizarTurno, setTurnos } from '@/redux/slices/turnosSlice';
+import { setFlagConFactura } from '@/redux/slices/invoiceSlice';
 import { actualizarTurnoService, obtenerTurnos, suscribirseATurnos } from '@/services/turnosService';
 
 const AdminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
   const dispatch = useDispatch();
   const turnos = useSelector((state: RootState) => state.turnos.turnos);
+  const navigation = useNavigation<any>();
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     // Cargar datos iniciales
     const loadTurnos = async () => {
+      setLoading(true);
       try {
         const turnosData = await obtenerTurnos();
         dispatch(setTurnos(turnosData));
       } catch (error) {
         console.error('Error cargando turnos:', error);
+      } finally {
+        setLoading(false);
       }
     };
     loadTurnos();
@@ -54,11 +63,14 @@ const AdminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
   ];
 
   const handleScheduleTurno = async (id: string) => {
+    setLoading(true);
     try {
       await actualizarTurnoService(id, { estado: 'scheduled' });
       dispatch(actualizarTurno({ id, estado: 'scheduled' }));
     } catch (error) {
       console.error('Error actualizando turno:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -74,12 +86,39 @@ const AdminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
 
   const handleAssignMechanic = async (id: string) => {
     // Por ahora asignamos un mecánico por defecto
+    setLoading(true);
     try {
       await actualizarTurnoService(id, { mecanico: 'Juan M.' });
       dispatch(actualizarTurno({ id, mecanico: 'Juan M.' }));
     } catch (error) {
       console.error('Error asignando mecánico:', error);
+    } finally {
+      setLoading(false);
     }
+  };
+
+  const handleFacturar = (turno?: any) => {
+    const pref = turno ? {
+      Patente: turno.numeroPatente || '',
+      clientName: turno.chofer || '',
+      items: [{ description: turno.descripcion || '', units: 1, price: 0, total: 0 }],
+    } : undefined;
+
+    const navegarConTipo = (tipo: string) => {
+      // activar flag en redux
+      dispatch(setFlagConFactura(true));
+      navigation.navigate('form', { tipoFactura: tipo, prefill: pref });
+    };
+
+    // Preguntar tipo de factura antes de navegar
+    // Usamos Alert con botones para A/B/C/M
+    Alert.alert('Tipo de Factura', 'Seleccione el tipo de factura a emitir', [
+      { text: 'A', onPress: () => navegarConTipo('A') },
+      { text: 'B', onPress: () => navegarConTipo('B') },
+      { text: 'C', onPress: () => navegarConTipo('C') },
+      { text: 'M', onPress: () => navegarConTipo('M') },
+      { text: 'Cancelar', style: 'cancel' },
+    ]);
   };
 
   const getEstadoColor = (estado: string) => {
@@ -106,6 +145,7 @@ const AdminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
     <SafeAreaView style={styles.container}>
       <LinearGradient colors={['#000000', '#121212']} style={styles.gradient}>
         <ScrollView contentContainerStyle={styles.content}>
+          {loading && <LoadingOverlay message="Cargando turnos..." />}
           {/* Header with Logout Button */}
           <View style={styles.header}>
             <View style={styles.headerTop}>
@@ -188,6 +228,12 @@ const AdminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
                         <MaterialIcons name="person-add" size={14} color="#fff" />
                       </TouchableOpacity>
                       <TouchableOpacity
+                        style={styles.invoiceButton}
+                        onPress={() => handleFacturar(turno)}
+                      >
+                        <MaterialIcons name="receipt" size={14} color="#fff" />
+                      </TouchableOpacity>
+                      <TouchableOpacity
                         style={styles.scheduleButton}
                         onPress={() => handleScheduleTurno(turno.id)}
                       >
@@ -210,7 +256,7 @@ const AdminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
                 <Text style={styles.actionLabel}>Nuevo Turno</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.actionButton}>
+              <TouchableOpacity style={styles.actionButton} onPress={() => handleFacturar()}>
                 <MaterialIcons name="receipt-long" size={32} color="#60A5FA" />
                 <Text style={styles.actionLabel}>Facturar</Text>
               </TouchableOpacity>
@@ -308,6 +354,14 @@ const styles = StyleSheet.create({
   },
   assignButton: {
     backgroundColor: '#60A5FA',
+    padding: 6,
+    borderRadius: 6,
+    marginLeft: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  invoiceButton: {
+    backgroundColor: '#A855F7',
     padding: 6,
     borderRadius: 6,
     alignItems: 'center',

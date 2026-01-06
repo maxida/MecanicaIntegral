@@ -16,6 +16,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { obtenerTurnos, actualizarTurnoService, suscribirseATurnos } from '@/services/turnosService';
 import { Turno } from '@/redux/slices/turnosSlice';
+import LoadingOverlay from '@/components/LoadingOverlay';
 
 interface TurnoConMecanico extends Turno {
   mecanico?: string;
@@ -146,9 +147,8 @@ const AsignacionMecanicos = () => {
         </View>
 
         <ScrollView contentContainerStyle={styles.content}>
-          {loading ? (
-            <ActivityIndicator size="large" color="#60A5FA" />
-          ) : (
+          {loading && <LoadingOverlay message="Cargando turnos..." />}
+          {!loading && (
             <>
               {/* Turnos sin asignar */}
               <View style={styles.section}>

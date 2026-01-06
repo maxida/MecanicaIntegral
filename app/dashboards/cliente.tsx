@@ -1,6 +1,6 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -14,21 +14,26 @@ import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '@/redux/store';
 import { setTurnos } from '@/redux/slices/turnosSlice';
 import { obtenerTurnos, suscribirseATurnos } from '@/services/turnosService';
+import LoadingOverlay from '@/components/LoadingOverlay';
 
 const ClienteDashboard = ({ onLogout }: { onLogout?: () => void }) => {
   const navigation = useNavigation<any>();
   const dispatch = useDispatch();
   const user = useSelector((state: RootState) => state.login.user);
   const turnos = useSelector((state: RootState) => state.turnos.turnos);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     // Cargar datos iniciales
     const loadTurnos = async () => {
+      setLoading(true);
       try {
         const turnosData = await obtenerTurnos();
         dispatch(setTurnos(turnosData));
       } catch (error) {
         console.error('Error cargando turnos:', error);
+      } finally {
+        setLoading(false);
       }
     };
     loadTurnos();
@@ -82,6 +87,7 @@ const ClienteDashboard = ({ onLogout }: { onLogout?: () => void }) => {
     <SafeAreaView style={styles.container}>
       <LinearGradient colors={['#000000', '#121212']} style={styles.gradient}>
         <ScrollView contentContainerStyle={styles.content}>
+          {loading && <LoadingOverlay message="Cargando datos..." />}
           {/* Header with Logout Button */}
           <View style={styles.header}>
             <View style={styles.headerTop}>

@@ -14,20 +14,25 @@ import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '@/redux/store';
 import { setTurnos } from '@/redux/slices/turnosSlice';
 import { obtenerTurnos, suscribirseATurnos } from '@/services/turnosService';
+import LoadingOverlay from '@/components/LoadingOverlay';
 
 const SupervisorDashboard = ({ onLogout }: { onLogout?: () => void }) => {
   const dispatch = useDispatch();
   const turnos = useSelector((state: RootState) => state.turnos.turnos);
   const [selectedFilter, setSelectedFilter] = useState('todos');
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     // Cargar datos iniciales
     const loadTurnos = async () => {
+      setLoading(true);
       try {
         const turnosData = await obtenerTurnos();
         dispatch(setTurnos(turnosData));
       } catch (error) {
         console.error('Error cargando turnos:', error);
+      } finally {
+        setLoading(false);
       }
     };
     loadTurnos();
@@ -86,6 +91,7 @@ const SupervisorDashboard = ({ onLogout }: { onLogout?: () => void }) => {
     <SafeAreaView style={styles.container}>
       <LinearGradient colors={['#000000', '#121212']} style={styles.gradient}>
         <ScrollView contentContainerStyle={styles.content}>
+          {loading && <LoadingOverlay message="Cargando..." />}
           {/* Header with Logout Button */}
           <View style={styles.header}>
             <View style={styles.headerTop}>

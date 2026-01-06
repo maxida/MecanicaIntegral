@@ -12,6 +12,7 @@ import {
   TextInput,
   Alert,
 } from 'react-native';
+import LoadingOverlay from '@/components/LoadingOverlay';
 import { useDispatch, useSelector } from 'react-redux';
 import { agregarNuevoTurno } from '@/services/turnosService';
 import { agregarTurno } from '@/redux/slices/turnosSlice';
@@ -69,6 +70,7 @@ const SolicitudScreen = () => {
     <SafeAreaView style={styles.container}>
       <LinearGradient colors={['#000000', '#121212']} style={styles.gradient}>
         <ScrollView contentContainerStyle={styles.content}>
+          {loading && <LoadingOverlay message="Creando solicitud..." />}
           {/* Header */}
           <View style={styles.header}>
             <TouchableOpacity

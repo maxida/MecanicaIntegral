@@ -16,6 +16,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { Turno } from '@/redux/slices/turnosSlice';
 import { obtenerTurnos, suscribirseATurnos } from '@/services/turnosService';
 import { RootState } from '@/redux/store';
+import LoadingOverlay from '@/components/LoadingOverlay';
 
 interface DiaCalendario {
   fecha: string;
@@ -177,6 +178,7 @@ const CalendarioTurnos = () => {
         </View>
 
         <ScrollView contentContainerStyle={styles.content}>
+          {loading && <LoadingOverlay message="Cargando calendario..." />}
           {/* Días de la semana */}
           <View style={styles.weekDaysContainer}>
             {['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sab'].map((dia, idx) => (
