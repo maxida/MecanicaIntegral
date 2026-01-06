@@ -6,9 +6,17 @@ export interface Turno {
   fechaReparacion: string;
   horaReparacion: string;
   descripcion: string;
-  estado: 'pendiente' | 'proceso' | 'completado';
+  estado: 'pending' | 'scheduled' | 'in_progress' | 'completed';
   fechaCreacion: string;
   mecanico?: string | null;
+  prioridad?: number;
+  clienteId?: string;
+  chofer?: string;
+  tipo?: string;
+  fechaInicioTrabajo?: string | null;
+  fechaFinTrabajo?: string | null;
+  tiempoTrabajado?: number; // en minutos
+  notasMecanico?: string;
 }
 
 interface TurnosState {

@@ -263,7 +263,7 @@ const LoginScreen = () => {
 const styles = StyleSheet.create({
   mainContainer: { flex: 1, backgroundColor: '#000' },
   gradient: { flex: 1 },
-  keyboardView: { flex: 1, justifyContent: 'center', paddingHorizontal: 24 },
+  keyboardView: { flex: 1, justifyContent: 'center', paddingHorizontal: 24, paddingTop: 40, paddingBottom: 60 },
   logoContainer: { alignItems: 'center', marginBottom: 40 },
   logo: { width: 250, height: 160 },
   card: {

@@ -457,7 +457,7 @@ const styles = StyleSheet.create({
   headerTitle: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
   headerSubtitle: { color: '#888', fontSize: 12 },
 
-  scrollContainer: { padding: 16 },
+  scrollContainer: { padding: 16, paddingTop: 40, paddingBottom: 60 },
 
   // CARDS
   card: { backgroundColor: '#1E1E1E', borderRadius: 16, padding: 16, marginBottom: 20, borderWidth: 1, borderColor: '#333' },

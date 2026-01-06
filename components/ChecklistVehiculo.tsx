@@ -232,6 +232,8 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 20,
+    paddingTop: 40,
+    paddingBottom: 60,
   },
   vehiculoInfo: {
     backgroundColor: 'rgba(96, 165, 250, 0.1)',

@@ -161,7 +161,7 @@ const SupervisorDashboard = ({ onLogout }: { onLogout?: () => void }) => {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000' },
   gradient: { flex: 1 },
-  content: { paddingVertical: 20, paddingBottom: 40 },
+  content: { paddingHorizontal: 20, paddingTop: 40, paddingBottom: 60 },
 
   header: { paddingHorizontal: 20, marginBottom: 20 },
   headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },

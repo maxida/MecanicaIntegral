@@ -1,6 +1,6 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import React, { useState } from 'react';
+import React, { useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,49 +10,130 @@ import {
   TouchableOpacity,
   Alert,
 } from 'react-native';
+import { useDispatch, useSelector } from 'react-redux';
+import { RootState } from '@/redux/store';
+import { actualizarTurno, setTurnos } from '@/redux/slices/turnosSlice';
+import { actualizarTurnoService, obtenerTurnos } from '@/services/turnosService';
 
 const MecanicoDashboard = ({ onLogout }: { onLogout?: () => void }) => {
-  const [tareas, setTareas] = useState([
-    { id: 1, cliente: 'Juan García', patente: 'ABC-123', trabajo: 'Cambio de aceite y filtro', tiempo: '1h 30min', prioridad: 'Alta', estado: 'En Progreso' },
-    { id: 2, cliente: 'Carlos López', patente: 'XYZ-456', trabajo: 'Reparación de frenos', tiempo: '2h', prioridad: 'Alta', estado: 'Pendiente' },
-    { id: 3, cliente: 'María Silva', patente: 'DEF-789', trabajo: 'Alineación de ruedas', tiempo: '45min', prioridad: 'Media', estado: 'Pendiente' },
-  ]);
+  const dispatch = useDispatch();
+  const turnos = useSelector((state: RootState) => state.turnos.turnos);
 
-  const handleMarcarCompleta = (id: number) => {
+  useEffect(() => {
+    const loadTurnos = async () => {
+      try {
+        const turnosData = await obtenerTurnos();
+        dispatch(setTurnos(turnosData));
+      } catch (error) {
+        console.error('Error cargando turnos:', error);
+      }
+    };
+    loadTurnos();
+  }, [dispatch]);
+
+  // Filtrar tareas asignadas al mecánico (por ahora todas las scheduled/in_progress)
+  const tareas = turnos.filter(t => t.estado === 'scheduled' || t.estado === 'in_progress');
+
+  // Calcular estadísticas reales
+  const tareasCompletadas = tareas.filter(t => t.estado === 'completed').length;
+  const tiempoTotalTrabajado = tareas
+    .filter(t => t.tiempoTrabajado)
+    .reduce((total, t) => total + (t.tiempoTrabajado || 0), 0);
+  
+  const horasTrabajadas = Math.floor(tiempoTotalTrabajado / 60);
+  const minutosTrabajados = tiempoTotalTrabajado % 60;
+
+  const handleMarcarCompleta = async (id: string) => {
     Alert.alert('Confirmar', '¿Marcar esta tarea como completada?', [
       { text: 'Cancelar', onPress: () => {} },
       {
         text: 'Completar',
-        onPress: () => {
-          setTareas(tareas.filter(t => t.id !== id));
-          Alert.alert('Éxito', 'Tarea completada');
+        onPress: async () => {
+          try {
+            const now = new Date().toISOString();
+            await actualizarTurnoService(id, { 
+              estado: 'completed',
+              fechaFinTrabajo: now
+            });
+            dispatch(actualizarTurno({ 
+              id, 
+              estado: 'completed',
+              fechaFinTrabajo: now
+            }));
+            Alert.alert('Éxito', 'Tarea completada');
+          } catch (error) {
+            console.error('Error completando tarea:', error);
+            Alert.alert('Error', 'No se pudo completar la tarea');
+          }
         },
       },
     ]);
   };
 
-  const handleIniciarTarea = (id: number) => {
-    const updatedTareas = tareas.map(t =>
-      t.id === id ? { ...t, estado: 'En Progreso' } : t
-    );
-    setTareas(updatedTareas);
+  const handleIniciarTarea = async (id: string) => {
+    try {
+      const now = new Date().toISOString();
+      await actualizarTurnoService(id, { 
+        estado: 'in_progress',
+        fechaInicioTrabajo: now
+      });
+      dispatch(actualizarTurno({ 
+        id, 
+        estado: 'in_progress',
+        fechaInicioTrabajo: now
+      }));
+    } catch (error) {
+      console.error('Error iniciando tarea:', error);
+    }
   };
 
-  const getPrioridadColor = (prioridad: string) => {
+  const handlePausarTarea = async (id: string) => {
+    try {
+      await actualizarTurnoService(id, { estado: 'scheduled' });
+      dispatch(actualizarTurno({ id, estado: 'scheduled' }));
+    } catch (error) {
+      console.error('Error pausando tarea:', error);
+    }
+  };
+
+  const calcularTiempoTrabajado = (turno: any) => {
+    if (!turno.fechaInicioTrabajo) return '0 min';
+    
+    const inicio = new Date(turno.fechaInicioTrabajo);
+    const fin = turno.fechaFinTrabajo ? new Date(turno.fechaFinTrabajo) : new Date();
+    const diffMs = fin.getTime() - inicio.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    
+    if (diffMins < 60) return `${diffMins} min`;
+    const horas = Math.floor(diffMins / 60);
+    const mins = diffMins % 60;
+    return `${horas}h ${mins}min`;
+  };
+
+  const getPrioridadColor = (prioridad: number) => {
     switch (prioridad) {
-      case 'Alta':
-        return '#FF4C4C';
-      case 'Media':
-        return '#FACC15';
-      case 'Baja':
-        return '#4ADE80';
-      default:
-        return '#888';
+      case 1: return '#FF4C4C'; // Alta
+      case 2: return '#FACC15'; // Media
+      case 3: return '#4ADE80'; // Baja
+      default: return '#888';
     }
   };
 
   const getEstadoColor = (estado: string) => {
-    return estado === 'En Progreso' ? '#60A5FA' : '#888';
+    return estado === 'in_progress' ? '#60A5FA' : '#888';
+  };
+
+  const getEstadoText = (estado: string) => {
+    return estado === 'in_progress' ? 'En Progreso' : 'Pendiente';
+  };
+
+  const getPrioridadText = (prioridad: number) => {
+    switch (prioridad) {
+      case 1: return 'Alta';
+      case 2: return 'Media';
+      case 3: return 'Baja';
+      default: return 'Sin definir';
+    }
   };
 
   return (
@@ -81,12 +162,15 @@ const MecanicoDashboard = ({ onLogout }: { onLogout?: () => void }) => {
           <View style={styles.progressSection}>
             <View style={styles.progressCard}>
               <View style={styles.progressInfo}>
-                <Text style={styles.progressLabel}>Completadas</Text>
-                <Text style={styles.progressValue}>1 de 3</Text>
+                <Text style={styles.progressLabel}>Completadas Hoy</Text>
+                <Text style={styles.progressValue}>{tareasCompletadas} de {tareas.length}</Text>
               </View>
               <View style={styles.progressBar}>
-                <View style={[styles.progressFill, { width: '33%' }]} />
+                <View style={[styles.progressFill, { width: tareas.length > 0 ? `${(tareasCompletadas / tareas.length) * 100}%` : '0%' }]} />
               </View>
+              <Text style={styles.tiempoTotal}>
+                Tiempo trabajado: {horasTrabajadas}h {minutosTrabajados}min
+              </Text>
             </View>
           </View>
 
@@ -98,15 +182,25 @@ const MecanicoDashboard = ({ onLogout }: { onLogout?: () => void }) => {
               <View key={tarea.id} style={styles.tareaCard}>
                 <View style={styles.tareaHeader}>
                   <View style={styles.tareaLeft}>
-                    <View style={[styles.prioridadIndicator, { backgroundColor: getPrioridadColor(tarea.prioridad) }]} />
+                    <View style={[styles.prioridadIndicator, { backgroundColor: getPrioridadColor(tarea.prioridad || 3) }]} />
                     <View style={{ flex: 1 }}>
-                      <Text style={styles.trabajoTitulo}>{tarea.trabajo}</Text>
-                      <Text style={styles.clienteInfo}>{tarea.cliente} • {tarea.patente}</Text>
+                      <Text style={styles.trabajoTitulo}>{tarea.descripcion}</Text>
+                      <Text style={styles.clienteInfo}>
+                        {tarea.chofer || 'Sin chofer'} • {tarea.numeroPatente}
+                      </Text>
+                      <Text style={styles.tareaDetalles}>
+                        Tipo: {tarea.tipo || 'N/A'} • Creada: {new Date(tarea.fechaCreacion).toLocaleDateString('es-ES')}
+                      </Text>
+                      {tarea.estado === 'in_progress' && (
+                        <Text style={styles.tiempoTrabajado}>
+                          ⏱️ {calcularTiempoTrabajado(tarea)}
+                        </Text>
+                      )}
                     </View>
                   </View>
                   <View style={[styles.estadoBadge, { borderColor: getEstadoColor(tarea.estado) }]}>
                     <Text style={[styles.estadoLabel, { color: getEstadoColor(tarea.estado) }]}>
-                      {tarea.estado}
+                      {getEstadoText(tarea.estado)}
                     </Text>
                   </View>
                 </View>
@@ -114,11 +208,11 @@ const MecanicoDashboard = ({ onLogout }: { onLogout?: () => void }) => {
                 <View style={styles.tareaBody}>
                   <View style={styles.tiempoEstimado}>
                     <MaterialIcons name="schedule" size={16} color="#888" />
-                    <Text style={styles.tiempoText}>{tarea.tiempo}</Text>
+                    <Text style={styles.tiempoText}>{tarea.horaReparacion}</Text>
                   </View>
 
                   <View style={styles.actionButtons}>
-                    {tarea.estado === 'Pendiente' ? (
+                    {tarea.estado === 'scheduled' ? (
                       <TouchableOpacity
                         style={styles.buttonIniciar}
                         onPress={() => handleIniciarTarea(tarea.id)}
@@ -126,15 +220,23 @@ const MecanicoDashboard = ({ onLogout }: { onLogout?: () => void }) => {
                         <MaterialIcons name="play-arrow" size={16} color="#fff" />
                         <Text style={styles.buttonText}>Iniciar</Text>
                       </TouchableOpacity>
+                    ) : tarea.estado === 'in_progress' ? (
+                      <TouchableOpacity
+                        style={styles.buttonPausar}
+                        onPress={() => handlePausarTarea(tarea.id)}
+                      >
+                        <MaterialIcons name="pause" size={16} color="#fff" />
+                        <Text style={styles.buttonText}>Pausar</Text>
+                      </TouchableOpacity>
                     ) : null}
 
                     <TouchableOpacity
-                      style={[styles.buttonCompletar, tarea.estado === 'Pendiente' && styles.buttonDisabled]}
-                      disabled={tarea.estado === 'Pendiente'}
+                      style={[styles.buttonCompletar, tarea.estado === 'scheduled' && styles.buttonDisabled]}
+                      disabled={tarea.estado === 'scheduled'}
                       onPress={() => handleMarcarCompleta(tarea.id)}
                     >
-                      <MaterialIcons name="check-circle" size={16} color={tarea.estado === 'Pendiente' ? '#666' : '#4ADE80'} />
-                      <Text style={[styles.buttonText, tarea.estado === 'Pendiente' && { color: '#666' }]}>
+                      <MaterialIcons name="check-circle" size={16} color={tarea.estado === 'scheduled' ? '#666' : '#4ADE80'} />
+                      <Text style={[styles.buttonText, tarea.estado === 'scheduled' && { color: '#666' }]}>
                         Completar
                       </Text>
                     </TouchableOpacity>
@@ -172,7 +274,7 @@ const MecanicoDashboard = ({ onLogout }: { onLogout?: () => void }) => {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000' },
   gradient: { flex: 1 },
-  content: { paddingHorizontal: 20, paddingVertical: 20, paddingBottom: 40 },
+  content: { paddingHorizontal: 20, paddingTop: 40, paddingBottom: 60 },
 
   header: { marginBottom: 25 },
   headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
@@ -199,6 +301,7 @@ const styles = StyleSheet.create({
   progressValue: { fontSize: 20, fontWeight: 'bold', color: '#60A5FA', marginTop: 4 },
   progressBar: { height: 6, backgroundColor: '#2A2A2A', borderRadius: 3, overflow: 'hidden' },
   progressFill: { height: '100%', backgroundColor: '#60A5FA' },
+  tiempoTotal: { fontSize: 12, color: '#4ADE80', marginTop: 8, textAlign: 'center' },
 
   section: { marginBottom: 25 },
   sectionTitle: { fontSize: 18, fontWeight: 'bold', color: '#fff', marginBottom: 15 },
@@ -255,6 +358,19 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: { opacity: 0.5, borderColor: '#666' },
   buttonText: { fontSize: 12, fontWeight: '600', color: '#fff' },
+
+  tareaDetalles: { fontSize: 10, color: '#666', marginTop: 2 },
+  tiempoTrabajado: { fontSize: 11, color: '#FACC15', marginTop: 2, fontWeight: '600' },
+  buttonPausar: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FACC15',
+    paddingVertical: 8,
+    borderRadius: 8,
+    gap: 6,
+  },
 
   emptyState: {
     alignItems: 'center',

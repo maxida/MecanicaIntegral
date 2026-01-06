@@ -109,6 +109,10 @@ function LayoutContent() {
             options={{ headerShown: false }}
           />
           <Stack.Screen
+            name="solicitud"
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
             name="preview"
             options={{ headerShown: false }}
           />

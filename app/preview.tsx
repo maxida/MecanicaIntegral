@@ -371,7 +371,7 @@ const styles = StyleSheet.create({
   header: { padding: 15, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   headerTitle: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
   backBtn: { padding: 5 },
-  scrollContainer: { padding: 20, paddingBottom: 50 },
+  scrollContainer: { padding: 20, paddingTop: 40, paddingBottom: 60 },
 
   // CARD
   previewCard: {

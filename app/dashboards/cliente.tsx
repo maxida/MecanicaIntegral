@@ -1,6 +1,6 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,24 +9,65 @@ import {
   SafeAreaView,
   TouchableOpacity,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import { useDispatch, useSelector } from 'react-redux';
+import { RootState } from '@/redux/store';
+import { setTurnos } from '@/redux/slices/turnosSlice';
+import { obtenerTurnos } from '@/services/turnosService';
 
 const ClienteDashboard = ({ onLogout }: { onLogout?: () => void }) => {
+  const navigation = useNavigation<any>();
+  const dispatch = useDispatch();
+  const user = useSelector((state: RootState) => state.login.user);
+  const turnos = useSelector((state: RootState) => state.turnos.turnos);
+
+  useEffect(() => {
+    const loadTurnos = async () => {
+      try {
+        const turnosData = await obtenerTurnos();
+        dispatch(setTurnos(turnosData));
+      } catch (error) {
+        console.error('Error cargando turnos:', error);
+      }
+    };
+    loadTurnos();
+  }, [dispatch]);
+
+  // Filtrar turnos del cliente actual
+  const misTurnos = turnos.filter(t => t.clienteId === user?.id);
+  const ultimaSolicitud = misTurnos.sort((a, b) => new Date(b.fechaCreacion).getTime() - new Date(a.fechaCreacion).getTime())[0];
+  const historialCompletado = misTurnos.filter(t => t.estado === 'completed');
+
+  // Información del camión (por ahora hardcodeada, pero podríamos mejorarla)
   const camion = {
     patente: 'ABC-123',
     modelo: 'Volvo FH16',
     año: 2020,
     marca: 'Volvo',
     tipo: 'Camión Volquete',
-    estado: 'En Reparación',
-    ultimoServicio: '2025-12-15',
+    estado: ultimaSolicitud ? (ultimaSolicitud.estado === 'completed' ? 'Disponible' : 'En Reparación') : 'Disponible',
+    ultimoServicio: ultimaSolicitud ? ultimaSolicitud.fechaCreacion : '2025-12-15',
   };
 
-  const historialReparaciones = [
-    { id: 1, fecha: '2025-12-20', servicio: 'Cambio de aceite', costo: '$450', estado: 'Completado' },
-    { id: 2, fecha: '2025-12-15', servicio: 'Reparación de frenos', costo: '$1,200', estado: 'Completado' },
-    { id: 3, fecha: '2025-12-10', servicio: 'Alineación de ruedas', costo: '$350', estado: 'Completado' },
-    { id: 4, fecha: '2025-12-05', servicio: 'Revisión general', costo: '$550', estado: 'Completado' },
-  ];
+  const getEstadoColor = (estado: string) => {
+    switch (estado) {
+      case 'pending': return '#FACC15';
+      case 'scheduled': return '#60A5FA';
+      case 'in_progress': return '#4ADE80';
+      case 'completed': return '#A855F7';
+      default: return '#888';
+    }
+  };
+
+  const getEstadoText = (estado: string) => {
+    switch (estado) {
+      case 'pending': return 'Pendiente';
+      case 'scheduled': return 'Programado';
+      case 'in_progress': return 'En Proceso';
+      case 'completed': return 'Completado';
+      default: return estado;
+    }
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -85,7 +126,7 @@ const ClienteDashboard = ({ onLogout }: { onLogout?: () => void }) => {
 
           {/* Actions */}
           <View style={styles.actionsContainer}>
-            <TouchableOpacity style={styles.actionButton}>
+            <TouchableOpacity style={styles.actionButton} onPress={() => navigation.navigate('solicitud')}>
               <MaterialIcons name="add" size={24} color="#fff" />
               <Text style={styles.actionLabel}>Nueva Solicitud</Text>
             </TouchableOpacity>
@@ -96,6 +137,32 @@ const ClienteDashboard = ({ onLogout }: { onLogout?: () => void }) => {
             </TouchableOpacity>
           </View>
 
+          {/* Estado de Última Solicitud */}
+          {ultimaSolicitud && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Estado de Última Solicitud</Text>
+              <View style={styles.ultimaSolicitudCard}>
+                <View style={styles.solicitudHeader}>
+                  <View style={styles.solicitudInfo}>
+                    <Text style={styles.solicitudPatente}>{ultimaSolicitud.numeroPatente}</Text>
+                    <Text style={styles.solicitudFecha}>
+                      Creada: {new Date(ultimaSolicitud.fechaCreacion).toLocaleDateString('es-ES')}
+                    </Text>
+                  </View>
+                  <View style={[styles.solicitudEstadoBadge, { backgroundColor: `${getEstadoColor(ultimaSolicitud.estado)}20` }]}>
+                    <Text style={[styles.solicitudEstadoBadgeText, { color: getEstadoColor(ultimaSolicitud.estado) }]}>
+                      {getEstadoText(ultimaSolicitud.estado)}
+                    </Text>
+                  </View>
+                </View>
+                <Text style={styles.solicitudDescripcion}>{ultimaSolicitud.descripcion}</Text>
+                {ultimaSolicitud.chofer && (
+                  <Text style={styles.solicitudChofer}>Chofer: {ultimaSolicitud.chofer}</Text>
+                )}
+              </View>
+            </View>
+          )}
+
           {/* Historial */}
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
@@ -105,27 +172,36 @@ const ClienteDashboard = ({ onLogout }: { onLogout?: () => void }) => {
               </TouchableOpacity>
             </View>
 
-            {historialReparaciones.map(reparacion => (
-              <TouchableOpacity key={reparacion.id} style={styles.servicioCard}>
-                <View style={styles.servicioLeft}>
-                  <View style={styles.servicioIconContainer}>
-                    <MaterialIcons name="build" size={20} color="#4ADE80" />
+            {historialCompletado.length === 0 ? (
+              <View style={styles.emptyState}>
+                <MaterialIcons name="history" size={48} color="#666" />
+                <Text style={styles.emptyText}>No hay servicios completados</Text>
+              </View>
+            ) : (
+              historialCompletado.slice(0, 4).map(turno => (
+                <TouchableOpacity key={turno.id} style={styles.servicioCard}>
+                  <View style={styles.servicioLeft}>
+                    <View style={styles.servicioIconContainer}>
+                      <MaterialIcons name="build" size={20} color="#4ADE80" />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.servicioNombre}>{turno.descripcion}</Text>
+                      <Text style={styles.servicioFecha}>
+                        {new Date(turno.fechaCreacion).toLocaleDateString('es-ES')}
+                      </Text>
+                    </View>
                   </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.servicioNombre}>{reparacion.servicio}</Text>
-                    <Text style={styles.servicioFecha}>{reparacion.fecha}</Text>
+                  <View style={styles.servicioRight}>
+                    <Text style={styles.servicioCosto}>{turno.numeroPatente}</Text>
+                    <View style={[styles.servicioBadge, { backgroundColor: '#4ADE8030' }]}>
+                      <Text style={[styles.servicioBadgeText, { color: '#4ADE80' }]}>
+                        {getEstadoText(turno.estado)}
+                      </Text>
+                    </View>
                   </View>
-                </View>
-                <View style={styles.servicioRight}>
-                  <Text style={styles.servicioCosto}>{reparacion.costo}</Text>
-                  <View style={[styles.servicioBadge, { backgroundColor: '#4ADE8030' }]}>
-                    <Text style={[styles.servicioBadgeText, { color: '#4ADE80' }]}>
-                      {reparacion.estado}
-                    </Text>
-                  </View>
-                </View>
-              </TouchableOpacity>
-            ))}
+                </TouchableOpacity>
+              ))
+            )}
           </View>
 
           {/* Support Card */}
@@ -148,7 +224,7 @@ const ClienteDashboard = ({ onLogout }: { onLogout?: () => void }) => {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000' },
   gradient: { flex: 1 },
-  content: { paddingHorizontal: 20, paddingVertical: 20, paddingBottom: 40 },
+  content: { paddingHorizontal: 20, paddingTop: 40, paddingBottom: 60 },
 
   header: { marginBottom: 25 },
   headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
@@ -272,6 +348,30 @@ const styles = StyleSheet.create({
   },
   supportTitle: { fontSize: 14, fontWeight: '600', color: '#fff' },
   supportText: { fontSize: 11, color: '#888', marginTop: 2 },
+
+  ultimaSolicitudCard: {
+    backgroundColor: '#1E1E1E',
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#333',
+  },
+  solicitudHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+  },
+  solicitudInfo: { flex: 1 },
+  solicitudPatente: { fontSize: 16, fontWeight: 'bold', color: '#fff' },
+  solicitudFecha: { fontSize: 12, color: '#888', marginTop: 2 },
+  solicitudEstadoBadge: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 },
+  solicitudEstadoBadgeText: { fontSize: 12, fontWeight: '600' },
+  solicitudDescripcion: { fontSize: 14, color: '#ccc', marginBottom: 8 },
+  solicitudChofer: { fontSize: 12, color: '#888' },
+
+  emptyState: { alignItems: 'center', padding: 40 },
+  emptyText: { color: '#888', fontSize: 16, marginTop: 16 },
 });
 
 export default ClienteDashboard;
