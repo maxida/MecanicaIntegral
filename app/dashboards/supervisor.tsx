@@ -1,6 +1,6 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -10,25 +10,56 @@ import {
   TouchableOpacity,
   FlatList,
 } from 'react-native';
+import { useDispatch, useSelector } from 'react-redux';
+import { RootState } from '@/redux/store';
+import { setTurnos } from '@/redux/slices/turnosSlice';
+import { obtenerTurnos, suscribirseATurnos } from '@/services/turnosService';
 
 const SupervisorDashboard = ({ onLogout }: { onLogout?: () => void }) => {
+  const dispatch = useDispatch();
+  const turnos = useSelector((state: RootState) => state.turnos.turnos);
   const [selectedFilter, setSelectedFilter] = useState('todos');
 
-  // Datos simulados de reparaciones en tiempo real
-  const reparaciones = [
-    { id: 1, cliente: 'Juan García', patente: 'ABC-123', estado: 'En Proceso', mecanico: 'Juan M.', progreso: 65 },
-    { id: 2, cliente: 'Carlos López', patente: 'XYZ-456', estado: 'Completado', mecanico: 'Juan M.', progreso: 100 },
-    { id: 3, cliente: 'María Silva', patente: 'DEF-789', estado: 'En Espera', mecanico: 'Pendiente', progreso: 0 },
-    { id: 4, cliente: 'Roberto Ruiz', patente: 'GHI-012', estado: 'En Proceso', mecanico: 'Carlos M.', progreso: 45 },
-    { id: 5, cliente: 'Ana Martínez', patente: 'JKL-345', estado: 'En Proceso', mecanico: 'Juan M.', progreso: 80 },
-    { id: 6, cliente: 'Luis Pérez', patente: 'MNO-678', estado: 'Completado', mecanico: 'Carlos M.', progreso: 100 },
-  ];
+  useEffect(() => {
+    // Cargar datos iniciales
+    const loadTurnos = async () => {
+      try {
+        const turnosData = await obtenerTurnos();
+        dispatch(setTurnos(turnosData));
+      } catch (error) {
+        console.error('Error cargando turnos:', error);
+      }
+    };
+    loadTurnos();
+
+    // Configurar listener en tiempo real
+    const unsubscribe = suscribirseATurnos((turnosData) => {
+      dispatch(setTurnos(turnosData));
+    });
+
+    // Cleanup: desuscribirse cuando el componente se desmonte
+    return () => unsubscribe();
+  }, [dispatch]);
+
+  // Convertir turnos a formato de reparaciones para el dashboard
+  const reparaciones = turnos.map(turno => ({
+    id: turno.id,
+    cliente: turno.chofer || 'Sin chofer',
+    patente: turno.numeroPatente,
+    estado: turno.estado === 'pending' ? 'En Espera' :
+            turno.estado === 'scheduled' ? 'Programado' :
+            turno.estado === 'in_progress' ? 'En Proceso' : 'Completado',
+    mecanico: turno.mecanico || 'Pendiente',
+    progreso: turno.estado === 'completed' ? 100 :
+             turno.estado === 'in_progress' ? 65 :
+             turno.estado === 'scheduled' ? 25 : 0,
+  }));
 
   const filters = [
-    { id: 'todos', label: 'Todos', count: 6 },
-    { id: 'proceso', label: 'En Proceso', count: 3 },
-    { id: 'completado', label: 'Completado', count: 2 },
-    { id: 'espera', label: 'En Espera', count: 1 },
+    { id: 'todos', label: 'Todos', count: reparaciones.length },
+    { id: 'proceso', label: 'En Proceso', count: reparaciones.filter(r => r.estado === 'En Proceso').length },
+    { id: 'completado', label: 'Completado', count: reparaciones.filter(r => r.estado === 'Completado').length },
+    { id: 'espera', label: 'En Espera', count: reparaciones.filter(r => r.estado === 'En Espera').length },
   ];
 
   const getEstadoColor = (estado: string) => {

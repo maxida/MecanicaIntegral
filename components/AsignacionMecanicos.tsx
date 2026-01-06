@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { obtenerTurnos, actualizarTurnoService } from '@/services/turnosService';
+import { obtenerTurnos, actualizarTurnoService, suscribirseATurnos } from '@/services/turnosService';
 import { Turno } from '@/redux/slices/turnosSlice';
 
 interface TurnoConMecanico extends Turno {
@@ -38,6 +38,14 @@ const AsignacionMecanicos = () => {
 
   useEffect(() => {
     cargarTurnos();
+
+    // Configurar listener en tiempo real
+    const unsubscribe = suscribirseATurnos((turnosData) => {
+      setTurnos(turnosData as TurnoConMecanico[]);
+    });
+
+    // Cleanup: desuscribirse cuando el componente se desmonte
+    return () => unsubscribe();
   }, []);
 
   const cargarTurnos = async () => {

@@ -14,7 +14,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useDispatch, useSelector } from 'react-redux';
 import { Turno } from '@/redux/slices/turnosSlice';
-import { obtenerTurnos } from '@/services/turnosService';
+import { obtenerTurnos, suscribirseATurnos } from '@/services/turnosService';
 import { RootState } from '@/redux/store';
 
 interface DiaCalendario {
@@ -38,10 +38,24 @@ const CalendarioTurnos = () => {
   const [loading, setLoading] = useState(false);
   const [turnosDelDia, setTurnosDelDia] = useState<TurnoConDatos[]>([]);
 
-  // Cargar turnos desde Firebase
+  // Cargar turnos desde Firebase con listener en tiempo real
   useEffect(() => {
     cargarTurnos();
-  }, []);
+
+    // Configurar listener en tiempo real
+    const unsubscribe = suscribirseATurnos((turnosData) => {
+      setTurnos(turnosData);
+      if (diaSeleccionado) {
+        const turnosDelDiaSeleccionado = turnosData.filter(turno =>
+          turno.fechaReparacion === diaSeleccionado
+        );
+        setTurnosDelDia(turnosDelDiaSeleccionado);
+      }
+    });
+
+    // Cleanup: desuscribirse cuando el componente se desmonte
+    return () => unsubscribe();
+  }, [diaSeleccionado]);
 
   const cargarTurnos = async () => {
     setLoading(true);

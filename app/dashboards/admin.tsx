@@ -12,13 +12,14 @@ import {
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '@/redux/store';
 import { actualizarTurno, setTurnos } from '@/redux/slices/turnosSlice';
-import { actualizarTurnoService, obtenerTurnos } from '@/services/turnosService';
+import { actualizarTurnoService, obtenerTurnos, suscribirseATurnos } from '@/services/turnosService';
 
 const AdminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
   const dispatch = useDispatch();
   const turnos = useSelector((state: RootState) => state.turnos.turnos);
 
   useEffect(() => {
+    // Cargar datos iniciales
     const loadTurnos = async () => {
       try {
         const turnosData = await obtenerTurnos();
@@ -28,6 +29,14 @@ const AdminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
       }
     };
     loadTurnos();
+
+    // Configurar listener en tiempo real
+    const unsubscribe = suscribirseATurnos((turnosData) => {
+      dispatch(setTurnos(turnosData));
+    });
+
+    // Cleanup: desuscribirse cuando el componente se desmonte
+    return () => unsubscribe();
   }, [dispatch]);
 
   // Filtrar turnos por estado

@@ -1,4 +1,4 @@
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy } from 'firebase/firestore';
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy, onSnapshot } from 'firebase/firestore';
 import { db } from '@/firebase/firebaseConfig';
 import { Turno } from '@/redux/slices/turnosSlice';
 
@@ -113,4 +113,22 @@ export const crearTurnosPrueba = async (): Promise<void> => {
     console.error('Error creando turnos de prueba:', error);
     throw error;
   }
+};
+
+// Configurar listener en tiempo real para turnos
+export const suscribirseATurnos = (callback: (turnos: Turno[]) => void) => {
+  const q = query(collection(db, TURNOS_COLLECTION), orderBy('fechaReparacion', 'asc'));
+
+  return onSnapshot(q, (querySnapshot) => {
+    const turnos: Turno[] = [];
+    querySnapshot.forEach((doc) => {
+      turnos.push({
+        id: doc.id,
+        ...doc.data(),
+      } as Turno);
+    });
+    callback(turnos);
+  }, (error) => {
+    console.error('Error en listener de turnos:', error);
+  });
 };

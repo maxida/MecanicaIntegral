@@ -13,7 +13,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '@/redux/store';
 import { setTurnos } from '@/redux/slices/turnosSlice';
-import { obtenerTurnos } from '@/services/turnosService';
+import { obtenerTurnos, suscribirseATurnos } from '@/services/turnosService';
 
 const ClienteDashboard = ({ onLogout }: { onLogout?: () => void }) => {
   const navigation = useNavigation<any>();
@@ -22,6 +22,7 @@ const ClienteDashboard = ({ onLogout }: { onLogout?: () => void }) => {
   const turnos = useSelector((state: RootState) => state.turnos.turnos);
 
   useEffect(() => {
+    // Cargar datos iniciales
     const loadTurnos = async () => {
       try {
         const turnosData = await obtenerTurnos();
@@ -31,6 +32,14 @@ const ClienteDashboard = ({ onLogout }: { onLogout?: () => void }) => {
       }
     };
     loadTurnos();
+
+    // Configurar listener en tiempo real
+    const unsubscribe = suscribirseATurnos((turnosData) => {
+      dispatch(setTurnos(turnosData));
+    });
+
+    // Cleanup: desuscribirse cuando el componente se desmonte
+    return () => unsubscribe();
   }, [dispatch]);
 
   // Filtrar turnos del cliente actual
