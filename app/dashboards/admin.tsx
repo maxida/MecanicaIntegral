@@ -8,7 +8,7 @@ import {
   ScrollView,
   SafeAreaView,
   TouchableOpacity,
-  Alert,
+  Modal,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import LoadingOverlay from '@/components/LoadingOverlay';
@@ -104,21 +104,23 @@ const AdminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
       items: [{ description: turno.descripcion || '', units: 1, price: 0, total: 0 }],
     } : undefined;
 
-    const navegarConTipo = (tipo: string) => {
-      // activar flag en redux
-      dispatch(setFlagConFactura(true));
-      navigation.navigate('form', { tipoFactura: tipo, prefill: pref });
-    };
+    // Abrir modal personalizado para seleccionar tipo de factura
+    setModalPrefill(pref);
+    setShowInvoiceModal(true);
+  };
 
-    // Preguntar tipo de factura antes de navegar
-    // Usamos Alert con botones para A/B/C/M
-    Alert.alert('Tipo de Factura', 'Seleccione el tipo de factura a emitir', [
-      { text: 'A', onPress: () => navegarConTipo('A') },
-      { text: 'B', onPress: () => navegarConTipo('B') },
-      { text: 'C', onPress: () => navegarConTipo('C') },
-      { text: 'M', onPress: () => navegarConTipo('M') },
-      { text: 'Cancelar', style: 'cancel' },
-    ]);
+  const [showInvoiceModal, setShowInvoiceModal] = useState(false);
+  const [modalPrefill, setModalPrefill] = useState<any>(null);
+
+  const selectInvoiceType = (tipo: string) => {
+    dispatch(setFlagConFactura(true));
+    setShowInvoiceModal(false);
+    navigation.navigate('form', { tipoFactura: tipo, prefill: modalPrefill });
+  };
+
+  const closeInvoiceModal = () => {
+    setShowInvoiceModal(false);
+    setModalPrefill(null);
   };
 
   const getEstadoColor = (estado: string) => {
@@ -146,6 +148,46 @@ const AdminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
       <LinearGradient colors={['#000000', '#121212']} style={styles.gradient}>
         <ScrollView contentContainerStyle={styles.content}>
           {loading && <LoadingOverlay message="Cargando turnos..." />}
+
+          <Modal
+            visible={showInvoiceModal}
+            transparent
+            animationType="fade"
+            onRequestClose={closeInvoiceModal}
+          >
+            <View style={styles.modalOverlay}>
+              <View style={styles.modalBox}>
+                <View style={styles.modalHeader}>
+                  <Text style={styles.modalTitle}>Seleccionar Tipo de Factura</Text>
+                  <TouchableOpacity onPress={closeInvoiceModal} style={styles.modalClose}>
+                    <MaterialIcons name="close" size={20} color="#fff" />
+                  </TouchableOpacity>
+                </View>
+
+                <View style={styles.modalOptions}>
+                  <TouchableOpacity style={styles.optionButton} onPress={() => selectInvoiceType('A')}>
+                    <MaterialIcons name="receipt" size={24} color="#A855F7" />
+                    <Text style={styles.optionText}>Factura A</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity style={styles.optionButton} onPress={() => selectInvoiceType('B')}>
+                    <MaterialIcons name="receipt" size={24} color="#60A5FA" />
+                    <Text style={styles.optionText}>Factura B</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity style={styles.optionButton} onPress={() => selectInvoiceType('C')}>
+                    <MaterialIcons name="receipt" size={24} color="#4ADE80" />
+                    <Text style={styles.optionText}>Factura C</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity style={styles.optionButton} onPress={() => selectInvoiceType('M')}>
+                    <MaterialIcons name="receipt" size={24} color="#FACC15" />
+                    <Text style={styles.optionText}>Factura M</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </Modal>
           {/* Header with Logout Button */}
           <View style={styles.header}>
             <View style={styles.headerTop}>
@@ -382,6 +424,14 @@ const styles = StyleSheet.create({
     borderColor: '#333',
   },
   actionLabel: { fontSize: 12, color: '#fff', marginTop: 8, fontWeight: '600', textAlign: 'center' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center' },
+  modalBox: { width: '86%', backgroundColor: '#0f1724', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: '#222' },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  modalTitle: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  modalClose: { padding: 6, backgroundColor: '#111827', borderRadius: 8 },
+  modalOptions: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', gap: 8 },
+  optionButton: { width: '48%', backgroundColor: '#111827', padding: 12, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginBottom: 8, borderWidth: 1, borderColor: '#222' },
+  optionText: { color: '#fff', marginTop: 6, fontWeight: '600' },
 });
 
 export default AdminDashboard;
