@@ -215,6 +215,9 @@ const MecanicoDashboard = ({ onLogout }: { onLogout?: () => void }) => {
                       <Text style={styles.tareaDetalles}>
                         Tipo: {tarea.tipo || 'N/A'} • Creada: {new Date(tarea.fechaCreacion).toLocaleDateString('es-ES')}
                       </Text>
+                          {tarea.checklistVehiculo ? (
+                            <Text style={styles.checklistSmall} numberOfLines={1}>Checklist: {tarea.checklistVehiculo.observaciones || 'Sin observaciones'}</Text>
+                          ) : null}
                       {tarea.estado === 'in_progress' && (
                         <Text style={styles.tiempoTrabajado}>
                           ⏱️ {calcularTiempoTrabajado(tarea)}
@@ -385,6 +388,7 @@ const styles = StyleSheet.create({
 
   tareaDetalles: { fontSize: 10, color: '#666', marginTop: 2 },
   tiempoTrabajado: { fontSize: 11, color: '#FACC15', marginTop: 2, fontWeight: '600' },
+  checklistSmall: { color: '#fff', fontSize: 12, marginTop: 6, color: '#ccc' },
   buttonPausar: {
     flex: 1,
     flexDirection: 'row',

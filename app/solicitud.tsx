@@ -30,6 +30,7 @@ const SolicitudScreen = () => {
     tipo: 'reparacion', // reparacion, mantenimiento, asistencia
   });
 
+
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async () => {
@@ -146,6 +147,8 @@ const SolicitudScreen = () => {
                 textAlignVertical="top"
               />
             </View>
+
+            {/* Checklist de ingreso se completa en el check-in al llegar el camión */}
           </View>
 
           {/* Submit Button */}

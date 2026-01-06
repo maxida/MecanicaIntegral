@@ -251,6 +251,12 @@ const AdminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
                     <Text style={styles.turnoDescripcion} numberOfLines={2}>
                       {turno.descripcion}
                     </Text>
+                    {turno.checklistVehiculo ? (
+                      <View style={styles.checklistSummary}>
+                        <Text style={styles.checklistLabel}>Checklist:</Text>
+                        <Text style={styles.checklistObs} numberOfLines={2}>{turno.checklistVehiculo.observaciones || 'Sin observaciones'}</Text>
+                      </View>
+                    ) : null}
                     <View style={[styles.turbEstadoBadge, { backgroundColor: `${getEstadoColor(turno.estado)}20` }]}>
                       <Text style={[styles.turnoEstadoText, { color: getEstadoColor(turno.estado) }]}>
                         {getEstadoText(turno.estado)}
@@ -274,6 +280,13 @@ const AdminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
                         onPress={() => handleFacturar(turno)}
                       >
                         <MaterialIcons name="receipt" size={14} color="#fff" />
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={styles.checkinButton}
+                        onPress={() => navigation.navigate('checkin', { turnoId: turno.id })}
+                      >
+                        <MaterialIcons name="local-shipping" size={14} color="#fff" />
                       </TouchableOpacity>
                       <TouchableOpacity
                         style={styles.scheduleButton}
@@ -409,6 +422,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  checkinButton: {
+    backgroundColor: '#111827',
+    padding: 6,
+    borderRadius: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 6,
+  },
 
   emptyState: { alignItems: 'center', padding: 40 },
   emptyText: { color: '#888', fontSize: 16, marginTop: 16 },
@@ -424,6 +445,9 @@ const styles = StyleSheet.create({
     borderColor: '#333',
   },
   actionLabel: { fontSize: 12, color: '#fff', marginTop: 8, fontWeight: '600', textAlign: 'center' },
+  checklistSummary: { marginTop: 8, alignItems: 'flex-end' },
+  checklistLabel: { color: '#888', fontSize: 12 },
+  checklistObs: { color: '#fff', fontSize: 12, marginTop: 4, textAlign: 'right' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center' },
   modalBox: { width: '86%', backgroundColor: '#0f1724', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: '#222' },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
