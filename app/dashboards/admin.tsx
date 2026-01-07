@@ -4,11 +4,11 @@ import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
   ScrollView,
   SafeAreaView,
   TouchableOpacity,
   Modal,
+  useWindowDimensions,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import LoadingOverlay from '@/components/LoadingOverlay';
@@ -23,6 +23,8 @@ const AdminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
   const turnos = useSelector((state: RootState) => state.turnos.turnos);
   const navigation = useNavigation<any>();
   const [loading, setLoading] = useState(false);
+  const { width } = useWindowDimensions();
+  const isWide = width > 1024;
 
   useEffect(() => {
     // Cargar datos iniciales
@@ -144,9 +146,9 @@ const AdminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <LinearGradient colors={['#000000', '#121212']} style={styles.gradient}>
-        <ScrollView contentContainerStyle={styles.content}>
+    <SafeAreaView className="flex-1 bg-black">
+      <LinearGradient colors={['#000000', '#121212']} style={{ flex: 1 }}>
+        <ScrollView className="px-5 pt-10 pb-15">
           {loading && <LoadingOverlay message="Cargando turnos..." />}
 
           <Modal
@@ -155,49 +157,50 @@ const AdminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
             animationType="fade"
             onRequestClose={closeInvoiceModal}
           >
-            <View style={styles.modalOverlay}>
-              <View style={styles.modalBox}>
-                <View style={styles.modalHeader}>
-                  <Text style={styles.modalTitle}>Seleccionar Tipo de Factura</Text>
-                  <TouchableOpacity onPress={closeInvoiceModal} style={styles.modalClose}>
+            <View className="flex-1 justify-center items-center" style={{ backgroundColor: 'rgba(0,0,0,0.6)' }}>
+              <View className="w-11/12 bg-[#0f1724] rounded-xl p-4 border border-[#222]">
+                <View className="flex-row justify-between items-center mb-3">
+                  <Text className="text-white text-base font-bold">Seleccionar Tipo de Factura</Text>
+                  <TouchableOpacity onPress={closeInvoiceModal} className="p-2 bg-[#111827] rounded-md">
                     <MaterialIcons name="close" size={20} color="#fff" />
                   </TouchableOpacity>
                 </View>
 
-                <View style={styles.modalOptions}>
-                  <TouchableOpacity style={styles.optionButton} onPress={() => selectInvoiceType('A')}>
+                <View className="flex-row flex-wrap justify-between gap-2">
+                  <TouchableOpacity className="w-1/2 bg-[#111827] p-3 rounded-lg items-center border border-[#222]" onPress={() => selectInvoiceType('A')}>
                     <MaterialIcons name="receipt" size={24} color="#A855F7" />
-                    <Text style={styles.optionText}>Factura A</Text>
+                    <Text className="text-white mt-2 font-semibold">Factura A</Text>
                   </TouchableOpacity>
 
-                  <TouchableOpacity style={styles.optionButton} onPress={() => selectInvoiceType('B')}>
+                  <TouchableOpacity className="w-1/2 bg-[#111827] p-3 rounded-lg items-center border border-[#222]" onPress={() => selectInvoiceType('B')}>
                     <MaterialIcons name="receipt" size={24} color="#60A5FA" />
-                    <Text style={styles.optionText}>Factura B</Text>
+                    <Text className="text-white mt-2 font-semibold">Factura B</Text>
                   </TouchableOpacity>
 
-                  <TouchableOpacity style={styles.optionButton} onPress={() => selectInvoiceType('C')}>
+                  <TouchableOpacity className="w-1/2 bg-[#111827] p-3 rounded-lg items-center border border-[#222]" onPress={() => selectInvoiceType('C')}>
                     <MaterialIcons name="receipt" size={24} color="#4ADE80" />
-                    <Text style={styles.optionText}>Factura C</Text>
+                    <Text className="text-white mt-2 font-semibold">Factura C</Text>
                   </TouchableOpacity>
 
-                  <TouchableOpacity style={styles.optionButton} onPress={() => selectInvoiceType('M')}>
+                  <TouchableOpacity className="w-1/2 bg-[#111827] p-3 rounded-lg items-center border border-[#222]" onPress={() => selectInvoiceType('M')}>
                     <MaterialIcons name="receipt" size={24} color="#FACC15" />
-                    <Text style={styles.optionText}>Factura M</Text>
+                    <Text className="text-white mt-2 font-semibold">Factura M</Text>
                   </TouchableOpacity>
                 </View>
               </View>
             </View>
           </Modal>
           {/* Header with Logout Button */}
-          <View style={styles.header}>
-            <View style={styles.headerTop}>
+          <View className="mb-8">
+            <View className="flex-row justify-between items-start">
               <View>
-                <Text style={styles.headerTitle}>Dashboard Admin</Text>
-                <Text style={styles.headerSubtitle}>Gestión Integral</Text>
+                <Text className="text-2xl font-bold text-white">Dashboard Admin</Text>
+                <Text className="text-sm text-[#888] mt-1">Gestión Integral</Text>
               </View>
               {onLogout && (
                 <TouchableOpacity
-                  style={styles.logoutButton}
+                  className="rounded-xl p-3 border"
+                  style={{ backgroundColor: '#FF4C4C20', borderColor: '#FF4C4C40' }}
                   onPress={onLogout}
                 >
                   <MaterialIcons name="logout" size={20} color="#FF4C4C" />
@@ -207,126 +210,171 @@ const AdminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
           </View>
 
           {/* Stats Grid */}
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 30 }}>
+          <View className="flex-row flex-wrap mb-8 -mx-2">
             {stats.map((stat, index) => (
-              // Use responsive widths: full width on mobile, 1/3 on large screens via NativeWind breakpoints
-              <View key={index} style={{ width: '100%', paddingHorizontal: 8 }}>
-                <View style={[styles.statCard, { width: '100%' }] as any}>
-                  <View style={[styles.statIcon, { backgroundColor: `${stat.color}15` }]}>
+              <View key={index} className="w-full monitor:w-1/3 px-2 mb-4">
+                <View className="bg-card rounded-xl p-4 items-center border border-[#333]">
+                  <View className="w-12 h-12 rounded-lg items-center justify-center mb-2" style={{ backgroundColor: `${stat.color}15` }}>
                     <MaterialIcons name={stat.icon as any} size={24} color={stat.color} />
                   </View>
-                  <Text style={styles.statValue}>{stat.value}</Text>
-                  <Text style={styles.statLabel}>{stat.label}</Text>
+                  <Text className="text-lg font-bold text-white">{stat.value}</Text>
+                  <Text className="text-xs text-[#888] mt-1 text-center">{stat.label}</Text>
                 </View>
               </View>
             ))}
           </View>
 
-          {/* Backlog de Solicitudes */}
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Backlog de Solicitudes</Text>
+          {/* Backlog de Solicitudes (Kanban en pantallas grandes) */}
+          <View className="mb-6">
+            <View className="flex-row justify-between items-center mb-3">
+              <Text className="text-lg font-bold text-white">Backlog de Solicitudes</Text>
               <TouchableOpacity>
                 <MaterialIcons name="refresh" size={24} color="#60A5FA" />
               </TouchableOpacity>
             </View>
 
-            {pendingTurnos.length === 0 ? (
-              <View style={styles.emptyState}>
-                <MaterialIcons name="check-circle" size={48} color="#4ADE80" />
-                <Text style={styles.emptyText}>No hay solicitudes pendientes</Text>
-              </View>
-            ) : (
-              pendingTurnos.map((turno) => (
-                <View key={turno.id} style={styles.turnoCard}>
-                  <View style={styles.turnoLeft}>
-                    <View style={[styles.turnoStatusDot, { backgroundColor: getEstadoColor(turno.estado) }]} />
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.turnoCliente}>{turno.chofer || 'Sin chofer'}</Text>
-                      <Text style={styles.turnoPatente}>{turno.numeroPatente}</Text>
-                      <Text style={styles.turnoTipo}>{turno.tipo || 'Sin tipo'} • Prioridad: {turno.prioridad || 3}</Text>
-                      <Text style={styles.turnoFecha}>
-                        Creada: {new Date(turno.fechaCreacion).toLocaleDateString('es-ES')}
-                      </Text>
+            {/* Responsive: Kanban columns when wide */}
+            {(() => {
+              if (!isWide) {
+                return (
+                  pendingTurnos.length === 0 ? (
+                    <View className="items-center p-10">
+                      <MaterialIcons name="check-circle" size={48} color="#4ADE80" />
+                      <Text className="text-[#888] text-base mt-4">No hay solicitudes pendientes</Text>
                     </View>
-                  </View>
-                  <View style={styles.turnoRight}>
-                    <Text style={styles.turnoDescripcion} numberOfLines={2}>
-                      {turno.descripcion}
-                    </Text>
-                    {turno.checklistVehiculo ? (
-                      <View style={styles.checklistSummary}>
-                        <Text style={styles.checklistLabel}>Checklist:</Text>
-                        <Text style={styles.checklistObs} numberOfLines={2}>{turno.checklistVehiculo.observaciones || 'Sin observaciones'}</Text>
+                  ) : (
+                    pendingTurnos.map((turno) => (
+                      <View key={turno.id} className="flex-row justify-between items-center bg-card rounded-lg p-4 mb-3 border border-[#333]">
+                        <View className="flex-row items-center flex-1">
+                          <View className="w-3 h-3 rounded-full mr-3" style={{ backgroundColor: getEstadoColor(turno.estado) }} />
+                          <View className="flex-1">
+                            <Text className="text-base font-semibold text-white">{turno.chofer || 'Sin chofer'}</Text>
+                            <Text className="text-xs text-[#888] mt-1">{turno.numeroPatente}</Text>
+                            <Text className="text-xs text-[#666] mt-1">{turno.tipo || 'Sin tipo'} • Prioridad: {turno.prioridad || 3}</Text>
+                            <Text className="text-xs text-[#666] mt-1">Creada: {new Date(turno.fechaCreacion).toLocaleDateString('es-ES')}</Text>
+                          </View>
+                        </View>
+                        <View className="items-end">
+                          <Text className="text-sm text-[#ccc] mb-2 text-right" numberOfLines={2}>{turno.descripcion}</Text>
+                          {turno.checklistVehiculo ? (
+                            <View className="mt-2 items-end">
+                              <Text className="text-[#888] text-xs">Checklist:</Text>
+                              <Text className="text-white text-sm mt-1" numberOfLines={2}>{turno.checklistVehiculo.observaciones || 'Sin observaciones'}</Text>
+                            </View>
+                          ) : null}
+                          <View className="px-3 py-1 rounded-md mt-2" style={{ backgroundColor: `${getEstadoColor(turno.estado)}20` }}>
+                            <Text className="text-sm font-semibold" style={{ color: getEstadoColor(turno.estado) }}>{getEstadoText(turno.estado)}</Text>
+                          </View>
+                          <View className="flex-row mt-3 space-x-2">
+                            <TouchableOpacity className="p-2 rounded-md" style={{ backgroundColor: '#FACC15' }} onPress={() => handleChangePriority(turno.id, turno.prioridad || 3)}>
+                              <MaterialIcons name="flag" size={14} color="#fff" />
+                            </TouchableOpacity>
+                            <TouchableOpacity className="p-2 rounded-md" style={{ backgroundColor: '#60A5FA' }} onPress={() => handleAssignMechanic(turno.id)}>
+                              <MaterialIcons name="person-add" size={14} color="#fff" />
+                            </TouchableOpacity>
+                            <TouchableOpacity className="p-2 rounded-md" style={{ backgroundColor: '#A855F7' }} onPress={() => handleFacturar(turno)}>
+                              <MaterialIcons name="receipt" size={14} color="#fff" />
+                            </TouchableOpacity>
+                            <TouchableOpacity className="p-2 rounded-md" style={{ backgroundColor: '#111827' }} onPress={() => navigation.navigate('checkin', { turnoId: turno.id })}>
+                              <MaterialIcons name="local-shipping" size={14} color="#fff" />
+                            </TouchableOpacity>
+                            <TouchableOpacity className="flex-row items-center px-3 py-1 rounded-md" style={{ backgroundColor: '#60A5FA' }} onPress={() => handleScheduleTurno(turno.id)}>
+                              <MaterialIcons name="schedule" size={16} color="#fff" />
+                              <Text className="text-white text-xs font-semibold ml-2">Programar</Text>
+                            </TouchableOpacity>
+                          </View>
+                        </View>
                       </View>
-                    ) : null}
-                    <View style={[styles.turbEstadoBadge, { backgroundColor: `${getEstadoColor(turno.estado)}20` }]}>
-                      <Text style={[styles.turnoEstadoText, { color: getEstadoColor(turno.estado) }]}>
-                        {getEstadoText(turno.estado)}
-                      </Text>
-                    </View>
-                    <View style={styles.adminActions}>
-                      <TouchableOpacity
-                        style={styles.priorityButton}
-                        onPress={() => handleChangePriority(turno.id, turno.prioridad || 3)}
-                      >
-                        <MaterialIcons name="flag" size={14} color="#fff" />
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={styles.assignButton}
-                        onPress={() => handleAssignMechanic(turno.id)}
-                      >
-                        <MaterialIcons name="person-add" size={14} color="#fff" />
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={styles.invoiceButton}
-                        onPress={() => handleFacturar(turno)}
-                      >
-                        <MaterialIcons name="receipt" size={14} color="#fff" />
-                      </TouchableOpacity>
+                    ))
+                  )
+                );
+              }
 
-                      <TouchableOpacity
-                        style={styles.checkinButton}
-                        onPress={() => navigation.navigate('checkin', { turnoId: turno.id })}
-                      >
-                        <MaterialIcons name="local-shipping" size={14} color="#fff" />
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={styles.scheduleButton}
-                        onPress={() => handleScheduleTurno(turno.id)}
-                      >
-                        <MaterialIcons name="schedule" size={16} color="#fff" />
-                        <Text style={styles.scheduleText}>Programar</Text>
-                      </TouchableOpacity>
-                    </View>
+              // Kanban columns for wide screens
+              return (
+                <View className="flex-row space-x-4">
+                  <View className="flex-1">
+                    <Text className="text-sm text-[#9CA3AF] mb-2">Pendientes</Text>
+                    <ScrollView className="space-y-3" style={{ maxHeight: 600 }}>
+                      {pendingTurnos.map(t => (
+                        <View key={t.id} className="bg-card rounded-lg p-3 border border-[#333]">
+                          <Text className="text-sm font-semibold text-white">{t.chofer || 'Sin chofer'}</Text>
+                          <Text className="text-xs text-[#888]">{t.numeroPatente}</Text>
+                        </View>
+                      ))}
+                    </ScrollView>
+                  </View>
+
+                  <View className="flex-1">
+                    <Text className="text-sm text-[#9CA3AF] mb-2">Programados</Text>
+                    <ScrollView className="space-y-3" style={{ maxHeight: 600 }}>
+                      {scheduledTurnos.map(t => (
+                        <View key={t.id} className="bg-card rounded-lg p-3 border border-[#333]">
+                          <Text className="text-sm font-semibold text-white">{t.chofer || 'Sin chofer'}</Text>
+                          <Text className="text-xs text-[#888]">{t.numeroPatente}</Text>
+                        </View>
+                      ))}
+                    </ScrollView>
+                  </View>
+
+                  <View className="flex-1">
+                    <Text className="text-sm text-[#9CA3AF] mb-2">En Proceso</Text>
+                    <ScrollView className="space-y-3" style={{ maxHeight: 600 }}>
+                      {inProgressTurnos.map(t => (
+                        <View key={t.id} className="bg-card rounded-lg p-3 border border-[#333]">
+                          <Text className="text-sm font-semibold text-white">{t.chofer || 'Sin chofer'}</Text>
+                          <Text className="text-xs text-[#888]">{t.numeroPatente}</Text>
+                        </View>
+                      ))}
+                    </ScrollView>
+                  </View>
+
+                  <View className="flex-1">
+                    <Text className="text-sm text-[#9CA3AF] mb-2">Completadas</Text>
+                    <ScrollView className="space-y-3" style={{ maxHeight: 600 }}>
+                      {completedTurnos.map(t => (
+                        <View key={t.id} className="bg-card rounded-lg p-3 border border-[#333]">
+                          <Text className="text-sm font-semibold text-white">{t.chofer || 'Sin chofer'}</Text>
+                          <Text className="text-xs text-[#888]">{t.numeroPatente}</Text>
+                        </View>
+                      ))}
+                    </ScrollView>
                   </View>
                 </View>
-              ))
-            )}
+              );
+            })()}
           </View>
 
           {/* Quick Actions */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Acciones Rápidas</Text>
-            <View style={styles.actionsGrid}>
-              <TouchableOpacity style={styles.actionButton}>
-                <MaterialIcons name="add-circle" size={32} color="#FF4C4C" />
-                <Text style={styles.actionLabel}>Nuevo Turno</Text>
+          <View className="mb-8">
+            <Text className="text-lg font-bold text-white mb-3">Acciones Rápidas</Text>
+            <View className="flex-row flex-wrap -mx-2">
+              <TouchableOpacity className="w-1/2 px-2 mb-3">
+                <View className="bg-card rounded-lg p-4 items-center border border-[#333]">
+                  <MaterialIcons name="add-circle" size={32} color="#FF4C4C" />
+                  <Text className="text-sm text-white mt-2 font-semibold">Nuevo Turno</Text>
+                </View>
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.actionButton} onPress={() => handleFacturar()}>
-                <MaterialIcons name="receipt-long" size={32} color="#60A5FA" />
-                <Text style={styles.actionLabel}>Facturar</Text>
+              <TouchableOpacity className="w-1/2 px-2 mb-3" onPress={() => handleFacturar()}>
+                <View className="bg-card rounded-lg p-4 items-center border border-[#333]">
+                  <MaterialIcons name="receipt-long" size={32} color="#60A5FA" />
+                  <Text className="text-sm text-white mt-2 font-semibold">Facturar</Text>
+                </View>
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.actionButton}>
-                <MaterialIcons name="analytics" size={32} color="#4ADE80" />
-                <Text style={styles.actionLabel}>Reportes</Text>
+              <TouchableOpacity className="w-1/2 px-2 mb-3">
+                <View className="bg-card rounded-lg p-4 items-center border border-[#333]">
+                  <MaterialIcons name="analytics" size={32} color="#4ADE80" />
+                  <Text className="text-sm text-white mt-2 font-semibold">Reportes</Text>
+                </View>
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.actionButton}>
-                <MaterialIcons name="people" size={32} color="#FACC15" />
-                <Text style={styles.actionLabel}>Clientes</Text>
+              <TouchableOpacity className="w-1/2 px-2 mb-3">
+                <View className="bg-card rounded-lg p-4 items-center border border-[#333]">
+                  <MaterialIcons name="people" size={32} color="#FACC15" />
+                  <Text className="text-sm text-white mt-2 font-semibold">Clientes</Text>
+                </View>
               </TouchableOpacity>
             </View>
           </View>
@@ -335,130 +383,5 @@ const AdminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
     </SafeAreaView>
   );
 };
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#000' },
-  gradient: { flex: 1 },
-  content: { paddingHorizontal: 20, paddingTop: 40, paddingBottom: 60 },
-
-  header: { marginBottom: 30 },
-  headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  headerTitle: { fontSize: 28, fontWeight: 'bold', color: '#fff' },
-  headerSubtitle: { fontSize: 14, color: '#888', marginTop: 4 },
-  logoutButton: {
-    backgroundColor: '#FF4C4C20',
-    borderRadius: 12,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: '#FF4C4C40',
-  },
-
-  statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 30 },
-  statCard: {
-    width: '48%',
-    backgroundColor: '#1E1E1E',
-    borderRadius: 16,
-    padding: 16,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#333',
-  },
-  statIcon: { width: 48, height: 48, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
-  statValue: { fontSize: 20, fontWeight: 'bold', color: '#fff' },
-  statLabel: { fontSize: 12, color: '#888', marginTop: 4, textAlign: 'center' },
-
-  section: { marginBottom: 25 },
-  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
-  sectionTitle: { fontSize: 18, fontWeight: 'bold', color: '#fff' },
-
-  turnoCard: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: '#1E1E1E',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: '#333',
-  },
-  turnoLeft: { flexDirection: 'row', alignItems: 'center', flex: 1 },
-  turnoRight: { alignItems: 'flex-end' },
-  turnoStatusDot: { width: 12, height: 12, borderRadius: 6, marginRight: 12 },
-  turnoCliente: { fontSize: 14, fontWeight: '600', color: '#fff' },
-  turnoPatente: { fontSize: 12, color: '#888', marginTop: 2 },
-  turbEstadoBadge: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, marginBottom: 8 },
-  turnoEstadoText: { fontSize: 12, fontWeight: '600' },
-  scheduleButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#60A5FA',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
-  },
-  scheduleText: { color: '#fff', fontSize: 12, fontWeight: '600', marginLeft: 4 },
-
-  turnoTipo: { fontSize: 11, color: '#666', marginTop: 2 },
-  turnoFecha: { fontSize: 10, color: '#666', marginTop: 2 },
-  turnoDescripcion: { fontSize: 12, color: '#ccc', marginBottom: 8, textAlign: 'right' },
-  adminActions: { flexDirection: 'row', gap: 8, marginTop: 8 },
-  priorityButton: {
-    backgroundColor: '#FACC15',
-    padding: 6,
-    borderRadius: 6,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  assignButton: {
-    backgroundColor: '#60A5FA',
-    padding: 6,
-    borderRadius: 6,
-    marginLeft: 6,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  invoiceButton: {
-    backgroundColor: '#A855F7',
-    padding: 6,
-    borderRadius: 6,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  checkinButton: {
-    backgroundColor: '#111827',
-    padding: 6,
-    borderRadius: 6,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: 6,
-  },
-
-  emptyState: { alignItems: 'center', padding: 40 },
-  emptyText: { color: '#888', fontSize: 16, marginTop: 16 },
-
-  actionsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
-  actionButton: {
-    width: '48%',
-    backgroundColor: '#1E1E1E',
-    borderRadius: 12,
-    padding: 20,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#333',
-  },
-  actionLabel: { fontSize: 12, color: '#fff', marginTop: 8, fontWeight: '600', textAlign: 'center' },
-  checklistSummary: { marginTop: 8, alignItems: 'flex-end' },
-  checklistLabel: { color: '#888', fontSize: 12 },
-  checklistObs: { color: '#fff', fontSize: 12, marginTop: 4, textAlign: 'right' },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center' },
-  modalBox: { width: '86%', backgroundColor: '#0f1724', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: '#222' },
-  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  modalTitle: { color: '#fff', fontSize: 16, fontWeight: '700' },
-  modalClose: { padding: 6, backgroundColor: '#111827', borderRadius: 8 },
-  modalOptions: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', gap: 8 },
-  optionButton: { width: '48%', backgroundColor: '#111827', padding: 12, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginBottom: 8, borderWidth: 1, borderColor: '#222' },
-  optionText: { color: '#fff', marginTop: 6, fontWeight: '600' },
-});
 
 export default AdminDashboard;

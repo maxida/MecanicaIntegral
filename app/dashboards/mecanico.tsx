@@ -4,7 +4,6 @@ import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
   ScrollView,
   SafeAreaView,
   TouchableOpacity,
@@ -160,20 +159,21 @@ const MecanicoDashboard = ({ onLogout }: { onLogout?: () => void }) => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <LinearGradient colors={['#000000', '#121212']} style={styles.gradient}>
-        <ScrollView contentContainerStyle={styles.content}>
+    <SafeAreaView className="flex-1 bg-black">
+      <LinearGradient colors={['#000000', '#121212']} style={{ flex: 1 }}>
+        <ScrollView className="px-5 pt-10 pb-15">
           {loading && <LoadingOverlay message="Actualizando..." />}
           {/* Header */}
-          <View style={styles.header}>
-            <View style={styles.headerTop}>
+          <View className="mb-6">
+            <View className="flex-row justify-between items-start">
               <View>
-                <Text style={styles.headerTitle}>Mis Tareas Diarias</Text>
-                <Text style={styles.headerSubtitle}>Máximo 3 tareas por día</Text>
+                <Text className="text-2xl font-bold text-white">Mis Tareas Diarias</Text>
+                <Text className="text-sm text-[#888] mt-1">Máximo 3 tareas por día</Text>
               </View>
               {onLogout && (
                 <TouchableOpacity
-                  style={styles.logoutButton}
+                  className="rounded-xl p-3"
+                  style={{ backgroundColor: '#FF4C4C20', borderWidth: 1, borderColor: '#FF4C4C40' }}
                   onPress={onLogout}
                 >
                   <MaterialIcons name="logout" size={20} color="#FF4C4C" />
@@ -183,89 +183,66 @@ const MecanicoDashboard = ({ onLogout }: { onLogout?: () => void }) => {
           </View>
 
           {/* Progress Stats */}
-          <View style={styles.progressSection}>
-            <View style={styles.progressCard}>
-              <View style={styles.progressInfo}>
-                <Text style={styles.progressLabel}>Completadas Hoy</Text>
-                <Text style={styles.progressValue}>{tareasCompletadas} de {tareas.length}</Text>
+          <View className="mb-6">
+            <View className="bg-card rounded-lg p-4 border border-[#333]">
+              <View className="mb-3">
+                <Text className="text-xs text-[#888]">Completadas Hoy</Text>
+                <Text className="text-lg font-bold text-primary mt-1">{tareasCompletadas} de {tareas.length}</Text>
               </View>
-              <View style={styles.progressBar}>
-                <View style={[styles.progressFill, { width: tareas.length > 0 ? `${(tareasCompletadas / tareas.length) * 100}%` : '0%' }]} />
+              <View className="h-1 bg-[#2A2A2A] rounded overflow-hidden">
+                <View style={{ width: tareas.length > 0 ? `${(tareasCompletadas / tareas.length) * 100}%` : '0%', height: '100%', backgroundColor: '#60A5FA' }} />
               </View>
-              <Text style={styles.tiempoTotal}>
-                Tiempo trabajado: {horasTrabajadas}h {minutosTrabajados}min
-              </Text>
+              <Text className="text-xs text-success mt-3 text-center">Tiempo trabajado: {horasTrabajadas}h {minutosTrabajados}min</Text>
             </View>
           </View>
 
           {/* Tareas List */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Hoy</Text>
-            
+          <View className="mb-6">
+            <Text className="text-lg font-bold text-white mb-3">Hoy</Text>
             {tareas.map((tarea) => (
-              <View key={tarea.id} style={styles.tareaCard}>
-                <View style={styles.tareaHeader}>
-                  <View style={styles.tareaLeft}>
-                    <View style={[styles.prioridadIndicator, { backgroundColor: getPrioridadColor(tarea.prioridad || 3) }]} />
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.trabajoTitulo}>{tarea.descripcion}</Text>
-                      <Text style={styles.clienteInfo}>
-                        {tarea.chofer || 'Sin chofer'} • {tarea.numeroPatente}
-                      </Text>
-                      <Text style={styles.tareaDetalles}>
-                        Tipo: {tarea.tipo || 'N/A'} • Creada: {new Date(tarea.fechaCreacion).toLocaleDateString('es-ES')}
-                      </Text>
-                          {tarea.checklistVehiculo ? (
-                            <Text style={styles.checklistSmall} numberOfLines={1}>Checklist: {tarea.checklistVehiculo.observaciones || 'Sin observaciones'}</Text>
-                          ) : null}
+              <View key={tarea.id} className="bg-card rounded-lg border border-[#333] mb-3 overflow-hidden">
+                <View className="flex-row justify-between items-center p-4 border-b border-[#2A2A2A]">
+                  <View className="flex-row items-start flex-1">
+                    <View className="mr-3" style={{ width: 4, height: 60, borderRadius: 2, backgroundColor: getPrioridadColor(tarea.prioridad || 3) }} />
+                    <View className="flex-1">
+                      <Text className="text-base font-semibold text-white">{tarea.descripcion}</Text>
+                      <Text className="text-xs text-[#888] mt-1">{tarea.chofer || 'Sin chofer'} • {tarea.numeroPatente}</Text>
+                      <Text className="text-xs text-[#666] mt-1">Tipo: {tarea.tipo || 'N/A'} • Creada: {new Date(tarea.fechaCreacion).toLocaleDateString('es-ES')}</Text>
+                      {tarea.checklistVehiculo ? (
+                        <Text className="text-sm text-[#ccc] mt-1" numberOfLines={1}>Checklist: {tarea.checklistVehiculo.observaciones || 'Sin observaciones'}</Text>
+                      ) : null}
                       {tarea.estado === 'in_progress' && (
-                        <Text style={styles.tiempoTrabajado}>
-                          ⏱️ {calcularTiempoTrabajado(tarea)}
-                        </Text>
+                        <Text className="text-sm text-yellow-400 mt-1">⏱️ {calcularTiempoTrabajado(tarea)}</Text>
                       )}
                     </View>
                   </View>
-                  <View style={[styles.estadoBadge, { borderColor: getEstadoColor(tarea.estado) }]}>
-                    <Text style={[styles.estadoLabel, { color: getEstadoColor(tarea.estado) }]}>
-                      {getEstadoText(tarea.estado)}
-                    </Text>
+                  <View className="px-3 py-1 rounded-md" style={{ borderWidth: 1, borderColor: getEstadoColor(tarea.estado) }}>
+                    <Text className="text-xs font-semibold" style={{ color: getEstadoColor(tarea.estado) }}>{getEstadoText(tarea.estado)}</Text>
                   </View>
                 </View>
 
-                <View style={styles.tareaBody}>
-                  <View style={styles.tiempoEstimado}>
+                <View className="p-4">
+                  <View className="flex-row items-center mb-3">
                     <MaterialIcons name="schedule" size={16} color="#888" />
-                    <Text style={styles.tiempoText}>{tarea.horaReparacion}</Text>
+                    <Text className="text-xs text-[#888] ml-2">{tarea.horaReparacion}</Text>
                   </View>
 
-                  <View style={styles.actionButtons}>
+                  <View className="flex-row space-x-3">
                     {tarea.estado === 'scheduled' ? (
-                      <TouchableOpacity
-                        style={styles.buttonIniciar}
-                        onPress={() => handleIniciarTarea(tarea.id)}
-                      >
+                      <TouchableOpacity className="flex-1 bg-primary rounded-md py-2 items-center flex-row justify-center" onPress={() => handleIniciarTarea(tarea.id)}>
                         <MaterialIcons name="play-arrow" size={16} color="#fff" />
-                        <Text style={styles.buttonText}>Iniciar</Text>
+                        <Text className="text-sm text-white ml-2">Iniciar</Text>
                       </TouchableOpacity>
                     ) : tarea.estado === 'in_progress' ? (
-                      <TouchableOpacity
-                        style={styles.buttonPausar}
-                        onPress={() => handlePausarTarea(tarea.id)}
-                      >
+                      <TouchableOpacity className="flex-1 bg-yellow-400 rounded-md py-2 items-center flex-row justify-center" onPress={() => handlePausarTarea(tarea.id)}>
                         <MaterialIcons name="pause" size={16} color="#fff" />
-                        <Text style={styles.buttonText}>Pausar</Text>
+                        <Text className="text-sm text-white ml-2">Pausar</Text>
                       </TouchableOpacity>
                     ) : null}
 
-                    <TouchableOpacity
-                      style={[styles.buttonCompletar, tarea.estado === 'scheduled' && styles.buttonDisabled]}
-                      disabled={tarea.estado === 'scheduled'}
-                      onPress={() => handleMarcarCompleta(tarea.id)}
-                    >
+                    <TouchableOpacity className={`flex-1 rounded-md py-2 items-center flex-row justify-center ${tarea.estado === 'scheduled' ? 'opacity-50' : ''}`} disabled={tarea.estado === 'scheduled'} onPress={() => handleMarcarCompleta(tarea.id)} style={tarea.estado === 'scheduled' ? { borderWidth: 1, borderColor: '#666', backgroundColor: '#1E1E1E' } : { borderWidth: 1, borderColor: '#4ADE80', backgroundColor: '#1E1E1E' }}>
                       <MaterialIcons name="check-circle" size={16} color={tarea.estado === 'scheduled' ? '#666' : '#4ADE80'} />
-                      <Text style={[styles.buttonText, tarea.estado === 'scheduled' && { color: '#666' }]}>
-                        Completar
-                      </Text>
+                      <Text className="text-sm font-semibold text-white ml-2">Completar</Text>
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -273,22 +250,22 @@ const MecanicoDashboard = ({ onLogout }: { onLogout?: () => void }) => {
             ))}
 
             {tareas.length === 0 && (
-              <View style={styles.emptyState}>
+              <View className="items-center py-10">
                 <MaterialIcons name="check-circle" size={48} color="#4ADE80" />
-                <Text style={styles.emptyText}>¡Todas las tareas completadas!</Text>
-                <Text style={styles.emptySubtext}>Descansa, has hecho un buen trabajo</Text>
+                <Text className="text-white text-lg mt-4">¡Todas las tareas completadas!</Text>
+                <Text className="text-[#888] text-sm mt-2">Descansa, has hecho un buen trabajo</Text>
               </View>
             )}
           </View>
 
           {/* Novedades */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Novedades</Text>
-            <View style={styles.novedadCard}>
+          <View className="mb-6">
+            <Text className="text-lg font-bold text-white mb-3">Novedades</Text>
+            <View className="flex-row items-center bg-card rounded-lg p-4 border border-[#333]">
               <MaterialIcons name="info" size={24} color="#60A5FA" />
-              <View style={{ flex: 1, marginLeft: 12 }}>
-                <Text style={styles.novedadTitulo}>Nuevo turno asignado</Text>
-                <Text style={styles.novedadTexto}>Se agregó una reparación de urgencia a tu lista</Text>
+              <View className="flex-1 ml-3">
+                <Text className="text-sm font-semibold text-white">Nuevo turno asignado</Text>
+                <Text className="text-xs text-[#888]">Se agregó una reparación de urgencia a tu lista</Text>
               </View>
             </View>
           </View>
@@ -297,127 +274,5 @@ const MecanicoDashboard = ({ onLogout }: { onLogout?: () => void }) => {
     </SafeAreaView>
   );
 };
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#000' },
-  gradient: { flex: 1 },
-  content: { paddingHorizontal: 20, paddingTop: 40, paddingBottom: 60 },
-
-  header: { marginBottom: 25 },
-  headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  headerTitle: { fontSize: 28, fontWeight: 'bold', color: '#fff' },
-  headerSubtitle: { fontSize: 14, color: '#888', marginTop: 4 },
-  logoutButton: {
-    backgroundColor: '#FF4C4C20',
-    borderRadius: 12,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: '#FF4C4C40',
-  },
-
-  progressSection: { marginBottom: 25 },
-  progressCard: {
-    backgroundColor: '#1E1E1E',
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#333',
-  },
-  progressInfo: { marginBottom: 12 },
-  progressLabel: { fontSize: 12, color: '#888' },
-  progressValue: { fontSize: 20, fontWeight: 'bold', color: '#60A5FA', marginTop: 4 },
-  progressBar: { height: 6, backgroundColor: '#2A2A2A', borderRadius: 3, overflow: 'hidden' },
-  progressFill: { height: '100%', backgroundColor: '#60A5FA' },
-  tiempoTotal: { fontSize: 12, color: '#4ADE80', marginTop: 8, textAlign: 'center' },
-
-  section: { marginBottom: 25 },
-  sectionTitle: { fontSize: 18, fontWeight: 'bold', color: '#fff', marginBottom: 15 },
-
-  tareaCard: {
-    backgroundColor: '#1E1E1E',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#333',
-    marginBottom: 12,
-    overflow: 'hidden',
-  },
-  tareaHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#2A2A2A',
-  },
-  tareaLeft: { flexDirection: 'row', alignItems: 'flex-start', flex: 1 },
-  prioridadIndicator: { width: 4, height: 60, borderRadius: 2, marginRight: 12 },
-  trabajoTitulo: { fontSize: 14, fontWeight: '600', color: '#fff' },
-  clienteInfo: { fontSize: 12, color: '#888', marginTop: 4 },
-  estadoBadge: { borderWidth: 1, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 },
-  estadoLabel: { fontSize: 11, fontWeight: '600' },
-
-  tareaBody: { padding: 16 },
-  tiempoEstimado: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 12 },
-  tiempoText: { fontSize: 12, color: '#888' },
-
-  actionButtons: { flexDirection: 'row', gap: 10 },
-  buttonIniciar: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#60A5FA',
-    paddingVertical: 8,
-    borderRadius: 8,
-    gap: 6,
-  },
-  buttonCompletar: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#1E1E1E',
-    borderWidth: 1,
-    borderColor: '#4ADE80',
-    paddingVertical: 8,
-    borderRadius: 8,
-    gap: 6,
-  },
-  buttonDisabled: { opacity: 0.5, borderColor: '#666' },
-  buttonText: { fontSize: 12, fontWeight: '600', color: '#fff' },
-
-  tareaDetalles: { fontSize: 10, color: '#666', marginTop: 2 },
-  tiempoTrabajado: { fontSize: 11, color: '#FACC15', marginTop: 2, fontWeight: '600' },
-  checklistSmall: { color: '#fff', fontSize: 12, marginTop: 6, color: '#ccc' },
-  buttonPausar: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FACC15',
-    paddingVertical: 8,
-    borderRadius: 8,
-    gap: 6,
-  },
-
-  emptyState: {
-    alignItems: 'center',
-    paddingVertical: 40,
-  },
-  emptyText: { fontSize: 16, fontWeight: 'bold', color: '#fff', marginTop: 12 },
-  emptySubtext: { fontSize: 12, color: '#888', marginTop: 4 },
-
-  novedadCard: {
-    flexDirection: 'row',
-    backgroundColor: '#1E1E1E',
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#333',
-    alignItems: 'center',
-  },
-  novedadTitulo: { fontSize: 14, fontWeight: '600', color: '#fff' },
-  novedadTexto: { fontSize: 12, color: '#888', marginTop: 2 },
-});
 
 export default MecanicoDashboard;
