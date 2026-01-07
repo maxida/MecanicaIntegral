@@ -12,7 +12,7 @@
   },
   "dependencies": {
     "@expo/vector-icons": "^14.1.0",
-    "@react-native-async-storage/async-storage": "^2.1.2",
+    "@react-native-async-storage/async-storage": "2.1.2",
     "@react-native-community/datetimepicker": "8.4.1",
     "@react-native-firebase/app": "^22.1.0",
     "@react-native-picker/picker": "2.11.1",
@@ -40,22 +40,31 @@
     "expo-system-ui": "~5.0.11",
     "expo-web-browser": "~14.2.0",
     "firebase": "^11.7.0",
+    "lucide-react-native": "^0.562.0",
+    "nativewind": "4.2.1",
+    "postcss": "^8.4.35",
     "react": "19.0.0",
     "react-dom": "19.0.0",
     "react-native": "0.79.6",
     "react-native-gesture-handler": "~2.24.0",
+    "react-native-reanimated": "~3.17.4",
     "react-native-safe-area-context": "^5.4.0",
     "react-native-screens": "~4.11.1",
+    "react-native-svg": "15.11.2",
     "react-native-web": "~0.20.0",
     "react-native-webview": "13.13.5",
-    "react-redux": "^9.2.0"
+    "react-native-worklets-core": "^1.6.2",
+    "react-redux": "^9.2.0",
+    "tailwindcss": "^3.4.1"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
     "@types/react": "~19.0.10",
     "@types/react-native": "^0.73.0",
+    "autoprefixer": "^10.4.23",
     "eslint": "^9.25.0",
     "eslint-config-expo": "~9.2.0",
+    "react-native-svg-transformer": "^1.5.2",
     "typescript": "~5.8.3"
   },
   "private": true

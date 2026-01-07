@@ -207,14 +207,17 @@ const AdminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
           </View>
 
           {/* Stats Grid */}
-          <View style={styles.statsGrid}>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 30 }}>
             {stats.map((stat, index) => (
-              <View key={index} style={styles.statCard}>
-                <View style={[styles.statIcon, { backgroundColor: `${stat.color}15` }]}>
-                  <MaterialIcons name={stat.icon as any} size={24} color={stat.color} />
+              // Use responsive widths: full width on mobile, 1/3 on large screens via NativeWind breakpoints
+              <View key={index} style={{ width: '100%', paddingHorizontal: 8 }}>
+                <View style={[styles.statCard, { width: '100%' }] as any}>
+                  <View style={[styles.statIcon, { backgroundColor: `${stat.color}15` }]}>
+                    <MaterialIcons name={stat.icon as any} size={24} color={stat.color} />
+                  </View>
+                  <Text style={styles.statValue}>{stat.value}</Text>
+                  <Text style={styles.statLabel}>{stat.label}</Text>
                 </View>
-                <Text style={styles.statValue}>{stat.value}</Text>
-                <Text style={styles.statLabel}>{stat.label}</Text>
               </View>
             ))}
           </View>

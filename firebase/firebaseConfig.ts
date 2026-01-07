@@ -1,7 +1,9 @@
-import { initializeApp } from 'firebase/app';
+import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
-import { initializeAuth, getReactNativePersistence } from 'firebase/auth';
-import ReactNativeAsyncStorage from '@react-native-async-storage/async-storage';
+import type { Auth } from 'firebase/auth';
+import { initializeAuth, browserLocalPersistence, getReactNativePersistence } from 'firebase/auth';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
 
 // Tu configuración de Firebase
 const firebaseConfig = {
@@ -14,15 +16,20 @@ const firebaseConfig = {
   measurementId: "G-EGCFSDGGXT"
 };
 
-// Inicializar Firebase
-const app = initializeApp(firebaseConfig);
+// Inicializar (singleton) Firebase App
+const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 
-// Inicializar Firestore
+// Firestore
 const db = getFirestore(app);
 
-// Inicializar Firebase Authentication con persistencia en AsyncStorage
-const auth = initializeAuth(app, {
-  persistence: getReactNativePersistence(ReactNativeAsyncStorage)
-});
+// Auth con persistencia condicional según plataforma
+let auth: Auth;
+if (Platform.OS === 'web') {
+  // En web usamos persistencia local del navegador
+  auth = initializeAuth(app, { persistence: browserLocalPersistence }) as Auth;
+} else {
+  // En nativo usamos AsyncStorage para persistencia
+  auth = initializeAuth(app, { persistence: getReactNativePersistence(AsyncStorage) }) as Auth;
+}
 
-export { db, auth, app };
+export { app, db, auth };
