@@ -1,162 +1,179 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView, Alert } from 'react-native';
-import { useRoute, useNavigation } from '@react-navigation/native';
-import { LinearGradient } from 'expo-linear-gradient';
-import LoadingOverlay from '@/components/LoadingOverlay';
-import { obtenerChecklistPorPatente } from '@/services/checklistService';
-import { useIsFocused } from '@react-navigation/native';
-import { doc, getDoc } from 'firebase/firestore';
-import { db } from '@/firebase/firebaseConfig';
-import { actualizarTurnoService } from '@/services/turnosService';
+import React, { useState } from 'react';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, SafeAreaView, Alert, Image } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
+import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
+import { useSelector } from 'react-redux';
+import { RootState } from '@/redux/store';
+import { crearTurnoService } from '@/services/turnosService';
+import * as ImagePicker from 'expo-image-picker';
+import Animated, { FadeInDown, FadeInRight } from 'react-native-reanimated';
 
-const CheckinScreen = () => {
-  const route = useRoute<any>();
-  const navigation = useNavigation<any>();
-  const { turnoId } = route.params || {};
+const ITEMS_CHECKLIST = [
+  { nombre: 'Neumáticos', icono: 'adjust', descripcion: 'Verificar presión y desgaste', completado: false },
+  { nombre: 'Frenos', icono: 'stop-circle', descripcion: 'Revisar pastillas y sistema de frenado', completado: false },
+  { nombre: 'Luces', icono: 'highlight', descripcion: 'Delanteras, traseras e intermitentes', completado: false },
+  { nombre: 'Retrovisores', icono: 'mirrors', descripcion: 'Estado general y funcionalidad', completado: false },
+  { nombre: 'Limpiaparabrisas', icono: 'waves', descripcion: 'Funcionamiento y desgaste', completado: false },
+  { nombre: 'Batería', icono: 'battery-charging-full', descripcion: 'Conexiones y estado', completado: false },
+  { nombre: 'Aceite', icono: 'opacity', descripcion: 'Nivel y condición', completado: false },
+  { nombre: 'Refrigerante', icono: 'ac-unit', descripcion: 'Nivel y condición', completado: false },
+  { nombre: 'Dirección', icono: 'explore', descripcion: 'Funcionalidad y holgura', completado: false },
+  { nombre: 'Suspensión', icono: 'keyboard-arrow-up', descripcion: 'Amortiguadores y muelles', completado: false },
+];
 
-  const [loading, setLoading] = useState(false);
-  const [turno, setTurno] = useState<any>(null);
-  const [checklist, setChecklist] = useState<any>(null);
-  const isFocused = useIsFocused();
+const CheckInFullForm = () => {
+  const router = useRouter();
+  const user = useSelector((state: RootState) => state.login.user);
 
-  useEffect(() => {
-    if (!turnoId) return;
-    const load = async () => {
-      setLoading(true);
-      try {
-        const ref = doc(db, 'turnos', turnoId);
-        const snap = await getDoc(ref);
-        if (snap.exists()) {
-          const data = { id: snap.id, ...snap.data() };
-          setTurno(data);
-          setChecklist(data.checklistVehiculo || null);
-        } else {
-          Alert.alert('No encontrado', 'El turno solicitado no existe');
-          navigation.goBack();
-        }
-      } catch (err) {
-        console.error('Error cargando turno:', err);
-        Alert.alert('Error', 'No se pudo cargar el turno');
-        navigation.goBack();
-      } finally {
-        setLoading(false);
-      }
-    };
-    load();
-  }, [turnoId]);
+  // Estados del Reporte
+  const [km, setKm] = useState('');
+  const [fuel, setFuel] = useState(50);
+  const [status, setStatus] = useState<'ok' | 'obs' | 'crit' | null>(null);
+  const [checklist, setChecklist] = useState(ITEMS_CHECKLIST);
+  const [photo, setPhoto] = useState<string | null>(null);
+  const [observaciones, setObservaciones] = useState('');
 
-  // When returning from Checklist screen, try to attach latest checklist to turno
-  useEffect(() => {
-    const attachLatestChecklist = async () => {
-      if (!turno || !turno.numeroPatente) return;
-      try {
-        const listas = await obtenerChecklistPorPatente(turno.numeroPatente);
-        if (!listas || listas.length === 0) return;
-        // pick latest by fechaCreacion
-        const latest = listas.sort((a: any, b: any) => (a.fechaCreacion || '').localeCompare(b.fechaCreacion || ''))[listas.length - 1];
-        if (!latest) return;
-        // if turno doesn't already have this checklist attached, attach it
-        if (!turno.checklistVehiculo || (turno.checklistVehiculo && turno.checklistVehiculo.id !== latest.id)) {
-          setLoading(true);
-          await actualizarTurnoService(turnoId, { checklistVehiculo: latest, fechaCheckin: new Date().toISOString() });
-          setTurno({ ...turno, checklistVehiculo: latest });
-        }
-      } catch (err) {
-        console.error('Error adjuntando checklist:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
+  const takePhoto = async () => {
+    const result = await ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      aspect: [16, 9],
+      quality: 0.7,
+    });
+    if (!result.canceled) setPhoto(result.assets[0].uri);
+  };
 
-    if (isFocused) {
-      attachLatestChecklist();
+  const toggleItem = (index: number) => {
+    const newChecklist = [...checklist];
+    newChecklist[index].completado = !newChecklist[index].completado;
+    setChecklist(newChecklist);
+  };
+
+  const handleSubmit = async () => {
+    if (!km || !status || !photo) {
+      Alert.alert("Atención", "KM, Foto del tablero y Veredicto son obligatorios.");
+      return;
     }
-  }, [isFocused, turno]);
 
-  const handleSave = async () => {
-    if (!turnoId) return;
-    setLoading(true);
     try {
-      await actualizarTurnoService(turnoId, {
-        checklistVehiculo: checklist || null,
-        fechaCheckin: new Date().toISOString(),
-      });
-      Alert.alert('Guardado', 'Checklist guardado correctamente', [{ text: 'OK', onPress: () => navigation.goBack() }]);
-    } catch (err) {
-      console.error('Error guardando checklist:', err);
-      Alert.alert('Error', 'No se pudo guardar el checklist');
-    } finally {
-      setLoading(false);
+      // ESTOS SON LOS DATOS QUE VIAJAN AL SUPER ADMIN
+      const dataFinal = {
+        clienteId: user?.id,            // ID único del Chofer/Cliente
+        chofer: user?.nombre,           // Nombre que firma
+        numeroPatente: 'AE-744-GT',     // Vinculado automáticamente
+        kilometraje: km,
+        nivelNafta: fuel,
+        fotoTablero: photo,             // Validación visual
+        estadoGeneral: status,          // OK / OBS / CRIT
+        checklistIngreso: checklist,    // Los 10 puntos técnicos
+        comentariosChofer: observaciones, // Texto libre de ruidos/fallas
+        estado: 'pending',              // Entra directo al Backlog del Admin
+        fechaCreacion: new Date().toISOString(),
+      };
+
+      await crearTurnoService(dataFinal);
+      Alert.alert("¡Enviado!", "El reporte llegó al Centro de Mando.");
+      router.replace('/home');
+    } catch (error) {
+      Alert.alert("Error", "No se pudo sincronizar el reporte.");
     }
   };
 
-  if (!turnoId) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <LinearGradient colors={["#000","#121212"]} style={styles.gradient}>
-          <View style={styles.center}><Text style={styles.errorText}>ID de turno no proporcionado</Text></View>
-        </LinearGradient>
-      </SafeAreaView>
-    );
-  }
-
   return (
-    <SafeAreaView style={styles.container}>
-      <LinearGradient colors={["#000","#121212"]} style={styles.gradient}>
-        <ScrollView contentContainerStyle={styles.content}>
-          {loading && <LoadingOverlay message="Cargando..." />}
-
-          <View style={styles.header}>
-            <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-              <MaterialIcons name="arrow-back" size={22} color="#60A5FA" />
-            </TouchableOpacity>
-            <Text style={styles.title}>Check-in del Camión</Text>
+    <SafeAreaView className="flex-1 bg-surface">
+      <LinearGradient colors={['#0b0b0b', '#000']} className="flex-1 px-6">
+        <ScrollView showsVerticalScrollIndicator={false} className="pt-6">
+          
+          <View className="mb-8">
+            <Text className="text-white text-3xl font-black italic uppercase">Inspección</Text>
+            <Text className="text-primary text-[10px] font-bold tracking-[3px]">REGISTRO DE INGRESO - TERMINAL LOGÍSTICA</Text>
           </View>
 
-          {turno && (
-            <View style={styles.card}>
-              <Text style={styles.label}>Patente</Text>
-              <Text style={styles.value}>{turno.numeroPatente}</Text>
+          {/* 1. KM Y COMBUSTIBLE (0, 25, 50, 75, 100) */}
+          <View className="flex-row space-x-4 mb-6">
+             <View className="flex-1 bg-card border border-white/10 rounded-3xl p-4">
+                <Text className="text-gray-500 text-[8px] font-bold uppercase mb-2 ml-1">Kilometraje</Text>
+                <TextInput className="text-white text-2xl font-black" keyboardType="numeric" placeholder="000" placeholderTextColor="#222" value={km} onChangeText={setKm} />
+             </View>
+             <View className="flex-1 bg-card border border-white/10 rounded-3xl p-4">
+                <Text className="text-gray-500 text-[8px] font-bold uppercase mb-2 ml-1">Combustible</Text>
+                <View className="flex-row justify-between mt-1">
+                  {[0, 25, 50, 75, 100].map(v => (
+                    <TouchableOpacity key={v} onPress={() => setFuel(v)} className={`px-1.5 py-1 rounded-md ${fuel === v ? 'bg-primary' : 'bg-white/5'}`}>
+                      <Text className={`text-[8px] font-black ${fuel === v ? 'text-white' : 'text-gray-600'}`}>{v}%</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+             </View>
+          </View>
 
-              <Text style={styles.label}>Chofer</Text>
-              <Text style={styles.value}>{turno.chofer || 'N/D'}</Text>
+          {/* 2. FOTO DEL TABLERO */}
+          <TouchableOpacity onPress={takePhoto} activeOpacity={0.9} className="mb-8 w-full h-40 bg-card rounded-[35px] border-2 border-dashed border-white/10 overflow-hidden items-center justify-center">
+            {photo ? <Image source={{ uri: photo }} className="w-full h-full" /> : (
+              <>
+                <MaterialIcons name="photo-camera" size={30} color="#60A5FA" />
+                <Text className="text-gray-500 text-[9px] font-bold mt-2 uppercase tracking-widest">Validar con foto de tablero</Text>
+              </>
+            )}
+          </TouchableOpacity>
 
-              <Text style={styles.label}>Descripción</Text>
-              <Text style={styles.value}>{turno.descripcion}</Text>
-
-              <TouchableOpacity
-                style={[styles.saveButton, { backgroundColor: '#111827', borderWidth: 1, borderColor: '#333' }]}
-                onPress={() => navigation.navigate('checklist/checklistitems', { numeroPatente: turno.numeroPatente, mecanico: 'Recepción' })}
-              >
-                <Text style={[styles.saveText, { color: '#60A5FA' }]}>Abrir Checklist de Ingreso</Text>
+          {/* 3. CHECKLIST DETALLADO */}
+          <View className="mb-8">
+            <Text className="text-gray-500 text-[10px] font-black uppercase tracking-[3px] mb-4 ml-2">Puntos de Control</Text>
+            {checklist.map((item, index) => (
+              <TouchableOpacity key={index} onPress={() => toggleItem(index)} className={`mb-3 p-5 rounded-[30px] border flex-row items-center ${item.completado ? 'bg-success/20 border-success' : 'bg-card border-white/5'}`}>
+                <View className={`p-3 rounded-2xl mr-4 ${item.completado ? 'bg-success/20' : 'bg-white/5'}`}><MaterialIcons name={item.icono as any} size={20} color={item.completado ? '#4ADE80' : '#444'} /></View>
+                <View className="flex-1">
+                  <Text className={`text-sm font-bold ${item.completado ? 'text-white' : 'text-gray-400'}`}>{item.nombre}</Text>
+                  <Text className="text-gray-600 text-[10px]">{item.descripcion}</Text>
+                </View>
+                {item.completado && <MaterialIcons name="verified" size={20} color="#4ADE80" />}
               </TouchableOpacity>
+            ))}
+          </View>
 
-              <TouchableOpacity style={styles.saveButton} onPress={handleSave} disabled={loading}>
-                <Text style={styles.saveText}>{loading ? 'Guardando...' : 'Vincular checklist y finalizar'}</Text>
-              </TouchableOpacity>
+          {/* 4. VERDICTO FINAL + OBSERVACIONES */}
+          <View className="mb-10">
+            <Text className="text-gray-500 text-[10px] font-black uppercase tracking-[3px] mb-4 ml-2">Veredicto del Chofer</Text>
+            <View className="flex-row space-x-2 mb-4">
+              <VeredictoBtn active={status === 'ok'} color="#4ADE80" label="TODO BIEN" icon="check" onPress={() => setStatus('ok')} />
+              <VeredictoBtn active={status === 'obs'} color="#FACC15" label="REVISIÓN" icon="visibility" onPress={() => setStatus('obs')} />
+              <VeredictoBtn active={status === 'crit'} color="#FF4C4C" label="FALLA CRÍTICA" icon="error" onPress={() => setStatus('crit')} />
             </View>
-          )}
+
+            <View className="bg-card border border-white/10 rounded-[30px] p-5">
+              <Text className="text-gray-500 text-[8px] font-bold uppercase mb-2">Notas u Observaciones del Chofer</Text>
+              <TextInput 
+                multiline numberOfLines={4} 
+                className="text-white text-sm" 
+                placeholder="Ej: Siento un ruido en la suspensión delantera derecha..." 
+                placeholderTextColor="#333"
+                value={observaciones}
+                onChangeText={setObservaciones}
+                textAlignVertical="top"
+              />
+            </View>
+          </View>
+
+          {/* 5. BOTÓN CONFIRMAR */}
+          <TouchableOpacity onPress={handleSubmit} activeOpacity={0.8} className="mb-12 overflow-hidden rounded-[30px] shadow-2xl shadow-primary/40">
+            <LinearGradient colors={['#60A5FA', '#2563EB']} className="py-6 items-center flex-row justify-center">
+              <Text className="text-white text-xl font-black italic uppercase">Confirmar Ingreso</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+
         </ScrollView>
       </LinearGradient>
     </SafeAreaView>
   );
 };
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#000' },
-  gradient: { flex: 1 },
-  content: { paddingHorizontal: 20, paddingTop: 24, paddingBottom: 60 },
-  header: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
-  backBtn: { marginRight: 12 },
-  title: { color: '#fff', fontSize: 20, fontWeight: '700' },
-  card: { backgroundColor: '#1E1E1E', padding: 14, borderRadius: 12, borderWidth: 1, borderColor: '#333' },
-  label: { color: '#888', fontSize: 12, marginTop: 8 },
-  value: { color: '#fff', fontSize: 14, fontWeight: '600' },
-  saveButton: { marginTop: 16, backgroundColor: '#60A5FA', padding: 14, borderRadius: 12, alignItems: 'center' },
-  saveText: { color: '#fff', fontWeight: '700' },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  errorText: { color: '#fff' },
-});
+const VeredictoBtn = ({ active, color, label, icon, onPress }: any) => (
+  <TouchableOpacity onPress={onPress} className={`flex-1 p-4 rounded-[25px] border items-center ${active ? '' : 'bg-card border-transparent'}`} style={active ? { backgroundColor: `${color}20`, borderColor: color } : {}}>
+    <MaterialIcons name={icon} size={20} color={active ? color : '#444'} />
+    <Text style={{ color: active ? color : '#444' }} className="text-[8px] font-black mt-1 text-center">{label}</Text>
+  </TouchableOpacity>
+);
 
-export default CheckinScreen;
+export default CheckInFullForm;

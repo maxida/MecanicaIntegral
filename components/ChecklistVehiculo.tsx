@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   View,
   StyleSheet,
+  Image,
   Text,
   TouchableOpacity,
   ScrollView,
@@ -15,7 +16,10 @@ import {
 import { MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRoute, useNavigation } from '@react-navigation/native';
+import { useSelector } from 'react-redux';
+import { RootState } from '@/redux/store';
 import { crearChecklist, Checklist, ItemChecklist, ITEMS_CHECKLIST_DEFECTO, actualizarChecklist } from '@/services/checklistService';
+import { createSolicitud } from '@/services/solicitudService';
 
 const ChecklistVehiculo = () => {
   const route = useRoute<any>();
@@ -27,6 +31,16 @@ const ChecklistVehiculo = () => {
   const [notas, setNotas] = useState('');
   const [loading, setLoading] = useState(false);
   const [guardado, setGuardado] = useState(false);
+  const [photoUri, setPhotoUri] = useState<string | null>(null);
+  const [adjuntando, setAdjuntando] = useState(false);
+  const [solicitudLoading, setSolicitudLoading] = useState(false);
+  const [solicitudError, setSolicitudError] = useState<string | null>(null);
+  const [solicitudSuccess, setSolicitudSuccess] = useState(false);
+
+  const [savedChecklistId, setSavedChecklistId] = useState<string | null>(null);
+
+  const user = useSelector((state: RootState) => state.login.user);
+  const role = useSelector((state: RootState) => state.login.rol);
 
   const toggleItem = (index: number) => {
     const nuevosItems = [...items];
@@ -52,7 +66,8 @@ const ChecklistVehiculo = () => {
         notas,
       };
 
-      await crearChecklist(checklistData);
+      const id = await crearChecklist(checklistData);
+      setSavedChecklistId(id);
       setGuardado(true);
       Alert.alert('Éxito', 'Checklist guardado correctamente');
     } catch (error) {
@@ -60,6 +75,80 @@ const ChecklistVehiculo = () => {
       console.error(error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handlePickPhoto = async () => {
+    setAdjuntando(true);
+    try {
+      // Intentar usar expo-image-picker si está disponible
+      const ImagePicker = await import('expo-image-picker').catch(() => null);
+      if (ImagePicker && ImagePicker.launchImageLibraryAsync) {
+        const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.7 });
+        if (!res.canceled && res.assets && res.assets.length > 0) {
+          setPhotoUri(res.assets[0].uri);
+        }
+      } else {
+        // Fallback: pedir al usuario pegar una URL
+        Alert.prompt?.('Adjuntar foto', 'Pega la URL de la foto si la tienes disponible', (text) => {
+          if (text) setPhotoUri(text);
+        });
+      }
+    } catch (err) {
+      console.warn('Error pick photo', err);
+      Alert.alert('Error', 'No se pudo adjuntar la foto');
+    } finally {
+      setAdjuntando(false);
+    }
+  };
+
+  const handleCrearSolicitud = async () => {
+    const clienteId = route.params?.clienteId || route.params?.cliente || null;
+    const supervisorId = user?.id || route.params?.supervisorId || null;
+
+    if (!clienteId) {
+      Alert.alert('Falta información', 'No se encontró el cliente asociado a este checklist');
+      return;
+    }
+
+    setSolicitudLoading(true);
+    setSolicitudError(null);
+    try {
+      const checklistId = savedChecklistId || route.params?.checklistId || undefined;
+
+      const payload: any = {
+        clienteId,
+        supervisorId: supervisorId || 'unknown-supervisor',
+        numeroPatente,
+        descripcion: notas,
+        photoUri: photoUri || undefined,
+        prioridad: 'medium',
+      };
+
+      if (checklistId) payload.checklistId = checklistId;
+      else payload.checklistData = {
+        items,
+        notas,
+        completado: items.every(i => i.completado),
+      };
+
+      const res = await createSolicitud(payload);
+
+      setSolicitudSuccess(true);
+      Alert.alert('Solicitud creada', 'La solicitud fue creada correctamente');
+      // Navegar a la pantalla de la solicitud creada (fallback a home si no hay id)
+      const solicitudId = res?.id;
+      if (solicitudId) {
+        navigation.navigate('solicitud', { id: solicitudId });
+      } else {
+        navigation.navigate('home');
+      }
+    } catch (err: any) {
+      console.error('Error creando solicitud', err);
+      setSolicitudError(err?.message || 'Error creando solicitud');
+      Alert.alert('Error', 'No se pudo crear la solicitud');
+    } finally {
+      setSolicitudLoading(false);
     }
   };
 
@@ -168,21 +257,79 @@ const ChecklistVehiculo = () => {
             />
           </View>
 
-          {/* Botón de guardar */}
-          <TouchableOpacity
-            style={[styles.saveButton, loading && styles.saveButtonDisabled]}
-            onPress={handleGuardarChecklist}
-            disabled={loading}
-          >
-            {loading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
+          {/* Botones de acciones */}
+          <View style={{ marginBottom: 16 }}>
+            <TouchableOpacity
+              style={[styles.saveButton, loading && styles.saveButtonDisabled]}
+              onPress={handleGuardarChecklist}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <>
+                  <MaterialIcons name="save" size={20} color="#000" />
+                  <Text style={styles.saveButtonText}>Guardar Checklist</Text>
+                </>
+              )}
+            </TouchableOpacity>
+
+            <View style={{ height: 12 }} />
+
+            <TouchableOpacity
+              style={[styles.saveButton, solicitudLoading && styles.saveButtonDisabled, { backgroundColor: '#60A5FA' }]}
+              onPress={handlePickPhoto}
+              disabled={adjuntando}
+            >
+              {adjuntando ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <>
+                  <MaterialIcons name="photo" size={20} color="#000" />
+                  <Text style={styles.saveButtonText}>Adjuntar Foto</Text>
+                </>
+              )}
+            </TouchableOpacity>
+
+            {photoUri && (
+              <View style={{ marginTop: 10, alignItems: 'center' }}>
+                <Image source={{ uri: photoUri }} style={{ width: 200, height: 120, borderRadius: 8 }} />
+                <Text style={{ color: '#888', marginTop: 6 }}>Foto adjunta</Text>
+              </View>
+            )}
+
+            <View style={{ height: 12 }} />
+
+            {role === 'supervisor' && (
               <>
-                <MaterialIcons name="save" size={20} color="#fff" />
-                <Text style={styles.saveButtonText}>Guardar Checklist</Text>
+                <TouchableOpacity
+                  style={[styles.saveButton, solicitudLoading && styles.saveButtonDisabled, { backgroundColor: '#4ADE80' }]}
+                  onPress={handleCrearSolicitud}
+                  disabled={solicitudLoading}
+                >
+                  {solicitudLoading ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <>
+                      <MaterialIcons name="send" size={20} color="#000" />
+                      <Text style={styles.saveButtonText}>Crear Solicitud (Supervisor)</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+
+                {solicitudError && (
+                  <Text style={{ color: '#FF4C4C', marginTop: 8 }}>{solicitudError}</Text>
+                )}
+
+                {solicitudSuccess && (
+                  <View style={styles.guardadoMessage}>
+                    <MaterialIcons name="check-circle" size={20} color="#4ADE80" />
+                    <Text style={styles.guardadoText}>Solicitud creada correctamente</Text>
+                  </View>
+                )}
               </>
             )}
-          </TouchableOpacity>
+          </View>
 
           {guardado && (
             <View style={styles.guardadoMessage}>

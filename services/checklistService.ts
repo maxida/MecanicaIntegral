@@ -91,3 +91,19 @@ export const ITEMS_CHECKLIST_DEFECTO: ItemChecklist[] = [
   { nombre: 'Revisar dirección', descripcion: 'Funcionalidad y holgura', completado: false, orden: 9 },
   { nombre: 'Revisar suspensión', descripcion: 'Amortiguadores y muelles', completado: false, orden: 10 },
 ];
+
+// Obtener todos los checklists (ordenados por fecha de creación desc)
+export const obtenerTodosChecklists = async (): Promise<Checklist[]> => {
+  try {
+    const q = query(collection(db, CHECKLIST_COLLECTION));
+    const querySnapshot = await getDocs(q);
+    const checklists: Checklist[] = [];
+    querySnapshot.forEach((doc) => {
+      checklists.push({ id: doc.id, ...doc.data() } as Checklist);
+    });
+    return checklists;
+  } catch (error) {
+    console.error('Error obteniendo todos los checklists:', error);
+    throw error;
+  }
+};

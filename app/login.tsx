@@ -1,49 +1,98 @@
-import { MaterialIcons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
-import { LinearGradient } from 'expo-linear-gradient';
 import React, { useState, useEffect, useRef } from 'react';
 import {
   ActivityIndicator,
-  Image,
   KeyboardAvoidingView,
   Platform,
   Text,
   TextInput,
   TouchableOpacity,
   View,
-  Alert,
+  Image,
   Modal,
-  Animated,
-  ScrollView,
+  Animated as RNAnimated,
 } from 'react-native';
+import { MaterialIcons } from '@expo/vector-icons';
+import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
 import { useDispatch } from 'react-redux';
 import { login, loginFailure } from '../redux/slices/loginSlice';
-import { loginWithEmail, obtenerRolUsuario } from '@/services/authService';
+import { loginWithEmail } from '@/services/authService';
+import Animated, { FadeInUp, FadeInDown, useSharedValue, useAnimatedStyle, withRepeat, withTiming, interpolate } from 'react-native-reanimated';
+
+const logoImg = require('../assets/images/logo-mecanica-integral.jpeg');
+// Sub-componente para Inputs con Efecto Premium
+const PremiumInput = ({ icon, label, ...props }: any) => (
+  <View className="mb-5">
+    <Text className="text-gray-500 text-[10px] uppercase font-black tracking-[2px] ml-4 mb-2">{label}</Text>
+    <View className="flex-row items-center bg-white/5 rounded-2xl px-4 py-4 border border-white/10 focus:border-primary/50">
+      <MaterialIcons name={icon} size={18} color="#60A5FA" />
+      <TextInput
+        className="flex-1 text-white text-base ml-4"
+        placeholderTextColor="#444"
+        autoCapitalize="none"
+        {...props}
+      />
+    </View>
+  </View>
+);
 
 const LoginScreen = () => {
+  const router = useRouter();
+  const dispatch = useDispatch();
+
+  // Estados de Lógica
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const navigation = useNavigation<any>();
-  const dispatch = useDispatch();
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+
+  // Estados Biométricos
   const [biometricModalVisible, setBiometricModalVisible] = useState(false);
   const [biometricLoading, setBiometricLoading] = useState(false);
-  const fingerPrintAnim = useRef(new Animated.Value(1)).current;
-  const animRef = useRef<any>(null);
+  // Animaciones
+  const glowAnim = useSharedValue(0);
+  const fingerPrintAnim = useRef(new RNAnimated.Value(1)).current;
+
+  useEffect(() => {
+    glowAnim.value = withRepeat(withTiming(1, { duration: 3000 }), -1, true);
+  }, []);
+
+  const animatedGlow = useAnimatedStyle(() => ({
+    opacity: interpolate(glowAnim.value, [0, 1], [0.4, 0.8]),
+    transform: [{ scale: interpolate(glowAnim.value, [0, 1], [1, 1.1]) }],
+  }));
 
   const handleLogin = async () => {
+    if (!username.trim() || !password) {
+      setError('Por favor completa todos los campos');
+      return;
+    }
+
     setError(null);
     setIsLoading(true);
+
     try {
-      const usuario = await loginWithEmail(username, password);
-      dispatch(login({ usuario, rol: usuario.rol }));
-      navigation.navigate('home');
-    } catch (e: any) {
-      const mensaje = e?.message || 'Error al iniciar sesión';
-      setError(mensaje);
-      dispatch(loginFailure({ error: mensaje }));
+      const usuarioAuth = await loginWithEmail(username.trim().toLowerCase(), password);
+
+      dispatch(login({
+        usuario: {
+          username: usuarioAuth.email,
+          email: usuarioAuth.email,
+          rol: usuarioAuth.rol,
+          id: usuarioAuth.uid,
+          nombre: usuarioAuth.displayName || usuarioAuth.email.split('@')[0],
+        },
+        rol: usuarioAuth.rol,
+      }));
+
+      // Navegación con Expo Router
+      router.replace('/home');
+    } catch (err: any) {
+      const msg = err.message || 'Error al iniciar sesión';
+      setError(msg);
+      dispatch(loginFailure({ error: msg }));
     } finally {
       setIsLoading(false);
     }
@@ -52,164 +101,134 @@ const LoginScreen = () => {
   const handleBiometricLogin = async () => {
     setBiometricModalVisible(true);
     setBiometricLoading(true);
-    // simulate biometric flow
+
+    // Animación de huella
+    RNAnimated.loop(
+      RNAnimated.sequence([
+        RNAnimated.timing(fingerPrintAnim, { toValue: 1.2, duration: 600, useNativeDriver: true }),
+        RNAnimated.timing(fingerPrintAnim, { toValue: 1, duration: 600, useNativeDriver: true }),
+      ])
+    ).start();
+
+    // Simulación de éxito (Aquí iría tu lógica de LocalAuthentication si la agregás después)
     setTimeout(() => {
       setBiometricLoading(false);
       setBiometricModalVisible(false);
-    }, 1500);
+      // Por ahora solo cerramos, pero podrías disparar un login automático de Santiago
+    }, 2000);
   };
-
-  useEffect(() => {
-    if (biometricModalVisible) {
-      animRef.current = Animated.loop(
-        Animated.sequence([
-          Animated.timing(fingerPrintAnim, { toValue: 1.15, duration: 600, useNativeDriver: true }),
-          Animated.timing(fingerPrintAnim, { toValue: 1, duration: 600, useNativeDriver: true }),
-        ])
-      );
-      animRef.current.start();
-    } else {
-      animRef.current?.stop?.();
-      fingerPrintAnim.setValue(1);
-    }
-    return () => animRef.current?.stop?.();
-  }, [biometricModalVisible]);
   return (
-    <View className="flex-1 bg-black">
-      <LinearGradient
-        colors={["#000000", "#1a0505"]}
-        style={{ flex: 1 }}
-      >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          className="flex-1 justify-center px-6 pt-10 pb-15"
-        >
-          <View className="items-center mb-10">
-            <Image
-              source={require('../assets/images/logo-mecanica-integral.jpeg')}
-              style={{ width: 250, height: 160 }}
-              resizeMode="contain"
-            />
-          </View>
+    <View className="flex-1 bg-surface">
+      {/* Fondo con Spotlights Dinámicos */}
+      <View className="absolute inset-0 overflow-hidden">
+        <View className="absolute -top-20 -left-20 w-80 h-80 bg-danger/20 rounded-full blur-[100px]" />
+        <View className="absolute top-1/2 -right-20 w-60 h-60 bg-primary/10 rounded-full blur-[80px]" />
+      </View>
 
-          <View className="w-full max-w-md mx-auto">
-            <View className="bg-card/95 rounded-3xl border border-[#222] p-6 shadow-lg">
-              <Text className="text-3xl font-extrabold text-white text-center mb-1">Bienvenido</Text>
-              <Text className="text-sm text-[#9CA3AF] text-center mb-6">Gestión Integral de Taller</Text>
+      <LinearGradient colors={["transparent", "#000"]} className="flex-1">
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} className="flex-1 justify-center items-center px-8">
 
-              <View className="flex-row items-center bg-surface rounded-lg px-4 py-3 mb-4 border border-[#2b2b2b]">
-                <MaterialIcons name="email" size={20} color="#9CA3AF" style={{ marginRight: 12 }} />
-                <TextInput
-                  accessibilityLabel="Email"
-                  autoComplete="email"
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  className="flex-1 text-white text-base"
-                  placeholder="Email"
-                  placeholderTextColor="#9CA3AF"
-                  value={username}
-                  onChangeText={setUsername}
+          <Animated.View entering={FadeInUp.delay(200).duration(1000)} className="w-full max-w-sm monitor:max-w-[450px]">
+
+            {/* Logo con Aura Técnica */}
+            <View className="items-center mb-14">
+              <Animated.View style={animatedGlow} className="absolute w-32 h-32 bg-danger rounded-full blur-[50px]" />
+              <View className="bg-black p-6 rounded-[35px] border border-white/10 shadow-2xl">
+                <Image
+                  source={logoImg}
+                  // Ajustamos el tamaño para que entre bien en el diseño sin ser gigante
+                  style={{ width: 220, height: 140 }}
+                  resizeMode="contain"
+                  // Redondeamos un poco la imagen misma para suavizarla
+                  borderRadius={20}
                 />
               </View>
+              <View className="mt-4 items-center">
+                <Text className="text-white text-5xl font-black tracking-tighter italic">MIT</Text>
+                <View className="h-[2px] w-10 bg-danger my-1" />
+                <Text className="text-gray-500 font-bold tracking-[5px] uppercase text-[10px]">Industrial Systems</Text>
+              </View>
+            </View>
 
-              <View className="flex-row items-center bg-surface rounded-lg px-4 py-3 mb-4 border border-[#2b2b2b]">
-                <MaterialIcons name="lock-outline" size={20} color="#9CA3AF" style={{ marginRight: 12 }} />
-                <TextInput
-                  accessibilityLabel="Contraseña"
-                  className="flex-1 text-white text-base"
-                  placeholder="Contraseña"
-                  placeholderTextColor="#9CA3AF"
-                  secureTextEntry={!showPassword}
-                  value={password}
-                  onChangeText={setPassword}
-                />
-                <TouchableOpacity accessibilityRole="button" accessibilityLabel="Mostrar contraseña" onPress={() => setShowPassword(!showPassword)}>
-                  <MaterialIcons
-                    name={showPassword ? 'visibility-off' : 'visibility'}
-                    size={20}
-                    color="#9CA3AF"
+            {/* Tarjeta Glassmorphism */}
+            <Animated.View entering={FadeInDown.delay(400).duration(800)}>
+              <BlurView intensity={20} tint="dark" className="rounded-[45px] overflow-hidden border border-white/10 shadow-2xl">
+                <View className="p-8 bg-black/40">
+                  <Text className="text-white text-2xl font-bold mb-8 tracking-tight">Acceso de Personal</Text>
+
+                  <PremiumInput 
+                    label="Email Corporativo" 
+                    icon="person-outline" 
+                    placeholder="santiago@mit.com"
+                    value={username}
+                    onChangeText={setUsername}
                   />
-                </TouchableOpacity>
-              </View>
 
-              {error ? (
-                <View className="flex-row items-center mb-4 p-3 rounded-md bg-[rgba(255,76,76,0.08)] border border-[rgba(255,76,76,0.12)]">
-                  <MaterialIcons name="error-outline" size={16} color="#FF4C4C" />
-                  <Text className="text-[#FF4C4C] text-sm font-semibold ml-2">{error}</Text>
-                </View>
-              ) : null}
+                  <PremiumInput 
+                    label="Clave de Seguridad" 
+                    icon="lock-open" 
+                    placeholder="••••••••" 
+                    secureTextEntry={!showPassword}
+                    value={password}
+                    onChangeText={setPassword}
+                  />
 
-              <TouchableOpacity onPress={handleLogin} disabled={isLoading} activeOpacity={0.85} className="rounded-xl overflow-hidden">
-                <LinearGradient colors={["#FF6B6B", "#FF4C4C"]} style={{ borderRadius: 12 }}>
-                  <View className={`py-4 items-center ${isLoading ? 'opacity-60' : ''}`}>
+                  {error && (
+                    <View className="bg-danger/10 border border-danger/20 p-3 rounded-xl mb-6 flex-row items-center">
+                      <MaterialIcons name="error-outline" size={16} color="#FF4C4C" />
+                      <Text className="text-danger text-[11px] font-bold ml-2">{error}</Text>
+                    </View>
+                  )}
+                  <TouchableOpacity 
+                    onPress={handleLogin}
+                    disabled={isLoading}
+                    activeOpacity={0.8}
+                    className="bg-danger py-5 rounded-2xl flex-row justify-center items-center shadow-lg shadow-danger/50 mt-2"
+                  >
                     {isLoading ? (
                       <ActivityIndicator color="white" />
                     ) : (
-                      <Text className="text-white text-lg font-extrabold">INGRESAR</Text>
+                      <>
+                        <Text className="text-white font-black text-lg mr-2 uppercase italic">Conectar</Text>
+                        <MaterialIcons name="power-settings-new" size={20} color="white" />
+                      </>
                     )}
-                  </View>
-                </LinearGradient>
-              </TouchableOpacity>
+                  </TouchableOpacity>
 
-              <View className="flex-row items-center my-5">
-                <View className="flex-1 h-[1px] bg-[#2b2b2b]" />
-                <Text className="mx-3 text-[#9CA3AF] text-sm">O</Text>
-                <View className="flex-1 h-[1px] bg-[#2b2b2b]" />
-              </View>
+                  <TouchableOpacity className="mt-8 items-center">
+                    <Text className="text-primary/60 font-bold text-[11px] uppercase tracking-widest">¿Olvidaste tu acceso?</Text>
+                  </TouchableOpacity>
+                </View>
+              </BlurView>
+            </Animated.View>
 
-              <TouchableOpacity
-                onPress={handleBiometricLogin}
-                disabled={isLoading}
-                className={`rounded-lg py-3 items-center flex-row justify-center border ${isLoading ? 'opacity-60' : ''}`}
-                style={{ borderColor: '#274C77', backgroundColor: 'rgba(96,165,250,0.08)' }}
-              >
-                <MaterialIcons name="fingerprint" size={22} color="#60A5FA" />
-                <Text className="text-primary text-sm font-semibold ml-3">Usar huella digital</Text>
-              </TouchableOpacity>
+            {/* Footer Técnico */}
+            <View className="mt-12 flex-row justify-center items-center opacity-30">
+              <View className="h-[1px] w-8 bg-white" />
+              <Text className="text-white text-[9px] font-mono mx-3 tracking-tighter">SECURED CONNECTION // TERMINAL_ID: 00492</Text>
+              <View className="h-[1px] w-8 bg-white" />
             </View>
-          </View>
 
-          <Text className="text-[#444] text-center mt-8 text-sm">v1.0.4 - Mecánica Integral</Text>
+          </Animated.View>
         </KeyboardAvoidingView>
       </LinearGradient>
-
-      {/* Modal de escaneo de huella */}
-      <Modal
-        animationType="fade"
-        transparent={true}
-        visible={biometricModalVisible}
-        onRequestClose={() => !biometricLoading && setBiometricModalVisible(false)}
-      >
-        <View className="flex-1 justify-center items-center" style={{ backgroundColor: 'rgba(0,0,0,0.9)' }}>
-          <View className="bg-card rounded-2xl p-8 items-center border border-[#333]" style={{ width: '85%' }}>
-            <Text className="text-xl font-bold text-white mb-6 text-center">Escanea tu huella digital</Text>
-            
-            <Animated.View style={{ transform: [{ scale: fingerPrintAnim }] }}>
+    {/* Modal Biométrico */}
+      <Modal visible={biometricModalVisible} transparent animationType="fade">
+        <View className="flex-1 justify-center items-center bg-black/90">
+          <View className="bg-card border border-white/10 rounded-[40px] p-10 items-center w-[80%] max-w-[320px]">
+            <Text className="text-white text-lg font-black mb-8 text-center">Verificando Identidad</Text>
+            <RNAnimated.View style={{ transform: [{ scale: fingerPrintAnim }] }}>
               <MaterialIcons name="fingerprint" size={80} color="#60A5FA" />
-            </Animated.View>
-            
-            {biometricLoading ? (
-              <>
-                <Text className="text-[#888] text-base mt-5">Escaneando...</Text>
-                <ActivityIndicator size="large" color="#60A5FA" style={{ marginTop: 20 }} />
-              </>
-            ) : (
-              <Text className="text-[#888] text-base mt-5">Coloca tu dedo en el sensor</Text>
-            )}
-
-            {!biometricLoading && (
-              <TouchableOpacity
-                onPress={() => setBiometricModalVisible(false)}
-                className="mt-6 px-5 py-2 rounded-md border border-[#666]"
-              >
-                <Text className="text-white font-semibold">Cancelar</Text>
-              </TouchableOpacity>
-            )}
+            </RNAnimated.View>
+            {biometricLoading && <ActivityIndicator color="#60A5FA" className="mt-6" />}
+            <TouchableOpacity onPress={() => setBiometricModalVisible(false)} className="mt-8">
+              <Text className="text-danger font-bold text-[10px] uppercase tracking-[3px]">Cancelar</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
     </View>
   );
-}
+};
 
 export default LoginScreen;

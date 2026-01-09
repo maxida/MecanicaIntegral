@@ -1,229 +1,137 @@
-import { MaterialIcons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect, useState } from 'react';
-import {
-  View,
-  Text,
-  ScrollView,
-  SafeAreaView,
-  TouchableOpacity,
-} from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { View, Text, ScrollView, SafeAreaView, TouchableOpacity, useWindowDimensions } from 'react-native';
+import { MaterialIcons, FontAwesome5, Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 import { useDispatch, useSelector } from 'react-redux';
+import { useRouter } from 'expo-router';
 import { RootState } from '@/redux/store';
 import { setTurnos } from '@/redux/slices/turnosSlice';
 import { obtenerTurnos, suscribirseATurnos } from '@/services/turnosService';
 import LoadingOverlay from '@/components/LoadingOverlay';
+import Animated, { FadeInUp, FadeInRight } from 'react-native-reanimated';
 
 const ClienteDashboard = ({ onLogout }: { onLogout?: () => void }) => {
-  const navigation = useNavigation<any>();
+  const router = useRouter();
   const dispatch = useDispatch();
   const user = useSelector((state: RootState) => state.login.user);
   const turnos = useSelector((state: RootState) => state.turnos.turnos);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    // Cargar datos iniciales
-    const loadTurnos = async () => {
-      setLoading(true);
-      try {
-        const turnosData = await obtenerTurnos();
-        dispatch(setTurnos(turnosData));
-      } catch (error) {
-        console.error('Error cargando turnos:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadTurnos();
-
-    // Configurar listener en tiempo real
-    const unsubscribe = suscribirseATurnos((turnosData) => {
-      dispatch(setTurnos(turnosData));
-    });
-
-    // Cleanup: desuscribirse cuando el componente se desmonte
+    const unsubscribe = suscribirseATurnos((data) => dispatch(setTurnos(data)));
     return () => unsubscribe();
   }, [dispatch]);
 
-  // Filtrar turnos del cliente actual
-  const misTurnos = turnos.filter(t => t.clienteId === user?.id);
-  const ultimaSolicitud = misTurnos.sort((a, b) => new Date(b.fechaCreacion).getTime() - new Date(a.fechaCreacion).getTime())[0];
-  const historialCompletado = misTurnos.filter(t => t.estado === 'completed');
-
-  // Información del camión (por ahora hardcodeada, pero podríamos mejorarla)
-  const camion = {
-    patente: 'ABC-123',
-    modelo: 'Volvo FH16',
-    año: 2020,
-    marca: 'Volvo',
-    tipo: 'Camión Volquete',
-    estado: ultimaSolicitud ? (ultimaSolicitud.estado === 'completed' ? 'Disponible' : 'En Reparación') : 'Disponible',
-    ultimoServicio: ultimaSolicitud ? ultimaSolicitud.fechaCreacion : '2025-12-15',
-  };
-
-  const getEstadoColor = (estado: string) => {
-    switch (estado) {
-      case 'pending': return '#FACC15';
-      case 'scheduled': return '#60A5FA';
-      case 'in_progress': return '#4ADE80';
-      case 'completed': return '#A855F7';
-      default: return '#888';
-    }
-  };
-
-  const getEstadoText = (estado: string) => {
-    switch (estado) {
-      case 'pending': return 'Pendiente';
-      case 'scheduled': return 'Programado';
-      case 'in_progress': return 'En Proceso';
-      case 'completed': return 'Completado';
-      default: return estado;
-    }
+  // Simulamos la vinculación del camión según el usuario logueado
+  const camionAsignado = {
+    patente: 'AE-744-GT',
+    modelo: 'Scania R500 V8',
+    kmActual: '45.200 km',
+    combustible: '75%',
+    ultimoCheckin: 'Ayer, 18:30 hs'
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-black">
-      <LinearGradient colors={['#000000', '#121212']} style={{ flex: 1 }}>
-        <ScrollView className="px-5 pt-10 pb-15">
-          {loading && <LoadingOverlay message="Cargando datos..." />}
-          {/* Header with Logout Button */}
-          <View className="mb-6 px-5">
-            <View className="flex-row justify-between items-start">
-              <View>
-                <Text className="text-2xl font-bold text-white">Mi Camión</Text>
-                <Text className="text-sm text-[#888] mt-1">Información y servicios</Text>
-              </View>
-              {onLogout && (
-                <TouchableOpacity
-                  className="rounded-xl p-3"
-                  style={{ backgroundColor: '#FF4C4C20', borderWidth: 1, borderColor: '#FF4C4C40' }}
-                  onPress={onLogout}
-                >
-                  <MaterialIcons name="logout" size={20} color="#FF4C4C" />
-                </TouchableOpacity>
-              )}
+    <SafeAreaView className="flex-1 bg-surface">
+      <LinearGradient colors={['#0b0b0b', '#000']} className="flex-1 px-6">
+        <ScrollView showsVerticalScrollIndicator={false} className="pt-8">
+          
+          {/* HEADER CHOFER */}
+          <View className="flex-row justify-between items-center mb-10">
+            <View>
+              <Text className="text-gray-500 text-[10px] font-black uppercase tracking-[3px]">Unidad Asignada</Text>
+              <Text className="text-white text-3xl font-black italic">{camionAsignado.patente}</Text>
+              <Text className="text-primary/80 font-bold text-xs">Chofer: {user?.nombre || 'Operador'}</Text>
             </View>
-          </View>
-
-          {/* Camion Card */}
-          <View className="bg-card rounded-xl border border-[#333] p-5 mb-6">
-            <View className="flex-row justify-between items-start border-b border-[#2A2A2A] pb-4 mb-4">
-              <View>
-                <Text className="text-xl font-bold text-white">{camion.patente}</Text>
-                <Text className="text-xs text-[#888] mt-1">{camion.modelo}</Text>
-              </View>
-              <View className="flex-row items-center px-3 py-1 rounded-md" style={{ backgroundColor: '#FF4C4C30' }}>
-                <View className="w-2 h-2 rounded-full mr-2" style={{ backgroundColor: '#FF4C4C' }} />
-                <Text className="text-sm font-semibold" style={{ color: '#FF4C4C' }}>En Reparación</Text>
-              </View>
-            </View>
-
-            <View className="flex-row flex-wrap justify-between">
-              <View className="w-1/2 mb-3">
-                <Text className="text-xs text-[#888]">Marca</Text>
-                <Text className="text-sm font-semibold text-white mt-1">{camion.marca}</Text>
-              </View>
-              <View className="w-1/2 mb-3">
-                <Text className="text-xs text-[#888]">Año</Text>
-                <Text className="text-sm font-semibold text-white mt-1">{camion.año}</Text>
-              </View>
-              <View className="w-1/2 mb-3">
-                <Text className="text-xs text-[#888]">Tipo</Text>
-                <Text className="text-sm font-semibold text-white mt-1">{camion.tipo}</Text>
-              </View>
-              <View className="w-1/2 mb-3">
-                <Text className="text-xs text-[#888]">Último Servicio</Text>
-                <Text className="text-sm font-semibold text-white mt-1">{camion.ultimoServicio}</Text>
-              </View>
-            </View>
-          </View>
-
-          {/* Actions */}
-          <View className="flex-row space-x-3 mb-6">
-            <TouchableOpacity className="flex-1 bg-danger rounded-lg py-4 items-center flex-row justify-center" onPress={() => navigation.navigate('solicitud')}>
-              <MaterialIcons name="add" size={24} color="#fff" />
-              <Text className="text-sm font-semibold text-white ml-2">Nueva Solicitud</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity className="flex-1 bg-card border border-[#333] rounded-lg py-4 items-center flex-row justify-center">
-              <MaterialIcons name="visibility" size={24} color="#60A5FA" />
-              <Text className="text-sm font-semibold text-primary ml-2">Ver Estado</Text>
+            <TouchableOpacity 
+              onPress={onLogout}
+              className="w-12 h-12 rounded-2xl bg-danger/10 border border-danger/20 items-center justify-center"
+            >
+              <MaterialIcons name="logout" size={20} color="#FF4C4C" />
             </TouchableOpacity>
           </View>
 
-          {/* Estado de Última Solicitud */}
-          {ultimaSolicitud && (
-            <View className="mb-6">
-              <Text className="text-lg font-bold text-white mb-3">Estado de Última Solicitud</Text>
-              <View className="bg-card rounded-lg p-4 border border-[#333]">
-                <View className="flex-row justify-between items-start mb-3">
-                  <View className="flex-1">
-                    <Text className="text-base font-bold text-white">{ultimaSolicitud.numeroPatente}</Text>
-                    <Text className="text-xs text-[#888]">Creada: {new Date(ultimaSolicitud.fechaCreacion).toLocaleDateString('es-ES')}</Text>
+          {/* BOTÓN DE ACCIÓN PRINCIPAL: CHECK-IN AL GALPÓN */}
+          <Animated.View entering={FadeInUp.delay(200)}>
+            <TouchableOpacity 
+              activeOpacity={0.9}
+              onPress={() => router.push('/checkin')} // Esta es la ruta del nuevo formulario
+              className="mb-8 overflow-hidden rounded-[40px] border border-primary/30 shadow-2xl shadow-primary/20"
+            >
+              <LinearGradient colors={['#60A5FA', '#2563EB']} start={{x:0, y:0}} end={{x:1, y:1}} className="p-8 flex-row items-center justify-between">
+                <View className="flex-1">
+                  <Text className="text-white text-2xl font-black italic uppercase">Ingreso al Galpón</Text>
+                  <Text className="text-white/80 text-xs font-bold mt-1">INICIAR CHECKLIST DE ENTRADA</Text>
+                </View>
+                <View className="bg-white/20 p-4 rounded-full">
+                  <MaterialIcons name="local-shipping" size={32} color="white" />
+                </View>
+              </LinearGradient>
+            </TouchableOpacity>
+          </Animated.View>
+
+          {/* STATUS ACTUAL DEL CAMIÓN */}
+          <View className="flex-row justify-between mb-8">
+            <BlurView intensity={10} tint="dark" className="flex-1 mr-2 rounded-3xl border border-white/5 overflow-hidden">
+              <View className="p-5 bg-card/40 items-center">
+                <MaterialIcons name="speed" size={20} color="#60A5FA" />
+                <Text className="text-white font-black text-lg mt-2">{camionAsignado.kmActual}</Text>
+                <Text className="text-gray-600 text-[9px] uppercase font-bold">Odómetro</Text>
+              </View>
+            </BlurView>
+
+            <BlurView intensity={10} tint="dark" className="flex-1 ml-2 rounded-3xl border border-white/5 overflow-hidden">
+              <View className="p-5 bg-card/40 items-center">
+                <MaterialIcons name="local-gas-station" size={20} color="#4ADE80" />
+                <Text className="text-white font-black text-lg mt-2">{camionAsignado.combustible}</Text>
+                <Text className="text-gray-600 text-[9px] uppercase font-bold">Tanque</Text>
+              </View>
+            </BlurView>
+          </View>
+
+          {/* ACCIONES SECUNDARIAS */}
+          <View className="flex-row space-x-4 mb-10">
+            <TouchableOpacity 
+              onPress={() => router.push('/solicitud')}
+              className="flex-1 bg-card border border-white/5 p-6 rounded-[35px] items-center"
+            >
+              <View className="bg-danger/10 p-3 rounded-2xl mb-3">
+                <MaterialIcons name="report-problem" size={24} color="#FF4C4C" />
+              </View>
+              <Text className="text-white font-bold text-xs uppercase text-center">Reportar Falla</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity className="flex-1 bg-card border border-white/5 p-6 rounded-[35px] items-center">
+              <View className="bg-primary/10 p-3 rounded-2xl mb-3">
+                <MaterialIcons name="history" size={24} color="#60A5FA" />
+              </View>
+              <Text className="text-white font-bold text-xs uppercase text-center">Mis Viajes</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* HISTORIAL TÉCNICO (Compacto) */}
+          <Text className="text-gray-500 text-[10px] font-black uppercase tracking-[3px] mb-4">Últimas Intervenciones</Text>
+          {turnos.filter(t => t.estado === 'completed').slice(0, 2).map((turno, idx) => (
+            <Animated.View key={turno.id} entering={FadeInRight.delay(idx * 100)}>
+              <BlurView intensity={5} tint="dark" className="mb-3 rounded-2xl border border-white/5 overflow-hidden">
+                <View className="p-4 bg-card/40 flex-row items-center">
+                  <View className="bg-success/10 p-2 rounded-lg mr-4">
+                    <MaterialIcons name="check" size={18} color="#4ADE80" />
                   </View>
-                  <View className="px-3 py-1 rounded-md" style={{ backgroundColor: `${getEstadoColor(ultimaSolicitud.estado)}20` }}>
-                    <Text className="text-sm font-semibold" style={{ color: getEstadoColor(ultimaSolicitud.estado) }}>{getEstadoText(ultimaSolicitud.estado)}</Text>
+                  <View className="flex-1">
+                    <Text className="text-white font-bold text-sm">{turno.descripcion}</Text>
+                    <Text className="text-gray-500 text-[10px]">{new Date(turno.fechaCreacion).toLocaleDateString()}</Text>
                   </View>
                 </View>
-                <Text className="text-sm text-[#ccc] mb-3">{ultimaSolicitud.descripcion}</Text>
-                {ultimaSolicitud.chofer && (<Text className="text-xs text-[#888]">Chofer: {ultimaSolicitud.chofer}</Text>)}
-              </View>
-            </View>
-          )}
+              </BlurView>
+            </Animated.View>
+          ))}
 
-          {/* Historial */}
-          <View className="mb-6">
-            <View className="flex-row justify-between items-center mb-3">
-              <Text className="text-lg font-bold text-white">Historial de Servicios</Text>
-              <TouchableOpacity>
-                <Text className="text-sm text-primary font-semibold">Ver más</Text>
-              </TouchableOpacity>
-            </View>
-
-            {historialCompletado.length === 0 ? (
-              <View className="items-center py-10">
-                <MaterialIcons name="history" size={48} color="#666" />
-                <Text className="text-[#888] mt-4">No hay servicios completados</Text>
-              </View>
-            ) : (
-              historialCompletado.slice(0, 4).map(turno => (
-                <TouchableOpacity key={turno.id} className="flex-row justify-between items-center bg-card rounded-lg p-3 mb-3 border border-[#333]">
-                  <View className="flex-row items-center flex-1">
-                    <View className="w-9 h-9 rounded-lg bg-[rgba(74,222,128,0.12)] items-center justify-center mr-3">
-                      <MaterialIcons name="build" size={20} color="#4ADE80" />
-                    </View>
-                    <View className="flex-1">
-                      <Text className="text-sm font-semibold text-white">{turno.descripcion}</Text>
-                      <Text className="text-xs text-[#888]">{new Date(turno.fechaCreacion).toLocaleDateString('es-ES')}</Text>
-                    </View>
-                  </View>
-                  <View className="items-end">
-                    <Text className="text-sm font-bold text-success">{turno.numeroPatente}</Text>
-                    <View className="mt-2 px-2 py-1 rounded-md" style={{ backgroundColor: '#4ADE8030' }}>
-                      <Text className="text-xs font-semibold" style={{ color: '#4ADE80' }}>{getEstadoText(turno.estado)}</Text>
-                    </View>
-                  </View>
-                </TouchableOpacity>
-              ))
-            )}
-          </View>
-
-          {/* Support Card */}
-          <View className="flex-row items-center bg-card rounded-lg p-4 border border-[#333]">
-            <View className="w-12 h-12 rounded-lg bg-[rgba(96,165,250,0.12)] items-center justify-center mr-3">
-              <MaterialIcons name="headset-mic" size={28} color="#60A5FA" />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text className="text-sm font-semibold text-white">¿Necesitas ayuda?</Text>
-              <Text className="text-xs text-[#888] mt-1">Contáctanos para cualquier consulta sobre tus servicios</Text>
-            </View>
-            <MaterialIcons name="chevron-right" size={24} color="#666" />
-          </View>
         </ScrollView>
       </LinearGradient>
     </SafeAreaView>
   );
-}
+};
 
 export default ClienteDashboard;
