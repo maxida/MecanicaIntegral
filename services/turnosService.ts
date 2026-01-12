@@ -39,6 +39,21 @@ export const agregarNuevoTurno = async (turno: Omit<Turno, 'id'>): Promise<strin
   }
 };
 
+// Alias más claro para el servicio de creación
+export const crearTurnoService = async (payload: Record<string, any>): Promise<string> => {
+  // Permitimos payload flexible y añadimos fechaCreacion
+  try {
+    const docRef = await addDoc(collection(db, TURNOS_COLLECTION), {
+      ...payload,
+      fechaCreacion: new Date().toISOString(),
+    });
+    return docRef.id;
+  } catch (error) {
+    console.error('Error creando turno:', error);
+    throw error;
+  }
+};
+
 // Actualizar turno
 export const actualizarTurnoService = async (id: string, turno: Partial<Turno>): Promise<void> => {
   try {
@@ -131,4 +146,24 @@ export const suscribirseATurnos = (callback: (turnos: Turno[]) => void) => {
   }, (error) => {
     console.error('Error en listener de turnos:', error);
   });
+};
+
+// Suscribirse únicamente a turnos en estado 'pending_triage'
+export const suscribirseAPendingTriage = (callback: (turnos: Turno[]) => void) => {
+  try {
+    const { query: qFn, where } = require('firebase/firestore');
+    const q = qFn(collection(db, TURNOS_COLLECTION), where('estado', '==', 'pending_triage'), orderBy('fechaCreacion', 'desc'));
+    return onSnapshot(q, (querySnapshot: any) => {
+      const turnos: Turno[] = [];
+      querySnapshot.forEach((doc: any) => {
+        turnos.push({ id: doc.id, ...doc.data() } as Turno);
+      });
+      callback(turnos);
+    }, (error: any) => {
+      console.error('Error en listener pending_triage:', error);
+    });
+  } catch (error) {
+    console.error('Error creando suscripción pending_triage:', error);
+    return () => {};
+  }
 };

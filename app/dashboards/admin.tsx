@@ -4,7 +4,7 @@ import { MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { useDispatch, useSelector } from 'react-redux';
-import { useRouter } from 'expo-router';
+import { useNavigation } from '@react-navigation/native';
 import { RootState } from '@/redux/store';
 import { actualizarTurno, setTurnos } from '@/redux/slices/turnosSlice';
 import { setFlagConFactura } from '@/redux/slices/invoiceSlice';
@@ -44,12 +44,12 @@ const KanbanColumn = ({ title, data, color, icon, renderCard }: any) => (
   </View>
 );
 
-const AdminDashboard = () => {
+const AdminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
   const dispatch = useDispatch();
-  const router = useRouter();
+  const navigation = useNavigation<any>();
   const { width } = useWindowDimensions();
   const isMonitor = width > 1024;
-  
+
   const turnos = useSelector((state: RootState) => state.turnos.turnos);
   const [loading, setLoading] = useState(false);
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
@@ -77,37 +77,54 @@ const AdminDashboard = () => {
     } catch (e) { console.error(e); }
   };
 
-  const renderTurnoCard = (turno: any) => (
-    <BlurView key={turno.id} intensity={5} className="mb-4 rounded-3xl border border-white/5 overflow-hidden">
-      <TouchableOpacity activeOpacity={0.9} className="p-4 bg-card/60">
-        <View className="flex-row justify-between items-start mb-3">
-          <View>
-            <Text className="text-white font-bold text-base leading-tight">{turno.chofer || 'S/D'}</Text>
-            <Text className="text-primary font-mono text-xs mt-1 tracking-tighter">{turno.numeroPatente}</Text>
-          </View>
-          <View className="bg-white/5 px-2 py-1 rounded-md">
-             <Text className="text-[10px] text-gray-500 font-bold italic">{turno.tipo}</Text>
-          </View>
-        </View>
+  const renderTurnoCard = (turno: any) => {
+    // CORRECCIÓN: Buscamos "alert" que es como viene de tu DB
+    const isAlert = turno.estadoGeneral === 'alert';
 
-        <Text className="text-gray-400 text-xs mb-4" numberOfLines={2}>{turno.descripcion}</Text>
+    return (
+      <BlurView key={turno.id} intensity={5}
+        // Si es alert, ponemos un borde rojo sutil
+        className={`mb-4 rounded-3xl border ${isAlert ? 'border-danger/50' : 'border-white/5'} overflow-hidden`}
+      >
+        <TouchableOpacity
+          activeOpacity={0.9}
+          onPress={() => { setSelectedTurno(turno); setModalVisible(true); }}
+          className="p-4 bg-card/60"
+        >
+          <View className="flex-row justify-between items-start mb-3">
+            <View>
+              <Text className="text-white font-bold text-base leading-tight">{turno.chofer || 'Chofer no identificado'}</Text>
+              {/* CORRECCIÓN: Mostramos numeroPatente */}
+              <Text className="text-primary font-mono text-xs mt-1 tracking-tighter">
+                {turno.numeroPatente === "S/D" ? "⚠️ SIN PATENTE" : turno.numeroPatente}
+              </Text>
+            </View>
 
-        <View className="flex-row justify-between items-center border-t border-white/5 pt-3">
-          <View className="flex-row space-x-2">
-            {turno.estado === 'pending' && (
-              <TouchableOpacity onPress={() => handleUpdateStatus(turno.id, 'scheduled')} className="bg-primary/20 p-2 rounded-xl">
-                <MaterialIcons name="play-arrow" size={16} color="#60A5FA" />
-              </TouchableOpacity>
-            )}
-            <TouchableOpacity className="bg-white/5 p-2 rounded-xl">
-              <MaterialIcons name="more-horiz" size={16} color="white" />
-            </TouchableOpacity>
+            {/* INDICADOR DE ESTADO CRÍTICO EN EL DASHBOARD */}
+            <View className={`px-2 py-1 rounded-md ${isAlert ? 'bg-danger' : 'bg-white/5'}`}>
+              <Text className={`text-[10px] font-bold italic ${isAlert ? 'text-white' : 'text-gray-500'}`}>
+                {isAlert ? 'CRÍTICO' : (turno.tipo || 'SERVICIO')}
+              </Text>
+            </View>
           </View>
-          <Text className="text-[9px] text-gray-600 font-mono italic">ID: {turno.id.slice(-5)}</Text>
-        </View>
-      </TouchableOpacity>
-    </BlurView>
-  );
+
+          <Text className="text-gray-400 text-xs mb-4" numberOfLines={2}>
+            {turno.comentariosChofer || turno.descripcion || "Sin descripción"}
+          </Text>
+
+          <View className="flex-row justify-between items-center border-t border-white/5 pt-3">
+            <View className="flex-row items-center">
+              <MaterialIcons name="history" size={12} color="#444" />
+              <Text className="text-[9px] text-gray-600 font-mono ml-1">
+                {new Date(turno.fechaCreacion).toLocaleDateString()}
+              </Text>
+            </View>
+            <Text className="text-[9px] text-gray-600 font-mono italic">ID: {turno.id?.slice(-5)}</Text>
+          </View>
+        </TouchableOpacity>
+      </BlurView>
+    );
+  };
 
   return (
     <SafeAreaView className="flex-1 bg-surface">
@@ -124,6 +141,11 @@ const AdminDashboard = () => {
             <View className="w-2 h-2 rounded-full bg-success mr-2 animate-pulse" />
             <Text className="text-success text-[10px] font-bold">LIVE_SINC</Text>
           </View>
+          {onLogout && (
+            <TouchableOpacity onPress={onLogout} className="ml-3 rounded-xl p-3" style={{ backgroundColor: '#FF4C4C12', borderWidth: 1, borderColor: '#FF4C4C22' }}>
+              <MaterialIcons name="logout" size={20} color="#FF4C4C" />
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* STATS RESPONSIVE */}
@@ -137,11 +159,11 @@ const AdminDashboard = () => {
         {/* KANBAN SYSTEM */}
         <View className={`flex-1 ${isMonitor ? 'flex-row' : 'flex-col'} -mx-2`}>
           {columns.map(col => (
-            <KanbanColumn 
-              key={col.id} 
-              title={col.title} 
-              data={col.data} 
-              color={col.color} 
+            <KanbanColumn
+              key={col.id}
+              title={col.title}
+              data={col.data}
+              color={col.color}
               icon={col.icon}
               renderCard={renderTurnoCard}
             />

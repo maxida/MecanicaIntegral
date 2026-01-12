@@ -4,7 +4,7 @@ import { MaterialIcons, FontAwesome5, Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { useDispatch, useSelector } from 'react-redux';
-import { useRouter } from 'expo-router';
+import { useNavigation } from '@react-navigation/native';
 import { RootState } from '@/redux/store';
 import { setTurnos } from '@/redux/slices/turnosSlice';
 import { obtenerTurnos, suscribirseATurnos } from '@/services/turnosService';
@@ -12,7 +12,7 @@ import LoadingOverlay from '@/components/LoadingOverlay';
 import Animated, { FadeInUp, FadeInRight } from 'react-native-reanimated';
 
 const ClienteDashboard = ({ onLogout }: { onLogout?: () => void }) => {
-  const router = useRouter();
+  const navigation = useNavigation<any>();
   const dispatch = useDispatch();
   const user = useSelector((state: RootState) => state.login.user);
   const turnos = useSelector((state: RootState) => state.turnos.turnos);
@@ -56,7 +56,7 @@ const ClienteDashboard = ({ onLogout }: { onLogout?: () => void }) => {
           <Animated.View entering={FadeInUp.delay(200)}>
             <TouchableOpacity 
               activeOpacity={0.9}
-              onPress={() => router.push('/checkin')} // Esta es la ruta del nuevo formulario
+              onPress={() => navigation.navigate('checkin')}
               className="mb-8 overflow-hidden rounded-[40px] border border-primary/30 shadow-2xl shadow-primary/20"
             >
               <LinearGradient colors={['#60A5FA', '#2563EB']} start={{x:0, y:0}} end={{x:1, y:1}} className="p-8 flex-row items-center justify-between">
@@ -93,7 +93,7 @@ const ClienteDashboard = ({ onLogout }: { onLogout?: () => void }) => {
           {/* ACCIONES SECUNDARIAS */}
           <View className="flex-row space-x-4 mb-10">
             <TouchableOpacity 
-              onPress={() => router.push('/solicitud')}
+              onPress={() => navigation.navigate('solicitud')}
               className="flex-1 bg-card border border-white/5 p-6 rounded-[35px] items-center"
             >
               <View className="bg-danger/10 p-3 rounded-2xl mb-3">

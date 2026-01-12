@@ -1,123 +1,134 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { View, Text, ScrollView, Image, TouchableOpacity, Modal, SafeAreaView } from 'react-native';
-import { MaterialIcons, Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import { MaterialIcons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
-import Animated, { FadeInUp, SlideInRight } from 'react-native-reanimated';
+import Animated, { FadeInUp, FadeIn } from 'react-native-reanimated';
 
-// --- SUB-COMPONENTE: CARD DE CHECKLIST EN DETALLE ---
-const DetailCheckItem = ({ item }: any) => (
-	<View className={`flex-row items-center p-4 mb-2 rounded-2xl border ${item.completado ? 'bg-success/5 border-success/20' : 'bg-white/5 border-transparent'}`}>
-		<View className={`p-2 rounded-lg mr-4 ${item.completado ? 'bg-success/20' : 'bg-white/5'}`}>
-			<MaterialIcons name={item.icono || 'check'} size={18} color={item.completado ? '#4ADE80' : '#444'} />
-		</View>
-		<View className="flex-1">
-			<Text className={`text-sm font-bold ${item.completado ? 'text-white' : 'text-gray-500'}`}>{item.nombre}</Text>
-			<Text className="text-gray-600 text-[10px]">{item.descripcion}</Text>
-		</View>
-		<MaterialIcons
-			name={item.completado ? 'check-circle' : 'radio-button-unchecked'}
-			size={20}
-			color={item.completado ? '#4ADE80' : '#222'}
-		/>
-	</View>
-);
-
-const TurnoDetailModal = ({ visible, turno, onClose, onAction }: any) => {
-	if (!turno) return null;
-
-	return (
-		<Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
-			<View className="flex-1 bg-black/95">
-				<SafeAreaView className="flex-1">
-
-					{/* TOP BAR FIXA */}
-					<View className="px-6 py-4 flex-row justify-between items-center border-b border-white/5 bg-black">
-						<View>
-							<Text className="text-gray-500 text-[10px] font-black uppercase tracking-widest">Expediente Técnico</Text>
-							<Text className="text-white text-xl font-black italic">{turno.numeroPatente || turno.patente}</Text>
-						</View>
-						<TouchableOpacity onPress={onClose} className="bg-white/10 p-2 rounded-full">
-							<MaterialIcons name="close" size={24} color="white" />
-						</TouchableOpacity>
-					</View>
-
-					<ScrollView showsVerticalScrollIndicator={false} className="flex-1 px-6 pt-6">
-
-						{/* 1. FOTO DEL TABLERO (GIGANTE) */}
-						<Animated.View entering={FadeInUp.delay(100)} className="mb-8">
-							<BlurView>
-								<Text className="text-primary text-[10px] font-black uppercase tracking-[3px] mb-4">Evidencia Visual (Odometer/Fuel)</Text>
-								<View className="w-full h-64 bg-card rounded-[40px] overflow-hidden border border-white/10 shadow-2xl">
-									{turno.fotoTablero ? (
-										<Image source={{ uri: turno.fotoTablero }} className="w-full h-full" resizeMode="cover" />
-									) : (
-										<View className="flex-1 items-center justify-center bg-white/5">
-											<MaterialIcons name="image-not-supported" size={40} color="#333" />
-											<Text className="text-gray-600 text-xs mt-2 italic">Sin evidencia fotográfica</Text>
-										</View>
-									)}
-								</View>
-							</BlurView>
-						</Animated.View>
-
-						{/* 2. DATOS DE INGRESO RÁPIDOS */}
-						<View className="flex-row space-x-4 mb-8">
-							<View className="flex-1 bg-card/50 p-5 rounded-[30px] border border-white/5 items-center">
-								<MaterialIcons name="speed" size={20} color="#60A5FA" />
-								<Text className="text-white font-black text-lg mt-1">{turno.kilometraje || '---'} <Text className="text-[10px] text-gray-500 italic">KM</Text></Text>
-							</View>
-							<View className="flex-1 bg-card/50 p-5 rounded-[30px] border border-white/5 items-center">
-								<MaterialIcons name="local-gas-station" size={20} color="#4ADE80" />
-								<Text className="text-white font-black text-lg mt-1">{turno.nivelNafta || '0'}%</Text>
-							</View>
-						</View>
-
-						{/* 3. OBSERVACIONES DEL CHOFER */}
-						<View className="mb-8 bg-danger/5 border border-danger/10 p-6 rounded-[35px]">
-							<View className="flex-row items-center mb-3">
-								<MaterialIcons name="comment" size={16} color="#FF4C4C" />
-								<Text className="text-danger font-black text-[10px] uppercase tracking-widest ml-2">Notas del Operador</Text>
-							</View>
-							<Text className="text-gray-300 text-sm leading-5 italic">
-								"{turno.comentariosChofer || turno.descripcion || 'El chofer no dejó observaciones adicionales.'}"
-							</Text>
-						</View>
-
-						{/* 4. CHECKLIST DE 10 PUNTOS */}
-						<View className="mb-10">
-							<Text className="text-primary text-[10px] font-black uppercase tracking-[3px] mb-4 ml-2">Inspección de Seguridad</Text>
-							{(turno.checklistIngreso || []).map((item: any, idx: number) => (
-								<DetailCheckItem key={idx} item={item} />
-							))}
-						</View>
-
-						{/* ESPACIO PARA SCROLL */}
-						<View className="h-20" />
-
-					</ScrollView>
-
-					{/* BOTONES DE ACCIÓN (COMMAND BAR) */}
-					<BlurView intensity={30} tint="dark" className="absolute bottom-0 w-full p-6 border-t border-white/10 flex-row space-x-4">
-						<TouchableOpacity
-							onPress={() => onAction(turno.id, 'rejected')}
-							className="flex-1 bg-white/5 py-5 rounded-[25px] items-center border border-white/10"
-						>
-							<Text className="text-gray-400 font-black text-xs uppercase tracking-widest">Rechazar</Text>
-						</TouchableOpacity>
-
-						<TouchableOpacity
-							onPress={() => onAction(turno.id, 'scheduled')}
-							className="flex-[2] bg-danger py-5 rounded-[25px] items-center shadow-lg shadow-danger/40"
-						>
-							<Text className="text-white font-black text-xs uppercase tracking-widest italic">Aprobar y Reparar</Text>
-						</TouchableOpacity>
-					</BlurView>
-
-				</SafeAreaView>
-			</View>
-		</Modal>
-	);
+// Diccionario para convertir los IDs de síntomas en algo visual para el Admin
+const SINTOMAS_MAP: Record<string, { label: string, icon: string, color: string }> = {
+  ruido_motor: { label: 'Ruido Motor', icon: 'volume-up', color: '#FF4C4C' },
+  tira_lado: { label: 'Tira a un lado', icon: 'alt-route', color: '#FACC15' },
+  freno_largo: { label: 'Freno Largo', icon: 'stop-circle', color: '#FF4C4C' },
+  vibracion: { label: 'Vibración', icon: 'vibration', color: '#60A5FA' },
+  luz_quemada: { label: 'Luz Quemada', icon: 'lightbulb', color: '#FACC15' },
+  humo: { label: 'Humo/Olor', icon: 'cloud', color: '#FF4C4C' },
+  aire_ac: { label: 'Falla A/A', icon: 'ac-unit', color: '#60A5FA' },
 };
 
+const TurnoDetailModal = ({ visible, turno, onClose, onAction }: any) => {
+  const router = useRouter();
+  if (!turno) return null;
+	const isAlert = turno.estadoGeneral === 'alert';
+
+return (
+    <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
+      <View className="flex-1 bg-black/95 justify-center items-center">
+        <Animated.View 
+          entering={FadeIn.duration(300)}
+          className="w-full h-full monitor:w-[950px] monitor:h-[90%] bg-surface monitor:rounded-[40px] border border-white/10 overflow-hidden"
+        >
+          <SafeAreaView className="flex-1">
+            
+            {/* HEADER */}
+            <View className="px-8 py-6 flex-row justify-between items-center border-b border-white/5 bg-black/40">
+              <View>
+                <View className="flex-row items-center">
+                  <Text className="text-gray-500 text-[10px] font-black uppercase tracking-[3px]">Expediente de Unidad</Text>
+                  <View className={`ml-3 px-3 py-1 rounded-full ${isAlert ? 'bg-danger' : 'bg-success/20'}`}>
+                    <Text className="text-[9px] font-black text-white">
+                      {isAlert ? 'UNIDAD EN ALERTA' : 'UNIDAD OPERATIVA'}
+                    </Text>
+                  </View>
+                </View>
+                <Text className="text-white text-3xl font-black italic mt-1">
+                  {turno.numeroPatente === "S/D" ? "PENDIENTE DE PATENTE" : turno.numeroPatente}
+                </Text>
+              </View>
+              <TouchableOpacity onPress={onClose} className="bg-white/5 w-12 h-12 rounded-2xl items-center justify-center border border-white/10">
+                <MaterialIcons name="close" size={24} color="#FF4C4C" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false} className="flex-1 px-8 pt-8">
+              
+              {/* LAYOUT DE COLUMNAS CON GAP (ESPACIADO) */}
+              <View className="flex-col monitor:flex-row monitor:space-x-12">
+                
+                {/* COLUMNA IZQUIERDA: FOTO Y SÍNTOMAS */}
+                <View className="flex-1 mb-10 monitor:mb-0">
+                  <Text className="text-primary text-[10px] font-black uppercase tracking-[2px] mb-4">Evidencia de Tablero</Text>
+                  <View className="w-full h-72 bg-card rounded-[40px] overflow-hidden border border-white/10 shadow-2xl mb-10">
+                    {turno.fotoTablero ? (
+                      <Image source={{ uri: turno.fotoTablero }} className="w-full h-full" resizeMode="cover" />
+                    ) : (
+                      <View className="flex-1 items-center justify-center bg-white/5">
+                        <MaterialIcons name="image-not-supported" size={40} color="#222" />
+                      </View>
+                    )}
+                  </View>
+
+                  <Text className="text-gray-500 text-[10px] font-black uppercase tracking-[2px] mb-4">Síntomas Reportados</Text>
+                  <View className="flex-row flex-wrap gap-3">
+                    {turno.sintomas?.length > 0 ? turno.sintomas.map((sId: string) => {
+                      const sInfo = SINTOMAS_MAP[sId] || { label: sId, icon: 'error-outline', color: '#888' };
+                      return (
+                        <View key={sId} className="flex-row items-center bg-white/5 border border-white/5 px-4 py-3 rounded-2xl">
+                          <MaterialIcons name={sInfo.icon as any} size={16} color={sInfo.color} />
+                          <Text className="text-white text-xs font-bold ml-2">{sInfo.label}</Text>
+                        </View>
+                      );
+                    }) : (
+                      <Text className="text-gray-700 italic text-xs">No se reportaron síntomas visuales.</Text>
+                    )}
+                  </View>
+                </View>
+
+                {/* COLUMNA DERECHA: DATOS DUROS */}
+                <View className="flex-1">
+                  <Text className="text-gray-500 text-[10px] font-black uppercase tracking-[2px] mb-4">Telemetría de Ingreso</Text>
+                  <View className="flex-row gap-4 mb-10">
+                    <View className="flex-1 bg-card p-6 rounded-[35px] border border-white/5">
+                      <MaterialIcons name="speed" size={24} color="#60A5FA" />
+                      <Text className="text-white text-3xl font-black mt-2">{turno.kilometraje}</Text>
+                      <Text className="text-gray-600 text-[10px] font-bold">KM TOTALES</Text>
+                    </View>
+                    <View className="flex-1 bg-card p-6 rounded-[35px] border border-white/5">
+                      <MaterialIcons name="local-gas-station" size={24} color="#4ADE80" />
+                      <Text className="text-white text-3xl font-black mt-2">{turno.nivelNafta}%</Text>
+                      <Text className="text-gray-600 text-[10px] font-bold">DIESEL</Text>
+                    </View>
+                  </View>
+
+                  <Text className="text-gray-500 text-[10px] font-black uppercase tracking-[2px] mb-4">Notas del Chofer</Text>
+                  <View className="bg-danger/5 border border-danger/10 p-6 rounded-[35px] mb-10">
+                    <Text className="text-gray-300 text-sm leading-6 italic">
+                      "{turno.comentariosChofer || turno.descripcion || 'Sin comentarios.'}"
+                    </Text>
+                  </View>
+                </View>
+              </View>
+
+              <View className="h-40" />
+            </ScrollView>
+
+            {/* BOTONES DE ACCIÓN */}
+            <BlurView intensity={40} tint="dark" className="p-8 border-t border-white/10 flex-row gap-4">
+               <TouchableOpacity onPress={onClose} className="flex-1 bg-white/5 py-5 rounded-2xl items-center">
+                  <Text className="text-gray-500 font-bold uppercase text-[10px]">Cerrar</Text>
+               </TouchableOpacity>
+               <TouchableOpacity 
+                 onPress={() => router.push({ pathname: '/solicitud', params: { prefillData: JSON.stringify(turno) } })}
+                 className="flex-2 bg-danger py-5 rounded-2xl items-center shadow-lg shadow-danger/40"
+               >
+                 <Text className="text-white font-black text-xs uppercase italic">Derivar a Reparación</Text>
+               </TouchableOpacity>
+            </BlurView>
+          </SafeAreaView>
+        </Animated.View>
+      </View>
+    </Modal>
+  );
+};
 export default TurnoDetailModal;

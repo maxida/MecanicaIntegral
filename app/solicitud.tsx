@@ -1,35 +1,51 @@
 import { MaterialIcons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
+import { useSearchParams } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
   ScrollView,
   SafeAreaView,
   TouchableOpacity,
   TextInput,
   Alert,
+  Image,
 } from 'react-native';
 import LoadingOverlay from '@/components/LoadingOverlay';
 import { useDispatch, useSelector } from 'react-redux';
-import { agregarNuevoTurno } from '@/services/turnosService';
+import { agregarNuevoTurno, actualizarTurnoService } from '@/services/turnosService';
 import { agregarTurno } from '@/redux/slices/turnosSlice';
 import { RootState } from '@/redux/store';
 
 const SolicitudScreen = () => {
   const navigation = useNavigation<any>();
+  const route = useRoute<any>();
+  const { prefillData: prefillFromSearch } = useSearchParams();
   const dispatch = useDispatch();
   const user = useSelector((state: RootState) => state.login.user);
 
-  const [formData, setFormData] = useState({
-    patente: '',
-    descripcion: '',
-    chofer: '',
-    tipo: 'reparacion', // reparacion, mantenimiento, asistencia
-  });
+  const prefillRaw = route?.params?.prefillData ?? prefillFromSearch;
+  const prefill = useMemo(() => {
+    try {
+      return prefillRaw ? JSON.parse(prefillRaw as any) : null;
+    } catch (e) {
+      return null;
+    }
+  }, [prefillRaw]);
 
+  const [formData, setFormData] = useState(() => ({
+    patente: prefill?.numeroPatente ?? '',
+    descripcion: prefill ? (`Síntomas: ${(prefill.sintomas || []).join(', ')}\nComentarios: ${prefill.comentariosChofer || prefill.descripcion || ''}`) : '',
+    chofer: prefill?.chofer ?? user?.nombre ?? '',
+    tipo: 'reparacion', // reparacion, mantenimiento, asistencia
+    kilometraje: prefill?.kilometraje ?? '',
+    nivelNafta: prefill?.nivelNafta ?? '',
+    fotoTablero: prefill?.fotoTablero ?? null,
+    checklistIngreso: prefill?.checklistIngreso ?? [],
+    originalTurnoId: prefill?.id ?? null,
+  }));
 
   const [loading, setLoading] = useState(false);
 
@@ -38,25 +54,36 @@ const SolicitudScreen = () => {
       Alert.alert('Error', 'Por favor completa la patente y descripción');
       return;
     }
-
     setLoading(true);
     try {
-      const nuevoTurno = {
+      const nuevoTurno: any = {
         numeroPatente: formData.patente,
-        fechaReparacion: new Date().toISOString().split('T')[0], // Hoy por defecto
-        horaReparacion: '09:00', // Hora por defecto
+        fechaReparacion: new Date().toISOString().split('T')[0],
+        horaReparacion: '09:00',
         descripcion: formData.descripcion,
-        estado: 'pending' as const,
+        estado: 'scheduled', // directo a taller
         clienteId: user?.id,
         chofer: formData.chofer || user?.nombre || '',
         tipo: formData.tipo,
-        prioridad: 3, // Baja por defecto
+        prioridad: 2,
+        // Technical fields preserved from ingreso
+        kilometraje: formData.kilometraje,
+        nivelNafta: formData.nivelNafta,
+        fotoTablero: formData.fotoTablero,
+        checklistIngreso: formData.checklistIngreso,
+        origen: 'derivacion',
+        origenTurnoId: formData.originalTurnoId,
       };
 
       const id = await agregarNuevoTurno(nuevoTurno);
       dispatch(agregarTurno({ ...nuevoTurno, id }));
 
-      Alert.alert('Éxito', 'Solicitud creada exitosamente', [
+      // Marcar el ingreso original como derivado
+      if (formData.originalTurnoId) {
+        await actualizarTurnoService(formData.originalTurnoId, { estado: 'derivado', derivadoATaller: true, fechaDerivacion: new Date().toISOString() });
+      }
+
+      Alert.alert('Éxito', 'Solicitud creada y turno derivado al taller', [
         { text: 'OK', onPress: () => navigation.goBack() }
       ]);
     } catch (error) {
@@ -68,98 +95,98 @@ const SolicitudScreen = () => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <LinearGradient colors={['#000000', '#121212']} style={styles.gradient}>
-        <ScrollView contentContainerStyle={styles.content}>
+    <SafeAreaView className="flex-1 bg-black">
+      <LinearGradient colors={["#000000", "#121212"]} className="flex-1">
+        <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 40, paddingBottom: 60 }}>
           {loading && <LoadingOverlay message="Creando solicitud..." />}
           {/* Header */}
-          <View style={styles.header}>
-            <TouchableOpacity
-              style={styles.backButton}
-              onPress={() => navigation.goBack()}
-            >
+          <View className="flex-row items-center mb-8">
+            <TouchableOpacity onPress={() => navigation.goBack()} className="mr-4">
               <MaterialIcons name="arrow-back" size={24} color="#60A5FA" />
             </TouchableOpacity>
             <View>
-              <Text style={styles.headerTitle}>Nueva Solicitud</Text>
-              <Text style={styles.headerSubtitle}>Describe la reparación necesaria</Text>
+              <Text className="text-white text-2xl font-black">Nueva Solicitud</Text>
+              <Text className="text-gray-400 text-sm mt-1">Describe la reparación necesaria</Text>
             </View>
           </View>
 
+          {/* Preview image if available */}
+          {formData.fotoTablero ? (
+            <View className="mb-6">
+              <Text className="text-gray-500 text-xs font-black uppercase tracking-[2px] mb-2">Evidencia (Tablero)</Text>
+              <Image source={{ uri: formData.fotoTablero }} className="w-full h-56 rounded-2xl bg-card" resizeMode="cover" />
+            </View>
+          ) : null}
+
           {/* Form */}
-          <View style={styles.form}>
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Patente del Camión *</Text>
+          <View className="mb-8">
+            <View className="mb-4">
+              <Text className="text-white font-semibold mb-2">Patente del Camión *</Text>
               <TextInput
-                style={styles.input}
                 value={formData.patente}
                 onChangeText={(text) => setFormData({ ...formData, patente: text.toUpperCase() })}
                 placeholder="ABC-123"
                 placeholderTextColor="#666"
+                className="bg-[#1E1E1E] rounded-xl p-4 text-white border border-[#333]"
                 autoCapitalize="characters"
               />
             </View>
 
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Chofer</Text>
+            <View className="mb-4">
+              <Text className="text-white font-semibold mb-2">Chofer</Text>
               <TextInput
-                style={styles.input}
                 value={formData.chofer}
                 onChangeText={(text) => setFormData({ ...formData, chofer: text })}
                 placeholder="Nombre del chofer"
                 placeholderTextColor="#666"
+                className="bg-[#1E1E1E] rounded-xl p-4 text-white border border-[#333]"
               />
             </View>
 
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Tipo de Servicio</Text>
-              <View style={styles.pickerContainer}>
+            <View className="mb-4">
+              <Text className="text-white font-semibold mb-2">Tipo de Servicio</Text>
+              <View className="flex-row space-x-3">
                 {['reparacion', 'mantenimiento', 'asistencia'].map((tipo) => (
                   <TouchableOpacity
                     key={tipo}
-                    style={[
-                      styles.pickerOption,
-                      formData.tipo === tipo && styles.pickerOptionSelected
-                    ]}
                     onPress={() => setFormData({ ...formData, tipo })}
+                    className={`flex-1 rounded-xl p-4 ${formData.tipo === tipo ? 'border-[#60A5FA] bg-[#60A5FA10]' : 'bg-[#1E1E1E] border-[#333]' } border`}
                   >
-                    <Text style={[
-                      styles.pickerText,
-                      formData.tipo === tipo && styles.pickerTextSelected
-                    ]}>
-                      {tipo.charAt(0).toUpperCase() + tipo.slice(1)}
-                    </Text>
+                    <Text className={`${formData.tipo === tipo ? 'text-[#60A5FA] font-semibold' : 'text-gray-400'}`}>{tipo.charAt(0).toUpperCase() + tipo.slice(1)}</Text>
                   </TouchableOpacity>
                 ))}
               </View>
             </View>
 
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Descripción del Problema *</Text>
+            <View className="mb-4">
+              <Text className="text-white font-semibold mb-2">Descripción del Problema *</Text>
               <TextInput
-                style={[styles.input, styles.textArea]}
                 value={formData.descripcion}
                 onChangeText={(text) => setFormData({ ...formData, descripcion: text })}
                 placeholder="Describe detalladamente el problema o servicio requerido..."
                 placeholderTextColor="#666"
+                className="bg-[#1E1E1E] rounded-xl p-4 text-white border border-[#333] h-28"
                 multiline
                 numberOfLines={4}
                 textAlignVertical="top"
               />
             </View>
 
-            {/* Checklist de ingreso se completa en el check-in al llegar el camión */}
+            {/* Technical fields preview (readonly) */}
+            <View className="mb-6">
+              <Text className="text-gray-400 text-sm mb-2">Kilometraje: <Text className="text-white font-bold">{formData.kilometraje || 'N/A'}</Text></Text>
+              <Text className="text-gray-400 text-sm">Nivel Nafta: <Text className="text-white font-bold">{formData.nivelNafta ? `${formData.nivelNafta}%` : 'N/A'}</Text></Text>
+            </View>
+
           </View>
 
           {/* Submit Button */}
           <TouchableOpacity
-            style={[styles.submitButton, loading && styles.submitButtonDisabled]}
             onPress={handleSubmit}
             disabled={loading}
+            className={`rounded-xl p-4 items-center ${loading ? 'opacity-60 bg-[#60A5FA]' : 'bg-[#60A5FA]'}`}
           >
-            <Text style={styles.submitText}>
-              {loading ? 'Creando...' : 'Enviar Solicitud'}
-            </Text>
+            <Text className="text-white font-semibold">{loading ? 'Creando...' : 'Derivar a Reparación'}</Text>
           </TouchableOpacity>
         </ScrollView>
       </LinearGradient>
@@ -167,52 +194,5 @@ const SolicitudScreen = () => {
   );
 };
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#000' },
-  gradient: { flex: 1 },
-  content: { paddingHorizontal: 20, paddingTop: 40, paddingBottom: 60 },
-
-  header: { flexDirection: 'row', alignItems: 'center', marginBottom: 30 },
-  backButton: { marginRight: 15 },
-  headerTitle: { fontSize: 24, fontWeight: 'bold', color: '#fff' },
-  headerSubtitle: { fontSize: 14, color: '#888', marginTop: 4 },
-
-  form: { marginBottom: 30 },
-  inputGroup: { marginBottom: 20 },
-  label: { fontSize: 16, fontWeight: '600', color: '#fff', marginBottom: 8 },
-  input: {
-    backgroundColor: '#1E1E1E',
-    borderRadius: 12,
-    padding: 16,
-    color: '#fff',
-    fontSize: 16,
-    borderWidth: 1,
-    borderColor: '#333',
-  },
-  textArea: { height: 100, textAlignVertical: 'top' },
-
-  pickerContainer: { flexDirection: 'row', gap: 10 },
-  pickerOption: {
-    flex: 1,
-    backgroundColor: '#1E1E1E',
-    borderRadius: 12,
-    padding: 16,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#333',
-  },
-  pickerOptionSelected: { borderColor: '#60A5FA', backgroundColor: '#60A5FA10' },
-  pickerText: { color: '#888', fontSize: 14 },
-  pickerTextSelected: { color: '#60A5FA', fontWeight: '600' },
-
-  submitButton: {
-    backgroundColor: '#60A5FA',
-    borderRadius: 12,
-    padding: 18,
-    alignItems: 'center',
-  },
-  submitButtonDisabled: { opacity: 0.6 },
-  submitText: { color: '#fff', fontSize: 16, fontWeight: '600' },
-});
 
 export default SolicitudScreen;

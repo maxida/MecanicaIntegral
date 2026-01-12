@@ -14,7 +14,7 @@ import {
 import { MaterialIcons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
+import { useNavigation } from '@react-navigation/native';
 import { useDispatch } from 'react-redux';
 import { login, loginFailure } from '../redux/slices/loginSlice';
 import { loginWithEmail } from '@/services/authService';
@@ -38,7 +38,7 @@ const PremiumInput = ({ icon, label, ...props }: any) => (
 );
 
 const LoginScreen = () => {
-  const router = useRouter();
+  const navigation = useNavigation<any>();
   const dispatch = useDispatch();
 
   // Estados de Lógica
@@ -87,8 +87,8 @@ const LoginScreen = () => {
         rol: usuarioAuth.rol,
       }));
 
-      // Navegación con Expo Router
-      router.replace('/home');
+      // Navegación: reset del stack a `home`
+      navigation.reset({ index: 0, routes: [{ name: 'home' }] });
     } catch (err: any) {
       const msg = err.message || 'Error al iniciar sesión';
       setError(msg);
