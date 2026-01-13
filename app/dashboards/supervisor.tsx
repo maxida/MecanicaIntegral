@@ -4,6 +4,7 @@ import { MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useDispatch, useSelector } from 'react-redux';
+import { useRouter } from 'expo-router';
 import { RootState } from '@/redux/store';
 import { setTurnos, actualizarTurno } from '@/redux/slices/turnosSlice';
 import { suscribirseAPendingTriage, actualizarTurnoService } from '@/services/turnosService';
@@ -14,6 +15,7 @@ const SuperadminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
   const turnos = useSelector((state: RootState) => state.turnos.turnos);
   const [selectedTurno, setSelectedTurno] = useState<any>(null);
   const [modalVisible, setModalVisible] = useState(false);
+  const router = useRouter();
 
   const [pendings, setPendings] = useState<any[]>([]);
   const [filterText, setFilterText] = useState('');
@@ -156,7 +158,7 @@ const SuperadminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
                     </TouchableOpacity>
                     
                     <TouchableOpacity 
-                      onPress={() => handleDecision(turno.id, 'taller')}
+                      onPress={() => router.push({ pathname: '/solicitud', params: { prefillData: JSON.stringify(turno) } })}
                       className="flex-[2] bg-danger py-3 rounded-2xl items-center shadow-lg shadow-danger/40"
                     >
                       <Text className="text-white text-[10px] font-black uppercase italic">Derivar a Taller MIT</Text>

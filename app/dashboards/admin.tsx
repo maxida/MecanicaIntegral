@@ -5,6 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigation } from '@react-navigation/native';
+import { useRouter } from 'expo-router';
 import { RootState } from '@/redux/store';
 import { actualizarTurno, setTurnos } from '@/redux/slices/turnosSlice';
 import { setFlagConFactura } from '@/redux/slices/invoiceSlice';
@@ -54,6 +55,8 @@ const AdminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
   const [loading, setLoading] = useState(false);
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [selectedTurno, setSelectedTurno] = useState<any>(null);
+  const [modalVisible, setModalVisible] = useState(false);
+  const router = useRouter();
 
   // Lógica de carga y tiempo real
   useEffect(() => {
@@ -120,6 +123,14 @@ const AdminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
               </Text>
             </View>
             <Text className="text-[9px] text-gray-600 font-mono italic">ID: {turno.id?.slice(-5)}</Text>
+          </View>
+          <View className="flex-row space-x-2 mt-3">
+            <TouchableOpacity onPress={() => { setSelectedTurno(turno); setModalVisible(true); }} className="flex-1 bg-white/5 py-2 rounded-lg items-center">
+              <Text className="text-white text-[12px]">Ver Detalle</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => router.push({ pathname: '/solicitud', params: { prefillData: JSON.stringify(turno) } })} className="flex-1 bg-danger py-2 rounded-lg items-center">
+              <Text className="text-white text-[12px]">Derivar a Taller</Text>
+            </TouchableOpacity>
           </View>
         </TouchableOpacity>
       </BlurView>

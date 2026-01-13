@@ -1,6 +1,5 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { useSearchParams } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useState, useMemo } from 'react';
 import {
@@ -22,11 +21,10 @@ import { RootState } from '@/redux/store';
 const SolicitudScreen = () => {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
-  const { prefillData: prefillFromSearch } = useSearchParams();
   const dispatch = useDispatch();
   const user = useSelector((state: RootState) => state.login.user);
 
-  const prefillRaw = route?.params?.prefillData ?? prefillFromSearch;
+  const prefillRaw = route?.params?.prefillData ?? null;
   const prefill = useMemo(() => {
     try {
       return prefillRaw ? JSON.parse(prefillRaw as any) : null;
