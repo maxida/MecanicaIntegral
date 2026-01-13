@@ -8,8 +8,8 @@ import {
   TextInput,
   Alert,
 } from 'react-native';
-import { FaArrowLeft, FaArrowRight, FaClipboardList } from 'react-icons/fa';
-import { AiOutlineInfoCircle } from 'react-icons/ai';
+import { FontAwesome5 } from '@expo/vector-icons';
+import { MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import ChecklistVehiculo from '@/components/ChecklistVehiculo';
@@ -38,7 +38,7 @@ const ChecklistListScreen = () => {
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={() => navigation.goBack()}>
-            <FaArrowLeft size={20} color="#fff" />
+            <FontAwesome5 name="arrow-left" size={20} color="#fff" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Checklist de Vehículos</Text>
           <View style={styles.headerPlaceholder} />
@@ -48,7 +48,7 @@ const ChecklistListScreen = () => {
         <View style={styles.content}>
           <View style={styles.card}>
             <View style={styles.cardIcon}>
-              <FaClipboardList size={36} color="#60A5FA" />
+              <FontAwesome5 name="clipboard-list" size={36} color="#60A5FA" />
             </View>
             <Text style={styles.cardTitle}>Nuevo Checklist</Text>
             <Text style={styles.cardDescription}>
@@ -71,14 +71,14 @@ const ChecklistListScreen = () => {
               style={styles.button}
               onPress={handleAbrirChecklist}
             >
-              <FaArrowRight size={16} color="#fff" />
+              <FontAwesome5 name="arrow-right" size={16} color="#fff" />
               <Text style={styles.buttonText}>Iniciar Checklist</Text>
             </TouchableOpacity>
           </View>
 
           <View style={styles.infoSection}>
             <View style={styles.infoCard}>
-              <AiOutlineInfoCircle size={18} color="#FACC15" />
+              <MaterialIcons name="info-outline" size={18} color="#FACC15" />
               <Text style={styles.infoText}>
                 El checklist incluye 10 puntos de inspección esenciales para verificar el estado del vehículo
               </Text>
