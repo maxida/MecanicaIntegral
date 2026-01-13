@@ -1,0 +1,89 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Utility: get user role from /users/{uid}
+    function userRole(uid) {
+      return get(/databases/$(database)/documents/users/$(uid)).data.role;
+    }
+
+    // Users collection: users can read/write their own profile; Santiago can read/write all.
+    match /users/{userId} {
+      allow read: if request.auth != null && (request.auth.uid == userId || userRole(request.auth.uid) == 'santiago' || userRole(request.auth.uid) == 'oasis');
+      allow write: if request.auth != null && (request.auth.uid == userId || userRole(request.auth.uid) == 'santiago');
+    }
+
+    // Trucks collection: owner (santiago) and truck owner can read/write
+    match /trucks/{truckId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && userRole(request.auth.uid) == 'santiago';
+    }
+
+    // Turnos collection
+    match /turnos/{turnoId} {
+      // Anyone authenticated can create a turno if they are role 'camion' and truckId matches their truck
+      allow create: if request.auth != null
+        && userRole(request.auth.uid) == 'camion'
+        && request.resource.data.truckId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.truckId
+        && request.resource.data.type in ['mantenimiento','reparacion_general','asistencia_24hs']
+        && request.resource.data.status == 'por_hacer';
+
+      // Read: - Santiago and Oasis can read all; camion can read turnos for their truck; mecanico can read if assigned or if status == 'haciendo'
+      allow read: if request.auth != null && (
+        userRole(request.auth.uid) == 'santiago' ||
+        userRole(request.auth.uid) == 'oasis' ||
+        (userRole(request.auth.uid) == 'camion' && resource.data.truckId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.truckId) ||
+        (userRole(request.auth.uid) == 'mecanico' && (resource.data.assignedTo == request.auth.uid || resource.data.status == 'haciendo'))
+      );
+
+      // Update: Santiago may update any fields (assign mechanics, move states). Mecanico may update checklist subcollection and may set status to 'terminado' only if assignedTo == uid.
+      allow update: if request.auth != null && (
+        userRole(request.auth.uid) == 'santiago' ||
+        (userRole(request.auth.uid) == 'mecanico' && (
+          // mecanico allowed to update only certain fields
+          (resource.data.assignedTo == request.auth.uid) && (
+            // allow status change to 'terminado' or updates to progress fields — keep strict
+            (request.resource.data.keys().hasOnly(['status','updatedAt','progress']) && request.resource.data.status in ['haciendo','terminado'])
+          )
+        ))
+      );
+
+      allow delete: if request.auth != null && userRole(request.auth.uid) == 'santiago';
+
+      // Checklist subcollection
+      match /checklist/{itemId} {
+        allow read: if request.auth != null && (
+          userRole(request.auth.uid) == 'santiago' ||
+          userRole(request.auth.uid) == 'oasis' ||
+          (userRole(request.auth.uid) == 'camion' && get(/databases/$(database)/documents/turnos/$(turnoId)).data.truckId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.truckId) ||
+          (userRole(request.auth.uid) == 'mecanico' && get(/databases/$(database)/documents/turnos/$(turnoId)).data.assignedTo == request.auth.uid)
+        );
+
+        allow create, update: if request.auth != null && userRole(request.auth.uid) == 'mecanico' && get(/databases/$(database)/documents/turnos/$(turnoId)).data.assignedTo == request.auth.uid;
+        allow delete: if request.auth != null && userRole(request.auth.uid) == 'santiago';
+      }
+
+      // Updates subcollection (logs)
+      match /updates/{updateId} {
+        allow read: if request.auth != null;
+        allow create: if request.auth != null; // all authenticated users can post updates (server should validate)
+        allow delete: if request.auth != null && userRole(request.auth.uid) == 'santiago';
+      }
+    }
+
+    // Facturas
+    match /facturas/{facturaId} {
+      // Only Santiago can create and write invoices
+      allow create, update, delete: if request.auth != null && userRole(request.auth.uid) == 'santiago';
+      // Read: Santiago, the client (if matched by some clientId) and Oasis can read
+      allow read: if request.auth != null && (
+        userRole(request.auth.uid) == 'santiago' || userRole(request.auth.uid) == 'oasis' || resource.data.clientUserId == request.auth.uid
+      );
+    }
+
+    // Default: deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

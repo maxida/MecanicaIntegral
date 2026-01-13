@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, ScrollView, SafeAreaView, TouchableOpacity, useWindowDimensions } from 'react-native';
-import { MaterialIcons, FontAwesome5, Ionicons } from '@expo/vector-icons';
+import { FontAwesome5, Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { useDispatch, useSelector } from 'react-redux';
@@ -44,11 +44,11 @@ const ClienteDashboard = ({ onLogout }: { onLogout?: () => void }) => {
               <Text className="text-white text-3xl font-black italic">{camionAsignado.patente}</Text>
               <Text className="text-primary/80 font-bold text-xs">Chofer: {user?.nombre || 'Operador'}</Text>
             </View>
-            <TouchableOpacity 
+              <TouchableOpacity 
               onPress={onLogout}
               className="w-12 h-12 rounded-2xl bg-danger/10 border border-danger/20 items-center justify-center"
             >
-              <MaterialIcons name="logout" size={20} color="#FF4C4C" />
+              <MaterialIcons name="logout" size={18} color="#FF4C4C" />
             </TouchableOpacity>
           </View>
 
@@ -65,7 +65,7 @@ const ClienteDashboard = ({ onLogout }: { onLogout?: () => void }) => {
                   <Text className="text-white/80 text-xs font-bold mt-1">INICIAR CHECKLIST DE ENTRADA</Text>
                 </View>
                 <View className="bg-white/20 p-4 rounded-full">
-                  <MaterialIcons name="local-shipping" size={32} color="white" />
+                  <FontAwesome5 name="clipboard-list" size={28} color="white" />
                 </View>
               </LinearGradient>
             </TouchableOpacity>
@@ -75,7 +75,7 @@ const ClienteDashboard = ({ onLogout }: { onLogout?: () => void }) => {
           <View className="flex-row justify-between mb-8">
             <BlurView intensity={10} tint="dark" className="flex-1 mr-2 rounded-3xl border border-white/5 overflow-hidden">
               <View className="p-5 bg-card/40 items-center">
-                <MaterialIcons name="speed" size={20} color="#60A5FA" />
+                <Ionicons name="speedometer-outline" size={18} color="#60A5FA" />
                 <Text className="text-white font-black text-lg mt-2">{camionAsignado.kmActual}</Text>
                 <Text className="text-gray-600 text-[9px] uppercase font-bold">Odómetro</Text>
               </View>
@@ -83,7 +83,7 @@ const ClienteDashboard = ({ onLogout }: { onLogout?: () => void }) => {
 
             <BlurView intensity={10} tint="dark" className="flex-1 ml-2 rounded-3xl border border-white/5 overflow-hidden">
               <View className="p-5 bg-card/40 items-center">
-                <MaterialIcons name="local-gas-station" size={20} color="#4ADE80" />
+                <FontAwesome5 name="gas-pump" size={18} color="#4ADE80" />
                 <Text className="text-white font-black text-lg mt-2">{camionAsignado.combustible}</Text>
                 <Text className="text-gray-600 text-[9px] uppercase font-bold">Tanque</Text>
               </View>
@@ -96,15 +96,15 @@ const ClienteDashboard = ({ onLogout }: { onLogout?: () => void }) => {
               onPress={() => navigation.navigate('solicitud')}
               className="flex-1 bg-card border border-white/5 p-6 rounded-[35px] items-center"
             >
-              <View className="bg-danger/10 p-3 rounded-2xl mb-3">
-                <MaterialIcons name="report-problem" size={24} color="#FF4C4C" />
+                <View className="bg-danger/10 p-3 rounded-2xl mb-3">
+                <FontAwesome5 name="exclamation-triangle" size={22} color="#FF4C4C" />
               </View>
               <Text className="text-white font-bold text-xs uppercase text-center">Reportar Falla</Text>
             </TouchableOpacity>
 
             <TouchableOpacity className="flex-1 bg-card border border-white/5 p-6 rounded-[35px] items-center">
-              <View className="bg-primary/10 p-3 rounded-2xl mb-3">
-                <MaterialIcons name="history" size={24} color="#60A5FA" />
+                <View className="bg-primary/10 p-3 rounded-2xl mb-3">
+                <FontAwesome5 name="history" size={20} color="#60A5FA" />
               </View>
               <Text className="text-white font-bold text-xs uppercase text-center">Mis Viajes</Text>
             </TouchableOpacity>
@@ -116,8 +116,8 @@ const ClienteDashboard = ({ onLogout }: { onLogout?: () => void }) => {
             <Animated.View key={turno.id} entering={FadeInRight.delay(idx * 100)}>
               <BlurView intensity={5} tint="dark" className="mb-3 rounded-2xl border border-white/5 overflow-hidden">
                 <View className="p-4 bg-card/40 flex-row items-center">
-                  <View className="bg-success/10 p-2 rounded-lg mr-4">
-                    <MaterialIcons name="check" size={18} color="#4ADE80" />
+                    <View className="bg-success/10 p-2 rounded-lg mr-4">
+                    <FontAwesome5 name="check" size={14} color="#4ADE80" />
                   </View>
                   <View className="flex-1">
                     <Text className="text-white font-bold text-sm">{turno.descripcion}</Text>
