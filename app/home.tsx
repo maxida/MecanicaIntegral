@@ -146,6 +146,40 @@ const styles = StyleSheet.create({
   gradient: { flex: 1 },
   safeArea: { flex: 1 },
   fallbackText: { color: '#fff', textAlign: 'center', marginTop: 50 },
+  card: {
+    backgroundColor: '#0b0b0b',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#222',
+    marginBottom: 12,
+  },
+  cardDisabled: {
+    opacity: 0.5,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  iconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  indicator: {
+    width: 6,
+    height: 48,
+    borderRadius: 4,
+    position: 'absolute',
+    right: 8,
+    top: 12,
+  },
+  cardTitle: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  cardSubtitle: { color: '#888', fontSize: 12 },
 });
 
 export default HomeScreen;

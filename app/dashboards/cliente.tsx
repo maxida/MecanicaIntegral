@@ -1,9 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, ScrollView, SafeAreaView, TouchableOpacity, useWindowDimensions } from 'react-native';
-import { AiOutlineLogout } from 'react-icons/ai';
-import { FaClipboardList, FaGasPump, FaHistory, FaCheck } from 'react-icons/fa';
-import { IoSpeedometerOutline } from 'react-icons/io5';
-import { FiAlertTriangle } from 'react-icons/fi';
+import { LogOut, ClipboardList, Gauge, Fuel, TriangleAlert, History, Check } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { useDispatch, useSelector } from 'react-redux';
@@ -47,11 +44,11 @@ const ClienteDashboard = ({ onLogout }: { onLogout?: () => void }) => {
               <Text className="text-white text-3xl font-black italic">{camionAsignado.patente}</Text>
               <Text className="text-primary/80 font-bold text-xs">Chofer: {user?.nombre || 'Operador'}</Text>
             </View>
-            <TouchableOpacity 
+              <TouchableOpacity 
               onPress={onLogout}
               className="w-12 h-12 rounded-2xl bg-danger/10 border border-danger/20 items-center justify-center"
             >
-              <AiOutlineLogout size={18} color="#FF4C4C" />
+              <LogOut size={18} color="#FF4C4C" />
             </TouchableOpacity>
           </View>
 
@@ -68,7 +65,7 @@ const ClienteDashboard = ({ onLogout }: { onLogout?: () => void }) => {
                   <Text className="text-white/80 text-xs font-bold mt-1">INICIAR CHECKLIST DE ENTRADA</Text>
                 </View>
                 <View className="bg-white/20 p-4 rounded-full">
-                  <FaClipboardList size={28} color="white" />
+                  <ClipboardList size={28} color="white" />
                 </View>
               </LinearGradient>
             </TouchableOpacity>
@@ -78,7 +75,7 @@ const ClienteDashboard = ({ onLogout }: { onLogout?: () => void }) => {
           <View className="flex-row justify-between mb-8">
             <BlurView intensity={10} tint="dark" className="flex-1 mr-2 rounded-3xl border border-white/5 overflow-hidden">
               <View className="p-5 bg-card/40 items-center">
-                <IoSpeedometerOutline size={18} color="#60A5FA" />
+                <Gauge size={18} color="#60A5FA" />
                 <Text className="text-white font-black text-lg mt-2">{camionAsignado.kmActual}</Text>
                 <Text className="text-gray-600 text-[9px] uppercase font-bold">Odómetro</Text>
               </View>
@@ -86,7 +83,7 @@ const ClienteDashboard = ({ onLogout }: { onLogout?: () => void }) => {
 
             <BlurView intensity={10} tint="dark" className="flex-1 ml-2 rounded-3xl border border-white/5 overflow-hidden">
               <View className="p-5 bg-card/40 items-center">
-                <FaGasPump size={18} color="#4ADE80" />
+                <Fuel size={18} color="#4ADE80" />
                 <Text className="text-white font-black text-lg mt-2">{camionAsignado.combustible}</Text>
                 <Text className="text-gray-600 text-[9px] uppercase font-bold">Tanque</Text>
               </View>
@@ -100,14 +97,14 @@ const ClienteDashboard = ({ onLogout }: { onLogout?: () => void }) => {
               className="flex-1 bg-card border border-white/5 p-6 rounded-[35px] items-center"
             >
                 <View className="bg-danger/10 p-3 rounded-2xl mb-3">
-                <FiAlertTriangle size={22} color="#FF4C4C" />
+                <TriangleAlert size={22} color="#FF4C4C" />
               </View>
               <Text className="text-white font-bold text-xs uppercase text-center">Reportar Falla</Text>
             </TouchableOpacity>
 
             <TouchableOpacity className="flex-1 bg-card border border-white/5 p-6 rounded-[35px] items-center">
                 <View className="bg-primary/10 p-3 rounded-2xl mb-3">
-                <FaHistory size={20} color="#60A5FA" />
+                <History size={20} color="#60A5FA" />
               </View>
               <Text className="text-white font-bold text-xs uppercase text-center">Mis Viajes</Text>
             </TouchableOpacity>
@@ -120,7 +117,7 @@ const ClienteDashboard = ({ onLogout }: { onLogout?: () => void }) => {
               <BlurView intensity={5} tint="dark" className="mb-3 rounded-2xl border border-white/5 overflow-hidden">
                 <View className="p-4 bg-card/40 flex-row items-center">
                     <View className="bg-success/10 p-2 rounded-lg mr-4">
-                    <FaCheck size={14} color="#4ADE80" />
+                    <Check size={14} color="#4ADE80" />
                   </View>
                   <View className="flex-1">
                     <Text className="text-white font-bold text-sm">{turno.descripcion}</Text>

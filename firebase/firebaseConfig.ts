@@ -1,7 +1,7 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
 import type { Auth } from 'firebase/auth';
-import { initializeAuth, browserLocalPersistence, getReactNativePersistence } from 'firebase/auth';
+import { initializeAuth, browserLocalPersistence } from 'firebase/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 
@@ -28,8 +28,27 @@ if (Platform.OS === 'web') {
   // En web usamos persistencia local del navegador
   auth = initializeAuth(app, { persistence: browserLocalPersistence }) as Auth;
 } else {
-  // En nativo usamos AsyncStorage para persistencia
-  auth = initializeAuth(app, { persistence: getReactNativePersistence(AsyncStorage) }) as Auth;
+  // En nativo usamos AsyncStorage para persistencia.
+  // Ocultamos el require para que el bundler web no intente resolver este módulo nativo durante el build.
+  let getReactNativePersistence: any = undefined;
+  try {
+    // eslint-disable-next-line no-eval, @typescript-eslint/no-unsafe-assignment
+    const req: any = eval('require');
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+    const mod = req('firebase/auth/react-native');
+    getReactNativePersistence = mod && (mod.getReactNativePersistence || mod.default?.getReactNativePersistence);
+  } catch (e) {
+    // Si no está disponible, procederemos sin persistencia específica (Firebase usará su default)
+    getReactNativePersistence = undefined;
+  }
+
+  if (getReactNativePersistence) {
+    auth = initializeAuth(app, { persistence: getReactNativePersistence(AsyncStorage) }) as Auth;
+  } else {
+    // Fallback: inicializar sin persistencia específica para evitar fallos en bundles donde
+    // 'firebase/auth/react-native' no está disponible.
+    auth = initializeAuth(app) as Auth;
+  }
 }
 
 export { app, db, auth };
