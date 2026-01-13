@@ -7,19 +7,20 @@ import {
   ScrollView,
   SafeAreaView,
   TouchableOpacity,
-  Alert,
 } from 'react-native';
+import CustomAlert from '@/components/CustomAlert';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '@/redux/store';
 import { actualizarTurno, setTurnos } from '@/redux/slices/turnosSlice';
 import { actualizarTurnoService, obtenerTurnos, suscribirseATurnos } from '@/services/turnosService';
 import LoadingOverlay from '@/components/LoadingOverlay';
+import { useGlobalLoading } from '@/components/GlobalLoading';
 
 const MecanicoDashboard = ({ onLogout }: { onLogout?: () => void }) => {
   const dispatch = useDispatch();
   const turnos = useSelector((state: RootState) => state.turnos.turnos);
   const [loading, setLoading] = useState(false);
-
+  const globalLoading = useGlobalLoading();
   useEffect(() => {
     // Cargar datos iniciales
     const loadTurnos = async () => {
@@ -57,12 +58,13 @@ const MecanicoDashboard = ({ onLogout }: { onLogout?: () => void }) => {
   const minutosTrabajados = tiempoTotalTrabajado % 60;
 
   const handleMarcarCompleta = async (id: string) => {
-    Alert.alert('Confirmar', '¿Marcar esta tarea como completada?', [
+    CustomAlert.alert('Confirmar', '¿Marcar esta tarea como completada?', [
       { text: 'Cancelar', onPress: () => {} },
       {
         text: 'Completar',
         onPress: async () => {
             setLoading(true);
+            globalLoading.show('Actualizando estado...');
             try {
               const now = new Date().toISOString();
               await actualizarTurnoService(id, { 
@@ -74,12 +76,13 @@ const MecanicoDashboard = ({ onLogout }: { onLogout?: () => void }) => {
                 estado: 'completed',
                 fechaFinTrabajo: now
               }));
-              Alert.alert('Éxito', 'Tarea completada');
+              CustomAlert.alert('Éxito', 'Tarea completada');
             } catch (error) {
               console.error('Error completando tarea:', error);
-              Alert.alert('Error', 'No se pudo completar la tarea');
+              CustomAlert.alert('Error', 'No se pudo completar la tarea');
             } finally {
               setLoading(false);
+              globalLoading.hide();
             }
           },
       },
@@ -88,6 +91,7 @@ const MecanicoDashboard = ({ onLogout }: { onLogout?: () => void }) => {
 
   const handleIniciarTarea = async (id: string) => {
     setLoading(true);
+    globalLoading.show('Iniciando tarea...');
     try {
       const now = new Date().toISOString();
       await actualizarTurnoService(id, { 
@@ -103,11 +107,13 @@ const MecanicoDashboard = ({ onLogout }: { onLogout?: () => void }) => {
       console.error('Error iniciando tarea:', error);
     } finally {
       setLoading(false);
+      globalLoading.hide();
     }
   };
 
   const handlePausarTarea = async (id: string) => {
     setLoading(true);
+    globalLoading.show('Pausando tarea...');
     try {
       await actualizarTurnoService(id, { estado: 'scheduled' });
       dispatch(actualizarTurno({ id, estado: 'scheduled' }));
@@ -115,6 +121,7 @@ const MecanicoDashboard = ({ onLogout }: { onLogout?: () => void }) => {
       console.error('Error pausando tarea:', error);
     } finally {
       setLoading(false);
+      globalLoading.hide();
     }
   };
 

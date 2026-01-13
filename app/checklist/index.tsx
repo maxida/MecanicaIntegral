@@ -6,8 +6,8 @@ import {
   TouchableOpacity,
   SafeAreaView,
   TextInput,
-  Alert,
 } from 'react-native';
+import CustomAlert from '@/components/CustomAlert';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -21,7 +21,7 @@ const ChecklistListScreen = () => {
 
   const handleAbrirChecklist = () => {
     if (!numeroPatente.trim()) {
-      Alert.alert('Error', 'Ingresa el número de patente del vehículo');
+      CustomAlert.alert('Error', 'Ingresa el número de patente del vehículo');
       return;
     }
 

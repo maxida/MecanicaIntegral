@@ -6,9 +6,10 @@ import {
   TouchableOpacity,
   Modal,
   ActivityIndicator,
-  Alert,
   ScrollView,
 } from 'react-native';
+import CustomAlert from '@/components/CustomAlert';
+import { useGlobalLoading } from '@/components/GlobalLoading';
 import {
   collection,
   addDoc,
@@ -52,6 +53,7 @@ export default function CamionDashboard() {
   const [requestUpdates, setRequestUpdates] = useState<any[]>([]);
 
   const uid = auth.currentUser?.uid;
+  const globalLoading = useGlobalLoading();
 
   useEffect(() => {
     if (!uid) {
@@ -154,14 +156,15 @@ export default function CamionDashboard() {
 
   const registerTruck = async () => {
     if (!uid) {
-      Alert.alert('Error', 'Usuario no autenticado');
+      CustomAlert.alert('Error', 'Usuario no autenticado');
       return;
     }
     if (!plate || !brand || !model || !driverName) {
-      Alert.alert('Completa todos los campos');
+      CustomAlert.alert('Completa todos los campos');
       return;
     }
     setCreating(true);
+    globalLoading.show('Registrando camión...');
     try {
       const trucksCol = collection(db, 'trucks');
       const newTruck = {
@@ -184,21 +187,23 @@ export default function CamionDashboard() {
       });
       setTruck({ id: docRef.id, ...(newTruck as any) } as Truck);
       setProfile((p: UserProfile | null) => ({ ...(p || {}), hasRegisteredTruck: true }));
-      Alert.alert('Camión registrado');
+      CustomAlert.alert('Camión registrado');
     } catch (err) {
       console.warn(err);
-      Alert.alert('Error al registrar el camión');
+      CustomAlert.alert('Error al registrar el camión');
     } finally {
       setCreating(false);
+      globalLoading.hide();
     }
   };
 
   const createSampleTruck = async () => {
     if (!uid) {
-      Alert.alert('Error', 'Usuario no autenticado');
+      CustomAlert.alert('Error', 'Usuario no autenticado');
       return;
     }
     setCreating(true);
+    globalLoading.show('Creando camión de ejemplo...');
     try {
       const sampleId = 'camion1';
       const sampleData = {
@@ -220,12 +225,13 @@ export default function CamionDashboard() {
       });
       setTruck({ id: sampleId, ...(sampleData as any) } as Truck);
       setProfile((p: UserProfile | null) => ({ ...(p || {}), hasRegisteredTruck: true }));
-      Alert.alert('Camión de ejemplo creado (camion1)');
+      CustomAlert.alert('Camión de ejemplo creado (camion1)');
     } catch (err) {
       console.warn(err);
-      Alert.alert('Error al crear camión de ejemplo');
+      CustomAlert.alert('Error al crear camión de ejemplo');
     } finally {
       setCreating(false);
+      globalLoading.hide();
     }
   };
 
@@ -237,14 +243,15 @@ export default function CamionDashboard() {
 
   const createRequest = async () => {
     if (!truck || !uid) {
-      Alert.alert('Error', 'No hay camión o usuario no autenticado');
+      CustomAlert.alert('Error', 'No hay camión o usuario no autenticado');
       return;
     }
     if (!requestDescription.trim()) {
-      Alert.alert('Escribe una descripción');
+      CustomAlert.alert('Escribe una descripción');
       return;
     }
     setCreating(true);
+    globalLoading.show('Creando solicitud...');
     try {
       const turnosCol = collection(db, 'turnos');
       const payload = {
@@ -258,12 +265,13 @@ export default function CamionDashboard() {
       };
       await addDoc(turnosCol, payload);
       setModalVisible(false);
-      Alert.alert('Solicitud creada');
+      CustomAlert.alert('Solicitud creada');
     } catch (err) {
       console.warn(err);
-      Alert.alert('Error al crear la solicitud');
+      CustomAlert.alert('Error al crear la solicitud');
     } finally {
       setCreating(false);
+      globalLoading.hide();
     }
   };
 

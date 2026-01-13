@@ -8,8 +8,8 @@ import {
   SafeAreaView,
   ActivityIndicator,
   FlatList,
-  Alert,
 } from 'react-native';
+import CustomAlert from '@/components/CustomAlert';
 import { MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useDispatch, useSelector } from 'react-redux';
@@ -69,7 +69,7 @@ const CalendarioTurnos = () => {
       filtrarTurnosPorDia(hoy, data);
     } catch (error) {
       console.error('Error cargando turnos:', error);
-      Alert.alert('Error', 'No se pudieron cargar los turnos');
+      CustomAlert.alert('Error', 'No se pudieron cargar los turnos');
     } finally {
       setLoading(false);
     }

@@ -9,10 +9,11 @@ import {
   SafeAreaView,
   TouchableOpacity,
   TextInput,
-  Alert,
   Image,
 } from 'react-native';
+import CustomAlert from '@/components/CustomAlert';
 import LoadingOverlay from '@/components/LoadingOverlay';
+import { useGlobalLoading } from '@/components/GlobalLoading';
 import { useDispatch, useSelector } from 'react-redux';
 import { agregarNuevoTurno, actualizarTurnoService } from '@/services/turnosService';
 import { agregarTurno } from '@/redux/slices/turnosSlice';
@@ -46,13 +47,15 @@ const SolicitudScreen = () => {
   }));
 
   const [loading, setLoading] = useState(false);
+  const globalLoading = useGlobalLoading();
 
   const handleSubmit = async () => {
     if (!formData.patente.trim() || !formData.descripcion.trim()) {
-      Alert.alert('Error', 'Por favor completa la patente y descripción');
+      CustomAlert.alert('Error', 'Por favor completa la patente y descripción');
       return;
     }
     setLoading(true);
+    globalLoading.show('Creando solicitud...');
     try {
       const nuevoTurno: any = {
         numeroPatente: formData.patente,
@@ -81,14 +84,15 @@ const SolicitudScreen = () => {
         await actualizarTurnoService(formData.originalTurnoId, { estado: 'derivado', derivadoATaller: true, fechaDerivacion: new Date().toISOString() });
       }
 
-      Alert.alert('Éxito', 'Solicitud creada y turno derivado al taller', [
+      CustomAlert.alert('Éxito', 'Solicitud creada y turno derivado al taller', [
         { text: 'OK', onPress: () => navigation.goBack() }
       ]);
     } catch (error) {
       console.error('Error creando solicitud:', error);
-      Alert.alert('Error', 'No se pudo crear la solicitud');
+      CustomAlert.alert('Error', 'No se pudo crear la solicitud');
     } finally {
       setLoading(false);
+      globalLoading.hide();
     }
   };
 

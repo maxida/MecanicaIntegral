@@ -10,9 +10,9 @@ import {
   ActivityIndicator,
   FlatList,
   TextInput,
-  Alert,
   Switch,
 } from 'react-native';
+import CustomAlert from '@/components/CustomAlert';
 import { MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRoute, useNavigation } from '@react-navigation/native';
@@ -20,6 +20,7 @@ import { useSelector } from 'react-redux';
 import { RootState } from '@/redux/store';
 import { crearChecklist, Checklist, ItemChecklist, ITEMS_CHECKLIST_DEFECTO, actualizarChecklist } from '@/services/checklistService';
 import { createSolicitud } from '@/services/solicitudService';
+import { useGlobalLoading } from '@/components/GlobalLoading';
 
 const ChecklistVehiculo = () => {
   const route = useRoute<any>();
@@ -30,6 +31,7 @@ const ChecklistVehiculo = () => {
   const [items, setItems] = useState<ItemChecklist[]>(ITEMS_CHECKLIST_DEFECTO);
   const [notas, setNotas] = useState('');
   const [loading, setLoading] = useState(false);
+  const globalLoading = useGlobalLoading();
   const [guardado, setGuardado] = useState(false);
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [adjuntando, setAdjuntando] = useState(false);
@@ -51,11 +53,12 @@ const ChecklistVehiculo = () => {
 
   const handleGuardarChecklist = async () => {
     if (!numeroPatente) {
-      Alert.alert('Error', 'No se puede guardar sin patente de vehículo');
+      CustomAlert.alert('Error', 'No se puede guardar sin patente de vehículo');
       return;
     }
 
     setLoading(true);
+    globalLoading.show('Guardando checklist...');
     try {
       const checklistData: Omit<Checklist, 'id'> = {
         numeroPatente,
@@ -69,12 +72,13 @@ const ChecklistVehiculo = () => {
       const id = await crearChecklist(checklistData);
       setSavedChecklistId(id);
       setGuardado(true);
-      Alert.alert('Éxito', 'Checklist guardado correctamente');
+      CustomAlert.alert('Éxito', 'Checklist guardado correctamente');
     } catch (error) {
-      Alert.alert('Error', 'No se pudo guardar el checklist');
+      CustomAlert.alert('Error', 'No se pudo guardar el checklist');
       console.error(error);
     } finally {
       setLoading(false);
+      globalLoading.hide();
     }
   };
 
@@ -90,13 +94,11 @@ const ChecklistVehiculo = () => {
         }
       } else {
         // Fallback: pedir al usuario pegar una URL
-        Alert.prompt?.('Adjuntar foto', 'Pega la URL de la foto si la tienes disponible', (text) => {
-          if (text) setPhotoUri(text);
-        });
+          CustomAlert.alert('Adjuntar foto', 'Pega la URL de la foto en el campo de notas o usa el selector de imágenes');
       }
     } catch (err) {
       console.warn('Error pick photo', err);
-      Alert.alert('Error', 'No se pudo adjuntar la foto');
+      CustomAlert.alert('Error', 'No se pudo adjuntar la foto');
     } finally {
       setAdjuntando(false);
     }
@@ -107,11 +109,12 @@ const ChecklistVehiculo = () => {
     const supervisorId = user?.id || route.params?.supervisorId || null;
 
     if (!clienteId) {
-      Alert.alert('Falta información', 'No se encontró el cliente asociado a este checklist');
+      CustomAlert.alert('Falta información', 'No se encontró el cliente asociado a este checklist');
       return;
     }
 
     setSolicitudLoading(true);
+    globalLoading.show('Creando solicitud...');
     setSolicitudError(null);
     try {
       const checklistId = savedChecklistId || route.params?.checklistId || undefined;
@@ -135,7 +138,7 @@ const ChecklistVehiculo = () => {
       const res = await createSolicitud(payload);
 
       setSolicitudSuccess(true);
-      Alert.alert('Solicitud creada', 'La solicitud fue creada correctamente');
+      CustomAlert.alert('Solicitud creada', 'La solicitud fue creada correctamente');
       // Navegar a la pantalla de la solicitud creada (fallback a home si no hay id)
       const solicitudId = res?.id;
       if (solicitudId) {
@@ -146,9 +149,10 @@ const ChecklistVehiculo = () => {
     } catch (err: any) {
       console.error('Error creando solicitud', err);
       setSolicitudError(err?.message || 'Error creando solicitud');
-      Alert.alert('Error', 'No se pudo crear la solicitud');
+      CustomAlert.alert('Error', 'No se pudo crear la solicitud');
     } finally {
       setSolicitudLoading(false);
+      globalLoading.hide();
     }
   };
 

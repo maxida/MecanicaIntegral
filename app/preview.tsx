@@ -16,6 +16,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { db } from '@/firebase/firebaseConfig';
 import { MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import CustomAlert from '@/components/CustomAlert';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import * as FileSystem from 'expo-file-system';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -204,7 +205,7 @@ const PreviewScreen: React.FC = () => {
 
   const generatePDF = async () => {
     if (!logoBase64) {
-        Alert.alert("Cargando", "Espera un momento, cargando logo...");
+        CustomAlert.alert("Cargando", "Espera un momento, cargando logo...");
         return;
     }
     setIsSaving(true);
@@ -228,7 +229,7 @@ const PreviewScreen: React.FC = () => {
         navigation.reset({ index: 0, routes: [{ name: 'home' }] });
       }
     } catch (error) {
-      Alert.alert("Error", "Error al generar PDF");
+      CustomAlert.alert("Error", "Error al generar PDF");
     } finally {
         setIsSaving(false);
     }

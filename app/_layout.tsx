@@ -5,6 +5,8 @@ import { Provider, useSelector } from 'react-redux';
 import { store, RootState } from '../redux/store';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native';
+import { CustomAlertProvider } from '@/components/CustomAlert';
+import { GlobalLoadingProvider } from '@/components/GlobalLoading';
 
 function LayoutContent() {
   const rol = useSelector((state: RootState) => state.login.rol);
@@ -41,7 +43,11 @@ export default function Layout() {
   return (
     <Provider store={store}>
       <StatusBar style="light" backgroundColor="#000" />
-      <LayoutContent />
+      <GlobalLoadingProvider>
+        <CustomAlertProvider>
+          <LayoutContent />
+        </CustomAlertProvider>
+      </GlobalLoadingProvider>
     </Provider>
   );
 }

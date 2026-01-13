@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput, Image, SafeAreaView, Alert } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, Image, SafeAreaView } from 'react-native';
+import CustomAlert from '@/components/CustomAlert';
 import { MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -150,7 +151,7 @@ const ChecklistMecanico = () => {
 						activeOpacity={0.8}
 						onPress={() => {
 							// Guardado local y volver
-							Alert.alert("Éxito", "Checklist guardado y enviado al Admin.", [
+							CustomAlert.alert("Éxito", "Checklist guardado y enviado al Admin.", [
 								{ text: 'OK', onPress: () => navigation.goBack() }
 							]);
 						}}

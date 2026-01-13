@@ -10,8 +10,8 @@ import {
   FlatList,
   Modal,
   TextInput,
-  Alert,
 } from 'react-native';
+import CustomAlert from '@/components/CustomAlert';
 import { MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { obtenerTurnos, actualizarTurnoService, suscribirseATurnos } from '@/services/turnosService';
@@ -56,7 +56,7 @@ const AsignacionMecanicos = () => {
       setTurnos(data as TurnoConMecanico[]);
     } catch (error) {
       console.error('Error cargando turnos:', error);
-      Alert.alert('Error', 'No se pudieron cargar los turnos');
+      CustomAlert.alert('Error', 'No se pudieron cargar los turnos');
     } finally {
       setLoading(false);
     }
@@ -90,19 +90,19 @@ const AsignacionMecanicos = () => {
         )
       );
 
-      Alert.alert('Éxito', `Turno asignado a ${mecanico.nombre}`);
+      CustomAlert.alert('Éxito', `Turno asignado a ${mecanico.nombre}`);
       setModalVisible(false);
       setTurnoSeleccionado(null);
     } catch (error) {
       console.error('Error asignando turno:', error);
-      Alert.alert('Error', 'No se pudo asignar el turno');
+      CustomAlert.alert('Error', 'No se pudo asignar el turno');
     }
   };
 
   const handleDesasignar = async (turno: TurnoConMecanico) => {
     if (!turno.id) return;
 
-    Alert.alert('Confirmar', '¿Desasignar este turno?', [
+    CustomAlert.alert('Confirmar', '¿Desasignar este turno?', [
       { text: 'Cancelar' },
       {
         text: 'Desasignar',
@@ -121,9 +121,9 @@ const AsignacionMecanicos = () => {
               )
             );
 
-            Alert.alert('Éxito', 'Turno desasignado');
+            CustomAlert.alert('Éxito', 'Turno desasignado');
           } catch (error) {
-            Alert.alert('Error', 'No se pudo desasignar el turno');
+            CustomAlert.alert('Error', 'No se pudo desasignar el turno');
           }
         },
       },

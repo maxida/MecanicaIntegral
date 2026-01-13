@@ -8,6 +8,7 @@ import { RootState } from '@/redux/store';
 import * as ImagePicker from 'expo-image-picker';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import LoadingOverlay from '@/components/LoadingOverlay';
+import CustomAlert from '@/components/CustomAlert';
 import { crearTurnoService } from '@/services/turnosService';
 import { agregarTurno } from '@/redux/slices/turnosSlice';
 import { useDispatch } from 'react-redux';
@@ -49,7 +50,7 @@ const NovedadesChoferForm = () => {
   const handleFinalizarIngreso = async () => {
     // Validaciones mínimas
     if (!km.trim()) {
-      alert('Por favor ingresa el kilometraje');
+      CustomAlert.alert('Por favor ingresa el kilometraje');
       return;
     }
 
@@ -74,11 +75,11 @@ const NovedadesChoferForm = () => {
       dispatch(agregarTurno({ id, ...payload }));
 
       // Notificar y volver
-      alert('Ingreso registrado correctamente');
+      CustomAlert.alert('Ingreso registrado correctamente');
       navigation.reset({ index: 0, routes: [{ name: 'home' }] });
     } catch (err) {
       console.error('Error guardando ingreso:', err);
-      alert('Error al guardar el ingreso');
+      CustomAlert.alert('Error al guardar el ingreso');
     } finally {
       setSaving(false);
     }

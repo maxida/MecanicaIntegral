@@ -85,7 +85,7 @@ return (
                           {sInfo.icon === 'ac-unit' && <FontAwesome5 name="exclamation-triangle" size={14} color={sInfo.color} />}
                           {/* Fallback genérico */}
                           {!['volume-up','alt-route','stop-circle','lightbulb','cloud','ac-unit'].includes(sInfo.icon) && (
-                            <FaExclamationTriangle size={14} color={sInfo.color} />
+														<Ionicons name="exclamation-triangle" size={24} color={sInfo.color} />
                           )}
                           <Text className="text-white text-xs font-bold ml-2">{sInfo.label}</Text>
                         </View>

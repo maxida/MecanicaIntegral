@@ -15,10 +15,10 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-  StatusBar,
-  KeyboardAvoidingView,
-  Alert
+    StatusBar,
+    KeyboardAvoidingView,
 } from 'react-native';
+import CustomAlert from '@/components/CustomAlert';
 import { useDispatch, useSelector } from 'react-redux';
 import { MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
 
@@ -139,9 +139,9 @@ const FormScreen = () => {
   };
 
   const handleSubmit = () => {
-    if (!formData.Patente?.trim()) {
-      setErrors({ patente: "La patente es obligatoria" });
-      Alert.alert("Atención", "Por favor ingrese la patente del vehículo.");
+        if (!formData.Patente?.trim()) {
+            setErrors({ patente: "La patente es obligatoria" });
+            CustomAlert.alert("Atención", "Por favor ingrese la patente del vehículo.");
       return;
     }
     setErrors({});

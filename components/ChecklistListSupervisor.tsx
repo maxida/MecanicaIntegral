@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, FlatList, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native';
+import CustomAlert from '@/components/CustomAlert';
 import { useNavigation } from '@react-navigation/native';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/redux/store';
@@ -24,7 +25,7 @@ const ChecklistListSupervisor = () => {
         setItems(data);
       } catch (err) {
         console.error(err);
-        Alert.alert('Error', 'No se pudieron cargar los checklists');
+        CustomAlert.alert('Error', 'No se pudieron cargar los checklists');
       } finally {
         setLoading(false);
       }
@@ -34,7 +35,7 @@ const ChecklistListSupervisor = () => {
 
   const handleCrearSolicitud = async (checklist: Checklist) => {
     if (role !== 'supervisor') {
-      Alert.alert('Acceso denegado', 'Solo supervisores pueden crear solicitudes');
+      CustomAlert.alert('Acceso denegado', 'Solo supervisores pueden crear solicitudes');
       return;
     }
 
@@ -50,11 +51,11 @@ const ChecklistListSupervisor = () => {
       });
 
       const solicitudId = res?.id;
-      Alert.alert('Solicitud creada', 'Se creó la solicitud correctamente');
+      CustomAlert.alert('Solicitud creada', 'Se creó la solicitud correctamente');
       if (solicitudId) navigation.navigate('solicitud', { id: solicitudId });
     } catch (err) {
       console.error('Error creando solicitud desde lista:', err);
-      Alert.alert('Error', 'No se pudo crear la solicitud');
+      CustomAlert.alert('Error', 'No se pudo crear la solicitud');
     } finally {
       setCreatingId(null);
     }
