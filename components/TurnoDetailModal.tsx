@@ -1,7 +1,8 @@
 import React from 'react';
 import { View, Text, ScrollView, Image, TouchableOpacity, Modal, SafeAreaView } from 'react-native';
 import { useRouter } from 'expo-router';
-import { MaterialIcons } from '@expo/vector-icons';
+import { FaTimes, FaRegImage, FaGasPump, FaVolumeUp, FaRoad, FaStopCircle, FaLightbulb, FaCloud, FaExclamationTriangle } from 'react-icons/fa';
+import { IoSpeedometerOutline } from 'react-icons/io5';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInUp, FadeIn } from 'react-native-reanimated';
@@ -46,8 +47,8 @@ return (
                   {turno.numeroPatente === "S/D" ? "PENDIENTE DE PATENTE" : turno.numeroPatente}
                 </Text>
               </View>
-              <TouchableOpacity onPress={onClose} className="bg-white/5 w-12 h-12 rounded-2xl items-center justify-center border border-white/10">
-                <MaterialIcons name="close" size={24} color="#FF4C4C" />
+                <TouchableOpacity onPress={onClose} className="bg-white/5 w-12 h-12 rounded-2xl items-center justify-center border border-white/10">
+                <FaTimes size={20} color="#FF4C4C" />
               </TouchableOpacity>
             </View>
 
@@ -64,7 +65,7 @@ return (
                       <Image source={{ uri: turno.fotoTablero }} className="w-full h-full" resizeMode="cover" />
                     ) : (
                       <View className="flex-1 items-center justify-center bg-white/5">
-                        <MaterialIcons name="image-not-supported" size={40} color="#222" />
+                        <FaRegImage size={40} color="#222" />
                       </View>
                     )}
                   </View>
@@ -75,7 +76,17 @@ return (
                       const sInfo = SINTOMAS_MAP[sId] || { label: sId, icon: 'error-outline', color: '#888' };
                       return (
                         <View key={sId} className="flex-row items-center bg-white/5 border border-white/5 px-4 py-3 rounded-2xl">
-                          <MaterialIcons name={sInfo.icon as any} size={16} color={sInfo.color} />
+                          {/* Mapeo simple de iconos para web usando react-icons */}
+                          {sInfo.icon === 'volume-up' && <FaVolumeUp size={14} color={sInfo.color} />}
+                          {sInfo.icon === 'alt-route' && <FaRoad size={14} color={sInfo.color} />}
+                          {sInfo.icon === 'stop-circle' && <FaStopCircle size={14} color={sInfo.color} />}
+                          {sInfo.icon === 'lightbulb' && <FaLightbulb size={14} color={sInfo.color} />}
+                          {sInfo.icon === 'cloud' && <FaCloud size={14} color={sInfo.color} />}
+                          {sInfo.icon === 'ac-unit' && <FaExclamationTriangle size={14} color={sInfo.color} />}
+                          {/* Fallback genérico */}
+                          {!['volume-up','alt-route','stop-circle','lightbulb','cloud','ac-unit'].includes(sInfo.icon) && (
+                            <FaExclamationTriangle size={14} color={sInfo.color} />
+                          )}
                           <Text className="text-white text-xs font-bold ml-2">{sInfo.label}</Text>
                         </View>
                       );
@@ -90,12 +101,12 @@ return (
                   <Text className="text-gray-500 text-[10px] font-black uppercase tracking-[2px] mb-4">Telemetría de Ingreso</Text>
                   <View className="flex-row gap-4 mb-10">
                     <View className="flex-1 bg-card p-6 rounded-[35px] border border-white/5">
-                      <MaterialIcons name="speed" size={24} color="#60A5FA" />
+                      <IoSpeedometerOutline size={22} color="#60A5FA" />
                       <Text className="text-white text-3xl font-black mt-2">{turno.kilometraje}</Text>
                       <Text className="text-gray-600 text-[10px] font-bold">KM TOTALES</Text>
                     </View>
                     <View className="flex-1 bg-card p-6 rounded-[35px] border border-white/5">
-                      <MaterialIcons name="local-gas-station" size={24} color="#4ADE80" />
+                      <FaGasPump size={20} color="#4ADE80" />
                       <Text className="text-white text-3xl font-black mt-2">{turno.nivelNafta}%</Text>
                       <Text className="text-gray-600 text-[10px] font-bold">DIESEL</Text>
                     </View>
