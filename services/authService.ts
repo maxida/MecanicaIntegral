@@ -14,23 +14,40 @@ const USUARIOS_COLLECTION = 'usuarios';
 export interface UsuarioAuth {
   uid: string;
   email: string;
-  displayName: string;
-  rol: 'admin' | 'supervisor' | 'mecanico' | 'cliente';
+  name: string;
+  role: 'admin' | 'supervisor' | 'mecanico' | 'cliente';
   id: string;
 }
 
 // Obtener rol del usuario desde Firestore
-export const obtenerRolUsuario = async (uid: string): Promise<string | null> => {
+// Buscar usuario en Firestore por uid o email y devolver sus datos
+export const obtenerUsuarioFirestore = async (params: { uid?: string; email?: string; }): Promise<{ name?: string; role?: string; uid?: string } | null> => {
   try {
-    const q = query(collection(db, USUARIOS_COLLECTION), where('uid', '==', uid));
-    const querySnapshot = await getDocs(q);
-    
-    if (!querySnapshot.empty) {
-      return querySnapshot.docs[0].data().rol;
+    const { uid, email } = params;
+
+    // Intentar por uid primero si está disponible
+    if (uid) {
+      const qUid = query(collection(db, USUARIOS_COLLECTION), where('uid', '==', uid));
+      const snapUid = await getDocs(qUid);
+      if (!snapUid.empty) {
+        const data = snapUid.docs[0].data();
+        return { name: data.name || data.nombre || '', role: data.role || data.rol || '', uid: data.uid || uid };
+      }
     }
+
+    // Fallback a búsqueda por email
+    if (email) {
+      const qEmail = query(collection(db, USUARIOS_COLLECTION), where('email', '==', email));
+      const snapEmail = await getDocs(qEmail);
+      if (!snapEmail.empty) {
+        const data = snapEmail.docs[0].data();
+        return { name: data.name || data.nombre || '', role: data.role || data.rol || '', uid: data.uid || snapEmail.docs[0].id };
+      }
+    }
+
     return null;
   } catch (error) {
-    console.error('Error obteniendo rol:', error);
+    console.error('Error buscando usuario en Firestore:', error);
     return null;
   }
 };
@@ -42,19 +59,19 @@ export const loginWithEmail = async (email: string, password: string): Promise<U
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
 
-    // Obtener rol del usuario
-    const rol = await obtenerRolUsuario(user.uid);
+    // Obtener datos del usuario desde Firestore (por uid o email)
+    const usuarioDoc = await obtenerUsuarioFirestore({ uid: user.uid, email: user.email || email });
 
-    if (!rol) {
-      console.warn(`⚠️ Usuario ${email} no tiene rol asignado en Firestore. Verifica la colección 'usuarios'.`);
+    if (!usuarioDoc || !usuarioDoc.role) {
+      console.warn(`⚠️ Usuario ${email} no encontrado o sin campo 'role' en Firestore. Verifica la colección 'usuarios'.`);
       throw new Error('Usuario no tiene rol asignado. Contacta al administrador.');
     }
 
     return {
       uid: user.uid,
       email: user.email || '',
-      displayName: user.displayName || email.split('@')[0],
-      rol: rol as 'admin' | 'supervisor' | 'mecanico' | 'cliente',
+      name: usuarioDoc.name || user.displayName || email.split('@')[0],
+      role: usuarioDoc.role as 'admin' | 'supervisor' | 'mecanico' | 'cliente',
       id: user.uid,
     };
   } catch (firebaseError: any) {
@@ -67,8 +84,8 @@ export const loginWithEmail = async (email: string, password: string): Promise<U
       return {
         uid: localUser.uid,
         email: localUser.email,
-        displayName: localUser.nombre,
-        rol: localUser.rol as 'admin' | 'supervisor' | 'mecanico' | 'cliente',
+        name: localUser.name,
+        role: localUser.role as 'admin' | 'supervisor' | 'mecanico' | 'cliente',
         id: localUser.uid,
       };
     }

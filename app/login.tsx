@@ -15,6 +15,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
+import { useRouter } from 'expo-router';
 import { useDispatch } from 'react-redux';
 import { login, loginFailure } from '../redux/slices/loginSlice';
 import { loginWithEmail } from '@/services/authService';
@@ -39,6 +40,7 @@ const PremiumInput = ({ icon, label, ...props }: any) => (
 
 const LoginScreen = () => {
   const navigation = useNavigation<any>();
+  const router = useRouter();
   const dispatch = useDispatch();
 
   // Estados de Lógica
@@ -76,19 +78,35 @@ const LoginScreen = () => {
     try {
       const usuarioAuth = await loginWithEmail(username.trim().toLowerCase(), password);
 
+      // Normalizar y guardar rol en redux
+      const rawRol = usuarioAuth.role || (usuarioAuth as any).rol;
+      const rol = typeof rawRol === 'string' ? rawRol.toLowerCase().trim() : rawRol;
+
       dispatch(login({
         usuario: {
           username: usuarioAuth.email,
           email: usuarioAuth.email,
-          rol: usuarioAuth.rol,
+          rol,
           id: usuarioAuth.uid,
-          nombre: usuarioAuth.displayName || usuarioAuth.email.split('@')[0],
+          nombre: usuarioAuth.name || (usuarioAuth as any).displayName || usuarioAuth.email.split('@')[0],
         },
-        rol: usuarioAuth.rol,
+        rol,
       }));
 
-      // Navegación: reset del stack a `home`
-      navigation.reset({ index: 0, routes: [{ name: 'home' }] });
+      // Mapear roles a rutas de dashboard según especificación
+      const rutaPorRol: Record<string, string> = {
+        cliente: '/dashboards/supervisor', // cliente -> supervisor
+        admin: '/dashboards/admin',
+        chofer: '/dashboards/cliente',    // chofer -> cliente dashboard
+        taller: '/dashboards/mecanico',   // taller -> mecanico dashboard
+        supervisor: '/dashboards/supervisor',
+        mecanico: '/dashboards/mecanico',
+      };
+
+      // Navegar al `home` centralizado; `home` renderiza el dashboard según `rol`
+      const destino = '/home';
+      // Usamos push con un pequeño delay para asegurarnos que el Stack esté montado
+      setTimeout(() => router.push(destino), 0);
     } catch (err: any) {
       const msg = err.message || 'Error al iniciar sesión';
       setError(msg);

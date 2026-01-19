@@ -56,6 +56,9 @@ const HomeScreen = () => {
   
   const rol = useSelector((state: RootState) => state.login.rol);
   const user = useSelector((state: RootState) => state.login.user);
+
+  // Debug: mostrar user/rol para verificar que Redux recibió los datos
+  console.log('[Home] user:', user, 'rol:', rol);
   
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
@@ -120,17 +123,17 @@ const HomeScreen = () => {
       {/* ADMIN Dashboard */}
       {rol === 'admin' && <AdminDashboard onLogout={handleLogout} />}
 
-      {/* SUPERVISOR Dashboard */}
-      {rol === 'supervisor' && <SupervisorDashboard onLogout={handleLogout} />}
+      {/* SUPERVISOR Dashboard (incluye rol 'cliente') */}
+      {(rol === 'supervisor' || rol === 'cliente') && <SupervisorDashboard onLogout={handleLogout} />}
 
-      {/* MECÁNICO Dashboard */}
-      {rol === 'mecanico' && <MecanicoDashboard onLogout={handleLogout} />}
+      {/* MECÁNICO Dashboard (incluye rol 'taller') */}
+      {(rol === 'mecanico' || rol === 'taller') && <MecanicoDashboard onLogout={handleLogout} />}
 
-      {/* CLIENTE Dashboard */}
-      {rol === 'cliente' && <ClienteDashboard onLogout={handleLogout} />}
+      {/* CLIENTE Dashboard para 'chofer' */}
+      {rol === 'chofer' && <ClienteDashboard onLogout={handleLogout} />}
 
-      {/* Fallback para cualquier otro rol */}
-      {!rol && (
+      {/* Fallback para cualquier otro rol no reconocido */}
+      {(!rol || !['admin', 'supervisor', 'mecanico', 'cliente', 'chofer', 'taller'].includes(String(rol))) && (
         <LinearGradient colors={['#000000', '#121212']} style={styles.gradient}>
           <SafeAreaView style={styles.safeArea}>
             <Text style={styles.fallbackText}>Rol no reconocido</Text>

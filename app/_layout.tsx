@@ -12,6 +12,9 @@ function LayoutContent() {
   const rol = useSelector((state: RootState) => state.login.rol);
   const user = useSelector((state: RootState) => state.login.user);
 
+  // Debug: mostrar user/rol en consola para verificar estado tras login
+  console.log('[Layout] user:', user, 'rol:', rol);
+
   // Si no hay usuario, mostrar login
   if (!user || !rol) {
     return (

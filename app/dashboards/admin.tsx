@@ -64,13 +64,14 @@ const AdminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
     return () => unsubscribe();
   }, [dispatch]);
 
-  // Filtros de estado
+  // Consolidación de columnas -> 3 categorías: pendientes (backlog + scheduled), en taller, finalizados
   const columns = [
-    { id: 'pending', title: 'Backlog', icon: 'inventory', color: '#FACC15', data: turnos.filter(t => t.estado === 'pending') },
-    { id: 'scheduled', title: 'Programados', icon: 'event', color: '#60A5FA', data: turnos.filter(t => t.estado === 'scheduled') },
-    { id: 'in_progress', title: 'En Taller', icon: 'engineering', color: '#4ADE80', data: turnos.filter(t => t.estado === 'in_progress') },
-    { id: 'completed', title: 'Finalizados', icon: 'verified', color: '#A855F7', data: turnos.filter(t => t.estado === 'completed') },
+    { id: 'pendientes', title: 'Pendientes', icon: 'hourglass-empty', color: '#FACC15', data: turnos.filter(t => t.estado === 'pending' || t.estado === 'scheduled') },
+    { id: 'entaller', title: 'En Taller', icon: 'engineering', color: '#4ADE80', data: turnos.filter(t => t.estado === 'in_progress') },
+    { id: 'finalizados', title: 'Finalizados', icon: 'verified', color: '#A855F7', data: turnos.filter(t => t.estado === 'completed') },
   ];
+
+  const [activeTab, setActiveTab] = useState<'pendientes' | 'entaller' | 'finalizados'>('pendientes');
 
   // Acciones de Negocio
   const handleUpdateStatus = async (id: string, nuevoEstado: string) => {
@@ -161,24 +162,61 @@ const AdminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
 
         {/* STATS RESPONSIVE */}
         <View className="flex-row flex-wrap -mx-2 mb-6">
-          <StatCard label="Entregas Hoy" value={columns[3].data.length} color="#A855F7" icon="check-circle" />
-          <StatCard label="Ocupación" value={columns[2].data.length} color="#4ADE80" icon="bolt" />
+          <StatCard label="Entregas Hoy" value={columns[2].data.length} color="#A855F7" icon="check-circle" />
+          <StatCard label="Ocupación" value={columns[1].data.length} color="#4ADE80" icon="bolt" />
           <StatCard label="Esperando" value={columns[0].data.length} color="#FACC15" icon="hourglass-empty" />
           {isMonitor && <StatCard label="Eficiencia" value="94%" color="#60A5FA" icon="trending-up" />}
         </View>
 
         {/* KANBAN SYSTEM */}
         <View className={`flex-1 ${isMonitor ? 'flex-row' : 'flex-col'} -mx-2`}>
-          {columns.map(col => (
-            <KanbanColumn
-              key={col.id}
-              title={col.title}
-              data={col.data}
-              color={col.color}
-              icon={col.icon}
-              renderCard={renderTurnoCard}
-            />
-          ))}
+          {isMonitor ? (
+            // Desktop: mostrar 3 columnas lado a lado
+            columns.map(col => (
+              <KanbanColumn
+                key={col.id}
+                title={col.title}
+                data={col.data}
+                color={col.color}
+                icon={col.icon}
+                renderCard={renderTurnoCard}
+              />
+            ))
+          ) : (
+            // Mobile: pestañas superiores que muestran una sola lista a la vez
+            <View className="flex-1">
+              <View className="flex-row justify-between mb-4">
+                <TouchableOpacity onPress={() => setActiveTab('pendientes')} className={`flex-1 py-3 mr-2 rounded-2xl items-center ${activeTab === 'pendientes' ? 'bg-primary/20' : 'bg-white/5'}`}>
+                  <Text className="text-white font-bold">Pendientes</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => setActiveTab('entaller')} className={`flex-1 py-3 mx-1 rounded-2xl items-center ${activeTab === 'entaller' ? 'bg-primary/20' : 'bg-white/5'}`}>
+                  <Text className="text-white font-bold">En Taller</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => setActiveTab('finalizados')} className={`flex-1 py-3 ml-2 rounded-2xl items-center ${activeTab === 'finalizados' ? 'bg-primary/20' : 'bg-white/5'}`}>
+                  <Text className="text-white font-bold">Finalizados</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Lista seleccionada ocupa todo el espacio; añadimos padding-bottom para el botón flotante */}
+              <View className="flex-1 pb-24">
+                {columns.filter(c => c.id === activeTab).map(col => (
+                  <View key={col.id} className="px-2 flex-1">
+                    <View className="flex-row items-center mb-4 px-2">
+                      <View style={{ backgroundColor: col.color }} className="w-2 h-2 rounded-full mr-2 shadow-lg" />
+                      <Text className="text-white font-bold uppercase text-xs tracking-widest flex-1">{col.title}</Text>
+                      <View className="bg-white/10 px-2 py-1 rounded-lg">
+                        <Text className="text-white text-[10px] font-bold">{col.data.length}</Text>
+                      </View>
+                    </View>
+
+                    <ScrollView showsVerticalScrollIndicator={false} className="flex-1">
+                      {col.data.map((item: any) => renderTurnoCard(item))}
+                    </ScrollView>
+                  </View>
+                ))}
+              </View>
+            </View>
+          )}
         </View>
 
         {/* ACCIONES RÁPIDAS FLOTANTES (Solo en móvil) */}
