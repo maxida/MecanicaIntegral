@@ -1,5 +1,6 @@
 import { MaterialIcons } from '@expo/vector-icons';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
+import { useLocalSearchParams } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useState, useMemo } from 'react';
 import {
@@ -21,14 +22,16 @@ import { RootState } from '@/redux/store';
 
 const SolicitudScreen = () => {
   const navigation = useNavigation<any>();
-  const route = useRoute<any>();
+  const params = useLocalSearchParams();
   const dispatch = useDispatch();
   const user = useSelector((state: RootState) => state.login.user);
 
-  const prefillRaw = route?.params?.prefillData ?? null;
+  const prefillRaw = (params as any)?.prefillData ?? (params as any)?.turno ?? null;
   const prefill = useMemo(() => {
     try {
-      return prefillRaw ? JSON.parse(prefillRaw as any) : null;
+      if (!prefillRaw) return null;
+      // If it's a serialized JSON string, parse it; otherwise assume it's already an object
+      return typeof prefillRaw === 'string' ? JSON.parse(prefillRaw as any) : prefillRaw;
     } catch (e) {
       return null;
     }
@@ -36,7 +39,7 @@ const SolicitudScreen = () => {
 
   const [formData, setFormData] = useState(() => ({
     patente: prefill?.numeroPatente ?? '',
-    descripcion: prefill ? (`Síntomas: ${(prefill.sintomas || []).join(', ')}\nComentarios: ${prefill.comentariosChofer || prefill.descripcion || ''}`) : '',
+    descripcion: prefill ? (`Derivado de Ingreso. Síntomas: ${(prefill.sintomas || []).join(', ')}. Notas: ${prefill.comentariosChofer || prefill.descripcion || ''}`) : '',
     chofer: prefill?.chofer ?? user?.nombre ?? '',
     tipo: 'reparacion', // reparacion, mantenimiento, asistencia
     kilometraje: prefill?.kilometraje ?? '',

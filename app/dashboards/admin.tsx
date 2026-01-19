@@ -218,13 +218,6 @@ const AdminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
             </View>
           )}
         </View>
-
-        {/* ACCIONES RÁPIDAS FLOTANTES (Solo en móvil) */}
-        {!isMonitor && (
-          <TouchableOpacity className="absolute bottom-10 right-10 bg-danger w-16 h-16 rounded-full items-center justify-center shadow-2xl shadow-danger/50">
-            <MaterialIcons name="add" size={30} color="white" />
-          </TouchableOpacity>
-        )}
       </LinearGradient>
     </SafeAreaView>
   );

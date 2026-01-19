@@ -130,7 +130,11 @@ return (
                   <Text className="text-gray-500 font-bold uppercase text-[10px]">Cerrar</Text>
                </TouchableOpacity>
                <TouchableOpacity 
-                 onPress={() => router.push({ pathname: '/solicitud', params: { prefillData: JSON.stringify(turno) } })}
+                 onPress={() => {
+                   router.push({ pathname: '/solicitud', params: { prefillData: JSON.stringify(turno) } });
+                   // Cerramos el modal localmente al navegar
+                   onClose && onClose();
+                 }}
                  className="flex-2 bg-danger py-5 rounded-2xl items-center shadow-lg shadow-danger/40"
                >
                  <Text className="text-white font-black text-xs uppercase italic">Derivar a Reparación</Text>
