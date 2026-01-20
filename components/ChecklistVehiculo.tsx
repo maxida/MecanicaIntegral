@@ -21,6 +21,8 @@ import { RootState } from '@/redux/store';
 import { crearChecklist, Checklist, ItemChecklist, ITEMS_CHECKLIST_DEFECTO, actualizarChecklist } from '@/services/checklistService';
 import { createSolicitud } from '@/services/solicitudService';
 import { useGlobalLoading } from '@/components/GlobalLoading';
+import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { app } from '@/firebase/firebaseConfig';
 
 const ChecklistVehiculo = () => {
   const route = useRoute<any>();
@@ -44,6 +46,16 @@ const ChecklistVehiculo = () => {
   const user = useSelector((state: RootState) => state.login.user);
   const role = useSelector((state: RootState) => state.login.rol);
 
+  const uploadImageAsync = async (uri: string): Promise<string> => {
+    const response = await fetch(uri);
+    const blob = await response.blob();
+    const storage = getStorage(app);
+    const filename = `evidence/${Date.now()}.jpg`;
+    const storageRef = ref(storage, filename);
+    await uploadBytes(storageRef, blob);
+    return await getDownloadURL(storageRef);
+  };
+
   const toggleItem = (index: number) => {
     const nuevosItems = [...items];
     nuevosItems[index].completado = !nuevosItems[index].completado;
@@ -58,8 +70,15 @@ const ChecklistVehiculo = () => {
     }
 
     setLoading(true);
-    globalLoading.show('Guardando checklist...');
+    globalLoading.show(photoUri ? 'Subiendo evidencia...' : 'Guardando checklist...');
     try {
+      let finalPhotoUrl: string | null = null;
+
+      if (photoUri) {
+        finalPhotoUrl = await uploadImageAsync(photoUri);
+        globalLoading.show('Guardando checklist...');
+      }
+
       const checklistData: Omit<Checklist, 'id'> = {
         numeroPatente,
         fecha: new Date().toISOString().split('T')[0],
@@ -67,6 +86,7 @@ const ChecklistVehiculo = () => {
         items,
         completado: items.every(item => item.completado),
         notas,
+        fotoTablero: finalPhotoUrl,
       };
 
       const id = await crearChecklist(checklistData);

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, Text, ScrollView, Image, TouchableOpacity, Modal, SafeAreaView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { FontAwesome5 } from '@expo/vector-icons';
@@ -18,8 +18,23 @@ const SINTOMAS_MAP: Record<string, { label: string, icon: string, color: string 
   aire_ac: { label: 'Falla A/A', icon: 'ac-unit', color: '#60A5FA' },
 };
 
-const TurnoDetailModal = ({ visible, turno, onClose, onAction }: any) => {
+const TurnoDetailModal = ({ visible, turno, onClose, onAction, readOnly = false }: any) => {
   const router = useRouter();
+  const evidenceUrl = turno?.fotoTablero
+    || turno?.evidenceUrl
+    || turno?.photoUrl
+    || turno?.dashboardPhoto
+    || turno?.imageUrl
+    || turno?.checklistPhotoURL
+    || turno?.foto?.url
+    || null;
+
+  useEffect(() => {
+    if (visible) {
+      console.log('Foto recibida:', turno);
+    }
+  }, [visible, turno]);
+
   if (!turno) return null;
 	const isAlert = turno.estadoGeneral === 'alert';
 
@@ -61,8 +76,8 @@ return (
                 <View className="flex-1 mb-10 monitor:mb-0">
                   <Text className="text-primary text-[10px] font-black uppercase tracking-[2px] mb-4">Evidencia de Tablero</Text>
                   <View className="w-full h-72 bg-card rounded-[40px] overflow-hidden border border-white/10 shadow-2xl mb-10">
-                    {turno.fotoTablero ? (
-                      <Image source={{ uri: turno.fotoTablero }} className="w-full h-full" resizeMode="cover" />
+                    {evidenceUrl ? (
+                      <Image source={{ uri: evidenceUrl }} className="w-full h-full" resizeMode="cover" />
                     ) : (
                         <View className="flex-1 items-center justify-center bg-white/5">
                         <FontAwesome5 name="image" size={40} color="#222" />
@@ -124,22 +139,24 @@ return (
               <View className="h-40" />
             </ScrollView>
 
-            {/* BOTONES DE ACCIÓN */}
-            <BlurView intensity={40} tint="dark" className="p-8 border-t border-white/10 flex-row gap-4">
-               <TouchableOpacity onPress={onClose} className="flex-1 bg-white/5 py-5 rounded-2xl items-center">
-                  <Text className="text-gray-500 font-bold uppercase text-[10px]">Cerrar</Text>
-               </TouchableOpacity>
-               <TouchableOpacity 
-                 onPress={() => {
-                   router.push({ pathname: '/solicitud', params: { prefillData: JSON.stringify(turno) } });
-                   // Cerramos el modal localmente al navegar
-                   onClose && onClose();
-                 }}
-                 className="flex-2 bg-danger py-5 rounded-2xl items-center shadow-lg shadow-danger/40"
-               >
-                 <Text className="text-white font-black text-xs uppercase italic">Derivar a Reparación</Text>
-               </TouchableOpacity>
-            </BlurView>
+            {/* BOTONES DE ACCIÓN (ocultos en modo readOnly) */}
+            {!readOnly && (
+              <BlurView intensity={40} tint="dark" className="p-8 border-t border-white/10 flex-row gap-4">
+                <TouchableOpacity onPress={onClose} className="flex-1 bg-white/5 py-5 rounded-2xl items-center">
+                   <Text className="text-gray-500 font-bold uppercase text-[10px]">Cerrar</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  onPress={() => {
+                    router.push({ pathname: '/solicitud', params: { prefillData: JSON.stringify(turno) } });
+                    // Cerramos el modal localmente al navegar
+                    onClose && onClose();
+                  }}
+                  className="flex-2 bg-danger py-5 rounded-2xl items-center shadow-lg shadow-danger/40"
+                >
+                  <Text className="text-white font-black text-xs uppercase italic">Derivar a Reparación</Text>
+                </TouchableOpacity>
+              </BlurView>
+            )}
           </SafeAreaView>
         </Animated.View>
       </View>
