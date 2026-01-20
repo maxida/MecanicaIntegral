@@ -56,7 +56,7 @@ const ClienteDashboard = ({ onLogout }: { onLogout?: () => void }) => {
           <Animated.View entering={FadeInUp.delay(200)}>
             <TouchableOpacity 
               activeOpacity={0.9}
-              onPress={() => navigation.navigate('checkin')}
+              onPress={() => navigation.navigate('checkin', { numeroPatente: camionAsignado.patente })}
               className="mb-8 overflow-hidden rounded-[40px] border border-primary/30 shadow-2xl shadow-primary/20"
             >
               <LinearGradient colors={['#60A5FA', '#2563EB']} start={{x:0, y:0}} end={{x:1, y:1}} className="p-8 flex-row items-center justify-between">

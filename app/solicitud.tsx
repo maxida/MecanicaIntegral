@@ -179,7 +179,7 @@ const SolicitudScreen = () => {
 
             {/* Technical fields preview (readonly) */}
             <View className="mb-6">
-              <Text className="text-gray-400 text-sm mb-2">Kilometraje: <Text className="text-white font-bold">{formData.kilometraje || 'N/A'}</Text></Text>
+              <Text className="text-gray-400 text-sm mb-2">Kilometraje: <Text className="text-white font-bold">{formData.kilometraje ? Number(formData.kilometraje).toLocaleString('es-ES') : 'N/A'}</Text></Text>
               <Text className="text-gray-400 text-sm">Nivel Nafta: <Text className="text-white font-bold">{formData.nivelNafta ? `${formData.nivelNafta}%` : 'N/A'}</Text></Text>
             </View>
 

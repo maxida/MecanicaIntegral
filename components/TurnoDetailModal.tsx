@@ -102,7 +102,7 @@ return (
                   <View className="flex-row gap-4 mb-10">
                     <View className="flex-1 bg-card p-6 rounded-[35px] border border-white/5">
                       <Ionicons name="speedometer-outline" size={22} color="#60A5FA" />
-                      <Text className="text-white text-3xl font-black mt-2">{turno.kilometraje}</Text>
+                      <Text className="text-white text-3xl font-black mt-2">{Number(turno.kilometraje || 0).toLocaleString('es-ES')}</Text>
                       <Text className="text-gray-600 text-[10px] font-bold">KM TOTALES</Text>
                     </View>
                     <View className="flex-1 bg-card p-6 rounded-[35px] border border-white/5">

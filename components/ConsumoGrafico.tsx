@@ -51,7 +51,7 @@ const ConsumoGrafico = ({ dataTurnos }: { dataTurnos: any[] }) => {
 
 			<View className="flex-row justify-around mt-2">
 				<View className="items-center">
-					<Text className="text-white font-black text-lg">{chartData[chartData.length - 1].kilometraje}</Text>
+					<Text className="text-white font-black text-lg">{Number(chartData[chartData.length - 1].kilometraje || 0).toLocaleString('es-ES')}</Text>
 					<Text className="text-gray-600 text-[8px] uppercase">Último KM</Text>
 				</View>
 				<View className="items-center">

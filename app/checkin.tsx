@@ -8,6 +8,7 @@ import { RootState } from '@/redux/store';
 import * as ImagePicker from 'expo-image-picker';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import LoadingOverlay from '@/components/LoadingOverlay';
+import NumberInput from '@/components/NumberInput';
 import CustomAlert from '@/components/CustomAlert';
 import { crearTurnoService } from '@/services/turnosService';
 import { agregarTurno } from '@/redux/slices/turnosSlice';
@@ -30,7 +31,7 @@ const NovedadesChoferForm = () => {
   const user = useSelector((state: RootState) => state.login.user);
   const route = useRoute<any>();
 
-  const [km, setKm] = useState('');
+  const [km, setKm] = useState<number>(0);
   const [fuel, setFuel] = useState(50);
   const [sintomas, setSintomas] = useState<string[]>([]);
   const [photo, setPhoto] = useState<string | null>(null);
@@ -49,7 +50,7 @@ const NovedadesChoferForm = () => {
 
   const handleFinalizarIngreso = async () => {
     // Validaciones mínimas
-    if (!km.trim()) {
+    if (!km && km !== 0) {
       CustomAlert.alert('Por favor ingresa el kilometraje');
       return;
     }
@@ -65,7 +66,7 @@ const NovedadesChoferForm = () => {
         comentariosChofer: notas || null,
         estadoGeneral: sintomas.length > 0 ? 'alert' : 'ok',
         estado: 'pending_triage',
-        choferId: user?.id || user?.uid || null,
+        choferId: user?.id || null,
         fechaIngreso: new Date().toISOString(),
       };
 
@@ -99,12 +100,11 @@ const NovedadesChoferForm = () => {
           <View className="flex-row space-x-4 mb-6">
             <View className="flex-1 bg-card border border-white/10 rounded-[30px] p-4 items-center">
               <Text className="text-gray-500 text-[8px] font-bold uppercase mb-2">Kilometraje</Text>
-              <TextInput
+              <NumberInput
                 className="text-white text-2xl font-black text-center"
-                keyboardType="numeric"
-                placeholder="000"
                 value={km}
-                onChangeText={setKm}
+                onChangeText={(val: string) => setKm(Number(val) || 0)}
+                decimalPlaces={0}
               />
             </View>
             <View className="flex-1 bg-card border border-white/10 rounded-[30px] p-4">
