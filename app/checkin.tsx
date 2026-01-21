@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, SafeAreaView, Image } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, SafeAreaView, Image, Platform } from 'react-native';
 import { MaterialIcons, FontAwesome5, Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/redux/store';
 import * as ImagePicker from 'expo-image-picker';
+import * as ImageManipulator from 'expo-image-manipulator';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import LoadingOverlay from '@/components/LoadingOverlay';
 import NumberInput from '@/components/NumberInput';
@@ -39,13 +40,66 @@ const NovedadesChoferForm = () => {
   const [saving, setSaving] = useState(false);
   const dispatch = useDispatch();
 
+  const resizeIfNeeded = async (uri: string, width?: number, height?: number) => {
+    if (Platform.OS === 'web' || !width || !height) return uri;
+    const maxDimension = Math.max(width, height);
+    const MAX_DIMENSION = 1280;
+    if (maxDimension <= MAX_DIMENSION) return uri;
+
+    const scale = MAX_DIMENSION / maxDimension;
+    const targetWidth = Math.round(width * scale);
+    const targetHeight = Math.round(height * scale);
+
+    const manipulated = await ImageManipulator.manipulateAsync(
+      uri,
+      [{ resize: { width: targetWidth, height: targetHeight } }],
+      { compress: 0.6, format: ImageManipulator.SaveFormat.JPEG }
+    );
+
+    return manipulated.uri;
+  };
+
   const toggleSintoma = (id: string) => {
     setSintomas(prev => prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id]);
   };
 
   const takePhoto = async () => {
-    const result = await ImagePicker.launchCameraAsync({ quality: 0.6 });
-    if (!result.canceled) setPhoto(result.assets[0].uri);
+    try {
+      if (Platform.OS === 'web') {
+        const webResult = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ImagePicker.MediaTypeOptions.Images,
+          quality: 0.6,
+          allowsEditing: true,
+        });
+
+        if (!webResult.canceled && webResult.assets?.length) {
+          setPhoto(webResult.assets[0].uri);
+        }
+        return;
+      }
+
+      const permission = await ImagePicker.requestCameraPermissionsAsync();
+      if (permission.status !== 'granted') {
+        CustomAlert.alert('Permiso requerido', 'Necesitamos acceso a la cámara para sacar la foto del tablero.');
+        return;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        quality: 0.6,
+        allowsEditing: true,
+        aspect: [4, 3],
+      });
+
+      if (result.canceled || !result.assets?.length) return;
+
+      const asset = result.assets[0];
+      const safeUri = await resizeIfNeeded(asset.uri, asset.width, asset.height);
+      setPhoto(safeUri);
+    } catch (error) {
+      console.error('Error al capturar la foto:', error);
+      CustomAlert.alert('Error', 'No se pudo capturar la foto. Intenta nuevamente.');
+    }
   };
 
   const handleFinalizarIngreso = async () => {
