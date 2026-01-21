@@ -24,7 +24,7 @@ import Animated, { FadeInUp, FadeInDown, useSharedValue, useAnimatedStyle, withR
 const logoImg = require('../assets/images/logo-mecanica-integral.jpeg');
 // Sub-componente para Inputs con Efecto Premium
 const PremiumInput = ({ icon, label, ...props }: any) => (
-  <View className="mb-5">
+  <View className="my-2">
     <Text className="text-gray-500 text-[10px] uppercase font-black tracking-[2px] ml-4 mb-2">{label}</Text>
     <View className="flex-row items-center bg-white/5 rounded-2xl px-4 py-4 border border-white/10 focus:border-primary/50">
       <MaterialIcons name={icon} size={18} color="#60A5FA" />
@@ -136,20 +136,20 @@ const LoginScreen = () => {
     }, 2000);
   };
   return (
-    <View className="flex-1 bg-surface">
+    <View className="flex-1 bg-black justify-center items-center">
       {/* Fondo con Spotlights Dinámicos */}
       <View className="absolute inset-0 overflow-hidden">
         <View className="absolute -top-20 -left-20 w-80 h-80 bg-danger/20 rounded-full blur-[100px]" />
         <View className="absolute top-1/2 -right-20 w-60 h-60 bg-primary/10 rounded-full blur-[80px]" />
       </View>
 
-      <LinearGradient colors={["transparent", "#000"]} className="flex-1">
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} className="flex-1 justify-center items-center px-8">
+      <LinearGradient colors={["transparent", "#000"]} className="flex-1 w-full">
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} className="flex-1 justify-center items-center">
 
-          <Animated.View entering={FadeInUp.delay(200).duration(1000)} className="w-full max-w-sm monitor:max-w-[450px]">
+          <Animated.View entering={FadeInUp.delay(200).duration(1000)} className="w-[85%] max-w-xs">
 
             {/* Logo con Aura Técnica */}
-            <View className="items-center mb-14">
+            <View className="items-center mb-6">
               <Animated.View style={animatedGlow} className="absolute w-32 h-32 bg-danger rounded-full blur-[50px]" />
               <View className="bg-black p-6 rounded-[35px] border border-white/10 shadow-2xl">
                 <Image
@@ -161,7 +161,7 @@ const LoginScreen = () => {
                   borderRadius={20}
                 />
               </View>
-              <View className="mt-4 items-center">
+              <View className="mt-3 items-center">
                 <Text className="text-white text-5xl font-black tracking-tighter italic">MIT</Text>
                 <View className="h-[2px] w-10 bg-danger my-1" />
                 <Text className="text-gray-500 font-bold tracking-[5px] uppercase text-[10px]">Industrial Systems</Text>
@@ -171,8 +171,8 @@ const LoginScreen = () => {
             {/* Tarjeta Glassmorphism */}
             <Animated.View entering={FadeInDown.delay(400).duration(800)}>
               <BlurView intensity={20} tint="dark" className="rounded-[45px] overflow-hidden border border-white/10 shadow-2xl">
-                <View className="p-8 bg-black/40">
-                  <Text className="text-white text-2xl font-bold mb-8 tracking-tight">Acceso de Personal</Text>
+                <View className="p-6 bg-black/40">
+                  <Text className="text-white text-2xl font-bold mb-6 tracking-tight">Acceso de Personal</Text>
 
                   <PremiumInput 
                     label="Email Corporativo" 
@@ -213,7 +213,7 @@ const LoginScreen = () => {
                     )}
                   </TouchableOpacity>
 
-                  <TouchableOpacity className="mt-8 items-center">
+                  <TouchableOpacity className="mt-6 items-center">
                     <Text className="text-primary/60 font-bold text-[11px] uppercase tracking-widest">¿Olvidaste tu acceso?</Text>
                   </TouchableOpacity>
                 </View>
@@ -221,9 +221,9 @@ const LoginScreen = () => {
             </Animated.View>
 
             {/* Footer Técnico */}
-            <View className="mt-12 flex-row justify-center items-center opacity-30">
+            <View className="mt-8 flex-row justify-center items-center opacity-30">
               <View className="h-[1px] w-8 bg-white" />
-              <Text className="text-white text-[9px] font-mono mx-3 tracking-tighter">SECURED CONNECTION // TERMINAL_ID: 00492</Text>
+              <Text className="text-white text-[9px] font-mono mx-3 tracking-tighter">Deployment by Quinteros  |  v1.1</Text>
               <View className="h-[1px] w-8 bg-white" />
             </View>
 
