@@ -4,7 +4,7 @@
     "slug": "mi-app",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/logo-mecanica-integral.png",
+    "icon": "./assets/images/icon.png",
     "scheme": "miapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -32,12 +32,19 @@
         "resizeMode": "contain",
         "backgroundColor": "#000000"
       },
-      "display": "standalone",
-      "startUrl": "/",
-      "shortName": "MIT App",
-      "name": "Mecánica Integral Tucumán",
+      "name": "MIT App",
+      "shortName": "MIT",
+      "themeColor": "#000000",
       "backgroundColor": "#000000",
-      "themeColor": "#000000"
+      "display": "standalone",
+      "orientation": "portrait",
+      "scope": "/",
+      "startUrl": "/",
+      "meta": {
+        "apple": {
+          "mobileWebAppCapable": "yes"
+        }
+      }
     },
     "plugins": [
       "expo-router",
