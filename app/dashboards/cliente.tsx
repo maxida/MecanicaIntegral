@@ -97,19 +97,32 @@ const ClienteDashboard = ({ onLogout }: { onLogout?: () => void }) => {
 
   const normalizeDateKey = (dateInput: any) => {
     if (!dateInput) return null;
-    const d = new Date(dateInput);
-    if (Number.isNaN(d.getTime())) return null;
-    return d.toISOString().split('T')[0];
+
+    let d: Date | null = null;
+
+    if (dateInput instanceof Date) {
+      d = dateInput;
+    } else if (typeof dateInput === 'string' || typeof dateInput === 'number') {
+      const parsed = new Date(dateInput);
+      d = Number.isNaN(parsed.getTime()) ? null : parsed;
+    } else if (typeof dateInput?.toDate === 'function') {
+      const parsed = dateInput.toDate();
+      d = parsed instanceof Date && !Number.isNaN(parsed.getTime()) ? parsed : null;
+    } else if (typeof dateInput?.seconds === 'number') {
+      const parsed = new Date(dateInput.seconds * 1000);
+      d = Number.isNaN(parsed.getTime()) ? null : parsed;
+    }
+
+    return d ? d.toISOString().split('T')[0] : null;
   };
 
   const selectedDateKey = selectedDate ? normalizeDateKey(selectedDate) : null;
-  const historialFiltrado = selectedDateKey
-    ? historial.filter((h) => {
-        const fechaRaw = h.createdAt || h.fechaCreacion || h.fechaIngreso || null;
-        const itemKey = normalizeDateKey(fechaRaw);
-        return itemKey === selectedDateKey;
-      })
-    : historial;
+  const historialFiltrado = historial.filter((h) => {
+    const fechaRaw = h.createdAt || h.fechaCreacion || h.fechaIngreso || null;
+    const itemKey = normalizeDateKey(fechaRaw);
+    const matchDate = selectedDateKey ? itemKey === selectedDateKey : true;
+    return matchDate;
+  });
 
   // Simulamos la vinculación del camión según el usuario logueado
   const camionAsignado = {
