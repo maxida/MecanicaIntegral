@@ -26,7 +26,18 @@
     "web": {
       "bundler": "metro",
       "output": "single",
-      "favicon": "./assets/images/logo-mecanica-integral.png"
+      "favicon": "./assets/images/favicon.png",
+      "splash": {
+        "image": "./assets/images/splash-icon.png",
+        "resizeMode": "contain",
+        "backgroundColor": "#000000"
+      },
+      "display": "standalone",
+      "startUrl": "/",
+      "shortName": "MIT App",
+      "name": "Mecánica Integral Tucumán",
+      "backgroundColor": "#000000",
+      "themeColor": "#000000"
     },
     "plugins": [
       "expo-router",
