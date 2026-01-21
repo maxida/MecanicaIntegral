@@ -223,7 +223,7 @@ const LoginScreen = () => {
             {/* Footer Técnico */}
             <View className="mt-8 flex-row justify-center items-center opacity-30">
               <View className="h-[1px] w-8 bg-white" />
-              <Text className="text-white text-[9px] font-mono mx-3 tracking-tighter">Deployment by Quinteros  |  v1.1</Text>
+              <Text className="text-white text-[9px] font-mono mx-3 tracking-tighter">Deployment by Ing. Quinteros  |  v1.1</Text>
               <View className="h-[1px] w-8 bg-white" />
             </View>
 

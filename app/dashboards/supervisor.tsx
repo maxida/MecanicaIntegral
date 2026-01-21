@@ -21,7 +21,7 @@ const SuperadminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
   const [filterText, setFilterText] = useState('');
   const [filterEstadoGeneral, setFilterEstadoGeneral] = useState<'all' | 'crit' | 'ok'>('all');
   const [page, setPage] = useState(0);
-  const pageSize = 6;
+  const pageSize = 2;
 
   useEffect(() => {
     const unsubscribe = suscribirseAPendingTriage((data) => {
@@ -51,12 +51,15 @@ const SuperadminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
     const isLiberar = decision === 'liberar' || decision === 'rejected';
 
     const metadata = isTaller
-      ? { estado: 'scheduled', derivadoATaller: true, fechaDerivacion: new Date().toISOString() }
-      : { estado: 'completed', fechaLiberacion: new Date().toISOString(), notas: 'Unidad liberada sin reparaciones' };
+      ? { estado: 'scheduled' as const, derivadoATaller: true, fechaDerivacion: new Date().toISOString() }
+      : { estado: 'completed' as const, fechaLiberacion: new Date().toISOString(), notas: 'Unidad liberada sin reparaciones' };
 
     try {
       await actualizarTurnoService(id, metadata);
-      dispatch(actualizarTurno({ id, ...metadata }));
+      const currentTurno = turnos.find(t => t.id === id);
+      if (currentTurno) {
+        dispatch(actualizarTurno({ ...currentTurno, ...metadata }));
+      }
       setModalVisible(false);
       // reset page to first to show newest
       setPage(0);
@@ -86,7 +89,7 @@ const SuperadminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
           {/* ESTADÍSTICAS RÁPIDAS */}
           <View className="flex-row space-x-4 mb-10">
             <View className="flex-1 bg-card/40 border border-white/5 p-4 rounded-3xl">
-              <Text className="text-primary text-2xl font-black">{ingresosPendientes.length}</Text>
+              <Text className="text-primary text-2xl font-black">{ingresosFiltrados.length}</Text>
               <Text className="text-gray-600 text-[8px] font-bold uppercase">Por Revisar</Text>
             </View>
             <View className="flex-1 bg-card/40 border border-white/5 p-4 rounded-3xl">
@@ -156,13 +159,15 @@ const SuperadminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
                     >
                       <Text className="text-success text-[10px] font-black uppercase">Liberar</Text>
                     </TouchableOpacity>
-                    
-                    <TouchableOpacity 
-                      onPress={() => router.push({ pathname: '/solicitud', params: { prefillData: JSON.stringify(turno) } })}
-                      className="flex-[2] bg-danger py-3 rounded-2xl items-center shadow-lg shadow-danger/40"
-                    >
-                      <Text className="text-white text-[10px] font-black uppercase italic">Derivar a Taller MIT</Text>
-                    </TouchableOpacity>
+
+                    {turno.estadoGeneral === 'alert' && (
+                      <TouchableOpacity 
+                        onPress={() => router.push({ pathname: '/solicitud', params: { prefillData: JSON.stringify(turno) } })}
+                        className="flex-[2] bg-danger py-3 rounded-2xl items-center shadow-lg shadow-danger/40"
+                      >
+                        <Text className="text-white text-[10px] font-black uppercase italic">Derivar a Taller MIT</Text>
+                      </TouchableOpacity>
+                    )}
                   </View>
                 </BlurView>
               </TouchableOpacity>
