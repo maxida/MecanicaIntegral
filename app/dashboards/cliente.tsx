@@ -134,7 +134,7 @@ const ClienteDashboard = ({ onLogout }: { onLogout?: () => void }) => {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-surface pt-4">
+    <SafeAreaView className="flex-1 bg-surface pt-16">
       <LinearGradient colors={['#0b0b0b', '#000']} className="flex-1 px-6">
         <ScrollView showsVerticalScrollIndicator={false} className="pt-4">
           
