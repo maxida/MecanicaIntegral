@@ -67,6 +67,14 @@ const AdminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
     return () => unsubscribe();
   }, [dispatch]);
 
+  // reset pagination when turnos array changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [turnos]);
+
+  // reset page when active tab changes
+  useEffect(() => { setCurrentPage(1); }, [activeTab]);
+
   // Consolidación de columnas -> 3 categorías: pendientes (backlog + scheduled), en taller, finalizados
   const columns = [
     { id: 'pendientes', title: 'Pendientes', icon: 'hourglass-empty', color: '#FACC15', data: turnos.filter(t => t.estado === 'pending' || t.estado === 'scheduled') },
@@ -75,6 +83,8 @@ const AdminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
   ];
 
   const [activeTab, setActiveTab] = useState<'pendientes' | 'entaller' | 'finalizados'>('pendientes');
+  const ITEMS_PER_PAGE = 2;
+  const [currentPage, setCurrentPage] = useState(1);
 
   // Acciones de Negocio
   const handleUpdateStatus = async (id: string, nuevoEstado: string) => {
@@ -142,72 +152,89 @@ const AdminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-surface">
-      <LinearGradient colors={['#0b0b0b', '#000']} className="flex-1 px-6">
+    <SafeAreaView className="flex-1 bg-surface pt-4">
+      <LinearGradient colors={['#0b0b0b', '#000']} className="flex-1 px-4">
         {loading && <LoadingOverlay message="Sincronizando..." />}
 
-        {/* HEADER TÉCNICO */}
-        <View className="flex-row justify-between items-end mt-8 mb-10">
+        {/* HEADER COMPACTO */}
+        <View className="flex-row justify-between items-end mt-4 mb-6">
           <View>
             <Text className="text-gray-500 text-[10px] font-black uppercase tracking-[4px]">Command Center</Text>
-            <Text className="text-white text-3xl font-black italic">MIT_DASHBOARD</Text>
+            <Text className="text-white text-2xl font-black italic">MIT_DASHBOARD</Text>
           </View>
-          <View className="flex-row items-center bg-card px-4 py-2 rounded-2xl border border-white/10">
+
+          <View className="flex-row items-center bg-card px-3 py-1 rounded-2xl border border-white/10">
             <View className="w-2 h-2 rounded-full bg-success mr-2 animate-pulse" />
             <Text className="text-success text-[10px] font-bold">LIVE_SINC</Text>
           </View>
+
           {onLogout && (
-            <TouchableOpacity onPress={onLogout} className="ml-3 rounded-xl p-3" style={{ backgroundColor: '#FF4C4C12', borderWidth: 1, borderColor: '#FF4C4C22' }}>
-              <MaterialIcons name="logout" size={20} color="#FF4C4C" />
+            <TouchableOpacity onPress={onLogout} className="ml-3 rounded-xl p-2" style={{ backgroundColor: '#FF4C4C12', borderWidth: 1, borderColor: '#FF4C4C22' }}>
+              <MaterialIcons name="logout" size={18} color="#FF4C4C" />
             </TouchableOpacity>
           )}
         </View>
 
-        {/* STATS RESPONSIVE */}
-        <View className="flex-row flex-wrap -mx-2 mb-6">
-          <StatCard label="Entregas Hoy" value={columns[2].data.length} color="#A855F7" icon="check-circle" />
-          <StatCard label="Ocupación" value={columns[1].data.length} color="#4ADE80" icon="bolt" />
-          <StatCard label="Esperando" value={columns[0].data.length} color="#FACC15" icon="hourglass-empty" />
-          {isMonitor && <StatCard label="Eficiencia" value="94%" color="#60A5FA" icon="trending-up" />}
+        {/* KPIS COMPACTOS - UNA FILA */}
+        <View className="flex-row items-center justify-between mb-4 space-x-3">
+          <View className="flex-1 h-20 rounded-2xl overflow-hidden">
+            <BlurView intensity={8} tint="dark" className="p-3 bg-card/30 rounded-2xl border border-white/5 h-full">
+              <Text className="text-gray-400 text-[10px] uppercase font-bold">Entregas</Text>
+              <Text className="text-white text-lg font-black mt-1">{columns[2].data.length}</Text>
+            </BlurView>
+          </View>
+
+          <View className="flex-1 h-20 rounded-2xl overflow-hidden">
+            <BlurView intensity={8} tint="dark" className="p-3 bg-card/30 rounded-2xl border border-white/5 h-full">
+              <Text className="text-gray-400 text-[10px] uppercase font-bold">Ocupación</Text>
+              <Text className="text-white text-lg font-black mt-1">{columns[1].data.length}</Text>
+            </BlurView>
+          </View>
+
+          <View className="flex-1 h-20 rounded-2xl overflow-hidden">
+            <BlurView intensity={8} tint="dark" className="p-3 bg-card/30 rounded-2xl border border-white/5 h-full">
+              <Text className="text-gray-400 text-[10px] uppercase font-bold">Esperando</Text>
+              <Text className="text-white text-lg font-black mt-1">{columns[0].data.length}</Text>
+            </BlurView>
+          </View>
         </View>
 
-        {/* GESTIÓN DOCUMENTAL */}
-        <View className="mt-4 mb-6">
-          <Text className="text-gray-400 uppercase text-[12px] font-bold mb-3">GESTIÓN DOCUMENTAL</Text>
-          <View className="flex-row -mx-2 flex-wrap">
-            <TouchableOpacity onPress={() => { setDocType('asistencia'); setDocModalVisible(true); }} className="flex-1 min-w-[160px] mx-2 mb-4">
-              <BlurView intensity={10} tint="dark" className="rounded-[20px] border border-white/5 overflow-hidden">
-                <View className="p-5 bg-card/40 items-center">
-                  <Text className="text-white text-xl font-extrabold">🚑</Text>
-                  <Text className="text-white font-bold text-lg mt-3">Asistencia en Ruta</Text>
-                </View>
-              </BlurView>
+        {/* GESTIÓN DOCUMENTAL - FRANJA DELGADA COMPACTA */}
+        <View className="mb-4">
+          <Text className="text-gray-400 uppercase text-[12px] font-bold mb-2">GESTIÓN DOCUMENTAL</Text>
+          <View className="flex-row space-x-3">
+            <TouchableOpacity
+              onPress={() => { setDocType('asistencia'); setDocModalVisible(true); }}
+              className="flex-1 bg-card/30 rounded-lg py-3 items-center justify-center"
+              activeOpacity={0.8}
+            >
+              <Text className="text-white text-2xl">🚑</Text>
+              <Text className="text-white text-sm mt-1">Asistencia</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity onPress={() => { setDocType('reparacion'); setDocModalVisible(true); }} className="flex-1 min-w-[160px] mx-2 mb-4">
-              <BlurView intensity={10} tint="dark" className="rounded-[20px] border border-white/5 overflow-hidden">
-                <View className="p-5 bg-card/40 items-center">
-                  <Text className="text-white text-xl font-extrabold">🛠️</Text>
-                  <Text className="text-white font-bold text-lg mt-3">Informe de Reparación</Text>
-                </View>
-              </BlurView>
+            <TouchableOpacity
+              onPress={() => { setDocType('reparacion'); setDocModalVisible(true); }}
+              className="flex-1 bg-card/30 rounded-lg py-3 items-center justify-center"
+              activeOpacity={0.8}
+            >
+              <Text className="text-white text-2xl">🛠️</Text>
+              <Text className="text-white text-sm mt-1">Informe</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity onPress={() => { setDocType('presupuesto'); setDocModalVisible(true); }} className="flex-1 min-w-[160px] mx-2 mb-4">
-              <BlurView intensity={10} tint="dark" className="rounded-[20px] border border-white/5 overflow-hidden">
-                <View className="p-5 bg-card/40 items-center">
-                  <Text className="text-white text-xl font-extrabold">💰</Text>
-                  <Text className="text-white font-bold text-lg mt-3">Presupuesto</Text>
-                </View>
-              </BlurView>
+            <TouchableOpacity
+              onPress={() => { setDocType('presupuesto'); setDocModalVisible(true); }}
+              className="flex-1 bg-card/30 rounded-lg py-3 items-center justify-center"
+              activeOpacity={0.8}
+            >
+              <Text className="text-white text-2xl">💰</Text>
+              <Text className="text-white text-sm mt-1">Presupuesto</Text>
             </TouchableOpacity>
           </View>
         </View>
 
-        {/* KANBAN SYSTEM */}
-        <View className={`flex-1 ${isMonitor ? 'flex-row' : 'flex-col'} -mx-2`}>
+        {/* KANBAN / LISTA (ESPACIADO REDUCIDO) */}
+        <View className={`flex-1 ${isMonitor ? 'flex-row' : 'flex-col'} -mx-2`}> 
           {isMonitor ? (
-            // Desktop: mostrar 3 columnas lado a lado
             columns.map(col => (
               <KanbanColumn
                 key={col.id}
@@ -219,50 +246,77 @@ const AdminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
               />
             ))
           ) : (
-            // Mobile: pestañas superiores que muestran una sola lista a la vez
             <View className="flex-1">
-              <View className="flex-row justify-between mb-4">
-                <TouchableOpacity onPress={() => setActiveTab('pendientes')} className={`flex-1 py-3 mr-2 rounded-2xl items-center ${activeTab === 'pendientes' ? 'bg-primary/20' : 'bg-white/5'}`}>
-                  <Text className="text-white font-bold">Pendientes</Text>
+              <View className="flex-row justify-between mb-3">
+                <TouchableOpacity onPress={() => setActiveTab('pendientes')} className={`flex-1 py-2 mr-2 rounded-2xl items-center ${activeTab === 'pendientes' ? 'bg-primary/20' : 'bg-white/5'}`}>
+                  <Text className="text-white text-sm font-bold">Pendientes</Text>
                 </TouchableOpacity>
-                <TouchableOpacity onPress={() => setActiveTab('entaller')} className={`flex-1 py-3 mx-1 rounded-2xl items-center ${activeTab === 'entaller' ? 'bg-primary/20' : 'bg-white/5'}`}>
-                  <Text className="text-white font-bold">En Taller</Text>
+                <TouchableOpacity onPress={() => setActiveTab('entaller')} className={`flex-1 py-2 mx-1 rounded-2xl items-center ${activeTab === 'entaller' ? 'bg-primary/20' : 'bg-white/5'}`}>
+                  <Text className="text-white text-sm font-bold">En Taller</Text>
                 </TouchableOpacity>
-                <TouchableOpacity onPress={() => setActiveTab('finalizados')} className={`flex-1 py-3 ml-2 rounded-2xl items-center ${activeTab === 'finalizados' ? 'bg-primary/20' : 'bg-white/5'}`}>
-                  <Text className="text-white font-bold">Finalizados</Text>
+                <TouchableOpacity onPress={() => setActiveTab('finalizados')} className={`flex-1 py-2 ml-2 rounded-2xl items-center ${activeTab === 'finalizados' ? 'bg-primary/20' : 'bg-white/5'}`}>
+                  <Text className="text-white text-sm font-bold">Finalizados</Text>
                 </TouchableOpacity>
               </View>
 
-              {/* Lista seleccionada ocupa todo el espacio; añadimos padding-bottom para el botón flotante */}
-              <View className="flex-1 pb-24">
-                {columns.filter(c => c.id === activeTab).map(col => (
-                  <View key={col.id} className="px-2 flex-1">
-                    <View className="flex-row items-center mb-4 px-2">
-                      <View style={{ backgroundColor: col.color }} className="w-2 h-2 rounded-full mr-2 shadow-lg" />
-                      <Text className="text-white font-bold uppercase text-xs tracking-widest flex-1">{col.title}</Text>
-                      <View className="bg-white/10 px-2 py-1 rounded-lg">
-                        <Text className="text-white text-[10px] font-bold">{col.data.length}</Text>
+              <View className="flex-1 pb-16">
+                {columns.filter(c => c.id === activeTab).map(col => {
+                  const total = col.data.length;
+                  const totalPages = Math.max(1, Math.ceil(total / ITEMS_PER_PAGE));
+                  const start = (currentPage - 1) * ITEMS_PER_PAGE;
+                  const pageItems = col.data.slice(start, start + ITEMS_PER_PAGE);
+
+                  return (
+                    <View key={col.id} className="px-1 flex-1">
+                      <View className="flex-row items-center mb-3 px-2">
+                        <View style={{ backgroundColor: col.color }} className="w-2 h-2 rounded-full mr-2 shadow-lg" />
+                        <Text className="text-white font-bold uppercase text-xs tracking-widest flex-1">{col.title}</Text>
+                        <View className="bg-white/10 px-2 py-1 rounded-lg">
+                          <Text className="text-white text-[10px] font-bold">{total}</Text>
+                        </View>
+                      </View>
+
+                      <ScrollView showsVerticalScrollIndicator={false} className="flex-1">
+                        {pageItems.map((item: any) => renderTurnoCard(item))}
+                      </ScrollView>
+
+                      <View className="flex-row items-center justify-between mt-3">
+                        <TouchableOpacity
+                          onPress={() => setCurrentPage(p => Math.max(1, p - 1))}
+                          disabled={currentPage <= 1}
+                          className={`px-4 py-2 rounded-lg ${currentPage <= 1 ? 'bg-white/5' : 'bg-primary'}`}
+                        >
+                          <Text className="text-white">Anterior</Text>
+                        </TouchableOpacity>
+
+                        <View>
+                          <Text className="text-gray-300">Página {currentPage} de {totalPages}</Text>
+                        </View>
+
+                        <TouchableOpacity
+                          onPress={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                          disabled={currentPage >= totalPages}
+                          className={`px-4 py-2 rounded-lg ${currentPage >= totalPages ? 'bg-white/5' : 'bg-primary'}`}
+                        >
+                          <Text className="text-white">Siguiente</Text>
+                        </TouchableOpacity>
                       </View>
                     </View>
-
-                    <ScrollView showsVerticalScrollIndicator={false} className="flex-1">
-                      {col.data.map((item: any) => renderTurnoCard(item))}
-                    </ScrollView>
-                  </View>
-                ))}
+                  );
+                })}
               </View>
             </View>
           )}
         </View>
       </LinearGradient>
-        {/* Document generator modal */}
-        {docType && (
-          <DocumentGenerator
-            visible={docModalVisible}
-            onClose={() => { setDocModalVisible(false); setDocType(null); }}
-            docType={docType}
-          />
-        )}
+      {/* Document generator modal (compact) */}
+      {docType && (
+        <DocumentGenerator
+          visible={docModalVisible}
+          onClose={() => { setDocModalVisible(false); setDocType(null); }}
+          docType={docType}
+        />
+      )}
     </SafeAreaView>
   );
 };

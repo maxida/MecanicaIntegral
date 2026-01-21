@@ -347,7 +347,7 @@ export default function DocumentGenerator({ visible, onClose, docType }: Props) 
             </TouchableOpacity>
           </View>
 
-          <ScrollView showsVerticalScrollIndicator={false} className="flex-1">
+          <ScrollView showsVerticalScrollIndicator={false} className="flex-1 pb-20">
             <Text className="text-gray-400 text-sm mb-2">Cliente</Text>
             <TextInput value={cliente} onChangeText={setCliente} placeholder="Nombre del cliente" className="bg-card/40 rounded-md p-3 text-white mb-3" placeholderTextColor="#9ca3af" />
 
@@ -359,17 +359,17 @@ export default function DocumentGenerator({ visible, onClose, docType }: Props) 
 
             <Text className="text-gray-400 text-sm mb-2">Costo</Text>
             <TextInput value={costo} onChangeText={setCosto} placeholder="0.00" keyboardType="numeric" className="bg-card/40 rounded-md p-3 text-white mb-6" placeholderTextColor="#9ca3af" />
+            {/* Action buttons moved inside scrollable area to avoid footer cut-off */}
+            <View className="flex-row items-center justify-between mt-8">
+              <TouchableOpacity onPress={onClose} className="flex-1 mr-3 bg-white/5 py-3 rounded-lg items-center">
+                <Text className="text-white">Cancelar</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity disabled={busy} onPress={handleGenerateAndShare} className="flex-1 ml-3 bg-primary py-3 rounded-lg items-center">
+                {busy ? <ActivityIndicator color="#000" /> : <Text className="text-black font-bold">GENERAR Y COMPARTIR PDF</Text>}
+              </TouchableOpacity>
+            </View>
           </ScrollView>
-
-          <View className="flex-row items-center justify-between">
-            <TouchableOpacity onPress={onClose} className="flex-1 mr-3 bg-white/5 py-3 rounded-lg items-center">
-              <Text className="text-white">Cancelar</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity disabled={busy} onPress={handleGenerateAndShare} className="flex-1 ml-3 bg-primary py-3 rounded-lg items-center">
-              {busy ? <ActivityIndicator color="#000" /> : <Text className="text-black font-bold">GENERAR Y COMPARTIR PDF</Text>}
-            </TouchableOpacity>
-          </View>
         </View>
       </View>
     </Modal>
