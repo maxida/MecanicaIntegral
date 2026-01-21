@@ -7,7 +7,8 @@ import { useDispatch, useSelector } from 'react-redux';
 import { useRouter } from 'expo-router';
 import { RootState } from '@/redux/store';
 import { setTurnos, actualizarTurno } from '@/redux/slices/turnosSlice';
-import { suscribirseAPendingTriage, actualizarTurnoService } from '@/services/turnosService';
+import { suscribirseAPendingTriage, actualizarTurnoService, suscribirseATurnos } from '@/services/turnosService';
+import TicketCard from '@/components/TicketCard';
 import TurnoDetailModal from '@/components/TurnoDetailModal'; // El que armamos antes
 
 const SuperadminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
@@ -18,32 +19,65 @@ const SuperadminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
   const router = useRouter();
 
   const [pendings, setPendings] = useState<any[]>([]);
+  const [allTurnos, setAllTurnos] = useState<any[]>([]);
   const [filterText, setFilterText] = useState('');
   const [filterEstadoGeneral, setFilterEstadoGeneral] = useState<'all' | 'crit' | 'ok'>('all');
   const [page, setPage] = useState(0);
   const pageSize = 2;
 
   useEffect(() => {
-    const unsubscribe = suscribirseAPendingTriage((data) => {
-      setPendings(data);
-      // Optionally keep global state in sync
+    // Suscribimos a todos los turnos y también a los ingresos pendientes de triage.
+    const unsubAll = suscribirseATurnos((data) => {
+      // recibimos todos los documentos de la colección 'turnos'
+      setAllTurnos(data);
+      // mantener redux en sincronía (opcional)
       dispatch(setTurnos(data));
     });
-    return () => unsubscribe && unsubscribe();
+
+    const unsubPendings = suscribirseAPendingTriage((data) => {
+      // ingresos muy recientes que todavía pueden tener estado 'pending_triage'
+      setPendings(data);
+    });
+
+    return () => {
+      unsubAll && unsubAll();
+      unsubPendings && unsubPendings();
+    };
   }, [dispatch]);
 
-  // Filtramos solo los que acaban de entrar y no han sido procesados
-  const ingresosPendientesAll = pendings; // desde listener pending_triage
+  // Construir la lista "Torre de Control" mezclada: combinamos turnos registrados y los ingresos pendientes.
+  const combinedMap: Record<string, any> = {};
+  // Agregar todos los documentos de la colección principal
+  allTurnos.forEach(t => { combinedMap[t.id] = { ...t }; });
+  // Los pendientes de triage pueden ser documentos nuevos; los fusionamos (sobrescriben si mismo id)
+  pendings.forEach(t => { combinedMap[t.id] = { ...combinedMap[t.id], ...t }; });
 
-  const ingresosFiltrados = ingresosPendientesAll.filter(t => {
+  const combinedList = Object.values(combinedMap).map((t: any) => ({
+    ...t,
+    // normalizar campo de fecha para orden
+    _fechaOrden: t.fechaCreacion || t.fechaReparacion || new Date().toISOString(),
+  }));
+
+  // Orden descendente: el más reciente arriba
+  combinedList.sort((a: any, b: any) => new Date(b._fechaOrden).getTime() - new Date(a._fechaOrden).getTime());
+
+  // Filtros por UI
+  const matchStatus = (t: any) => {
+    if (filterEstadoGeneral === 'all') return true;
+    if (filterEstadoGeneral === 'crit') return t.estadoGeneral === 'alert' || t.prioridad === 1;
+    if (filterEstadoGeneral === 'ok') return t.estado === 'completed' || t.estadoGeneral === 'ok';
+    return true;
+  };
+
+  const ingresosFiltrados = combinedList.filter((t: any) => {
     const matchText = !filterText || (t.numeroPatente || '').toLowerCase().includes(filterText.toLowerCase());
-    const matchEstado = filterEstadoGeneral === 'all' || (filterEstadoGeneral === 'crit' ? t.estadoGeneral === 'alert' : t.estadoGeneral !== 'alert');
-    return matchText && matchEstado;
+    return matchText && matchStatus(t);
   });
 
   const totalPages = Math.max(1, Math.ceil(ingresosFiltrados.length / pageSize));
   const ingresosPendientes = ingresosFiltrados.slice(page * pageSize, (page + 1) * pageSize);
-  const enTaller = turnos.filter(t => t.estado === 'scheduled' || t.estado === 'in_progress');
+
+  const enTaller = combinedList.filter((t: any) => t.derivadoATaller || t.estado === 'scheduled' || t.estado === 'in_progress');
 
   const handleDecision = async (id: string, decision: string) => {
     // Accepts either modal values ('scheduled'/'rejected') or earlier ('taller'/'liberar')
@@ -125,52 +159,37 @@ const SuperadminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
           {ingresosPendientes.length === 0 ? (
             <View className="items-center py-20 opacity-20">
               <MaterialIcons name="fact-check" size={60} color="white" />
-              <Text className="text-white mt-4 font-bold tracking-widest">SIN PENDIENTES</Text>
+              <Text className="text-white mt-4 font-bold tracking-widest">SIN RESULTADOS</Text>
             </View>
           ) : (
-            ingresosPendientes.map((turno) => (
-              <TouchableOpacity 
-                key={turno.id} 
+            ingresosPendientes.map((turno: any) => (
+              <TicketCard
+                key={turno.id}
+                turno={turno}
                 onPress={() => { setSelectedTurno(turno); setModalVisible(true); }}
-                activeOpacity={0.8}
-                className="mb-4 overflow-hidden rounded-[35px] border border-white/10"
-              >
-                <BlurView intensity={10} tint="dark" className="p-5 bg-card/40">
-                  <View className="flex-row justify-between items-start mb-4">
-                    <View>
-                      <Text className="text-white font-black text-lg">{turno.numeroPatente}</Text>
-                      <Text className="text-primary text-[10px] font-bold uppercase tracking-tighter">Chofer: {turno.chofer}</Text>
-                    </View>
-                    <View className={`px-3 py-1 rounded-full ${turno.estadoGeneral === 'alert' ? 'bg-red-600' : 'bg-green-600'}`}>
-                      <Text className={`text-[8px] font-black ${turno.estadoGeneral === 'alert' ? 'text-white' : 'text-white'}`}>
-                        {turno.estadoGeneral === 'alert' ? 'UNIDAD EN ALERTA' : 'TODO OK'}
-                      </Text>
-                    </View>
-                  </View>
-
-                  <Text className="text-gray-400 text-xs mb-4 italic" numberOfLines={2}>
-                    "{turno.comentariosChofer || 'Sin comentarios adicionales'}"
-                  </Text>
-
-                  <View className="flex-row space-x-2">
-                    <TouchableOpacity 
-                      onPress={() => handleDecision(turno.id, 'liberar')}
-                      className="flex-1 bg-success/10 py-3 rounded-2xl items-center border border-success/20"
-                    >
-                      <Text className="text-success text-[10px] font-black uppercase">Liberar</Text>
-                    </TouchableOpacity>
-
-                    {turno.estadoGeneral === 'alert' && (
-                      <TouchableOpacity 
-                        onPress={() => router.push({ pathname: '/solicitud', params: { prefillData: JSON.stringify(turno) } })}
-                        className="flex-[2] bg-danger py-3 rounded-2xl items-center shadow-lg shadow-danger/40"
-                      >
-                        <Text className="text-white text-[10px] font-black uppercase italic">Derivar a Taller MIT</Text>
-                      </TouchableOpacity>
-                    )}
-                  </View>
-                </BlurView>
-              </TouchableOpacity>
+                onDerivar={async (tId: string) => {
+                  // Acción de derivar desde la tarjeta: actualiza backend y localmente mantiene la tarjeta visible
+                  try {
+                    const metadata = { estado: 'scheduled' as const, derivadoATaller: true, fechaDerivacion: new Date().toISOString() };
+                    await actualizarTurnoService(tId, metadata);
+                    const current = turnos.find((t:any) => t.id === tId);
+                    if (current) dispatch(actualizarTurno({ ...current, ...metadata }));
+                    // No removemos la tarjeta: solamente se actualiza su badge por la suscripción
+                  } catch (e) {
+                    console.error('Error al derivar:', e);
+                  }
+                }}
+                onLiberar={async (tId: string) => {
+                  try {
+                    const metadata = { estado: 'completed' as const, fechaLiberacion: new Date().toISOString() };
+                    await actualizarTurnoService(tId, metadata);
+                    const current = turnos.find((t:any) => t.id === tId);
+                    if (current) dispatch(actualizarTurno({ ...current, ...metadata }));
+                  } catch (e) {
+                    console.error('Error al liberar:', e);
+                  }
+                }}
+              />
             ))
           )}
 

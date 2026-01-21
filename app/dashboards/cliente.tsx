@@ -191,22 +191,7 @@ const ClienteDashboard = ({ onLogout }: { onLogout?: () => void }) => {
             </BlurView>
           </View>
 
-          {/* HISTORIAL TÉCNICO (Compacto) */}
-          {turnos.filter(t => t.estado === 'completed').slice(0, 2).map((turno, idx) => (
-            <Animated.View key={turno.id} entering={FadeInRight.delay(idx * 100)}>
-              <BlurView intensity={5} tint="dark" className="mb-3 rounded-2xl border border-white/5 overflow-hidden">
-                <View className="p-4 bg-card/40 flex-row items-center">
-                    <View className="bg-success/10 p-2 rounded-lg mr-4">
-                    <FontAwesome5 name="check" size={14} color="#4ADE80" />
-                  </View>
-                  <View className="flex-1">
-                    <Text className="text-white font-bold text-sm">{turno.descripcion}</Text>
-                    <Text className="text-gray-500 text-[10px]">{new Date(turno.fechaCreacion).toLocaleDateString()}</Text>
-                  </View>
-                </View>
-              </BlurView>
-            </Animated.View>
-          ))}
+          {/* HISTORIAL TÉCNICO compacto removido - redundante con Historial de Flota */}
 
           {/* HISTORIAL DE FLOTA (Cliente) */}
           <View className="mt-6 mb-2">

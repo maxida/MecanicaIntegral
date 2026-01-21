@@ -11,6 +11,7 @@ import { actualizarTurno, setTurnos } from '@/redux/slices/turnosSlice';
 import { setFlagConFactura } from '@/redux/slices/invoiceSlice';
 import { actualizarTurnoService, obtenerTurnos, suscribirseATurnos } from '@/services/turnosService';
 import LoadingOverlay from '@/components/LoadingOverlay';
+import DocumentGenerator from '@/components/DocumentGenerator';
 
 // --- SUB-COMPONENTES PREMIUM ---
 
@@ -56,6 +57,8 @@ const AdminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [selectedTurno, setSelectedTurno] = useState<any>(null);
   const [modalVisible, setModalVisible] = useState(false);
+  const [docModalVisible, setDocModalVisible] = useState(false);
+  const [docType, setDocType] = useState<'asistencia' | 'reparacion' | 'presupuesto' | null>(null);
   const router = useRouter();
 
   // Lógica de carga y tiempo real
@@ -168,6 +171,39 @@ const AdminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
           {isMonitor && <StatCard label="Eficiencia" value="94%" color="#60A5FA" icon="trending-up" />}
         </View>
 
+        {/* GESTIÓN DOCUMENTAL */}
+        <View className="mt-4 mb-6">
+          <Text className="text-gray-400 uppercase text-[12px] font-bold mb-3">GESTIÓN DOCUMENTAL</Text>
+          <View className="flex-row -mx-2 flex-wrap">
+            <TouchableOpacity onPress={() => { setDocType('asistencia'); setDocModalVisible(true); }} className="flex-1 min-w-[160px] mx-2 mb-4">
+              <BlurView intensity={10} tint="dark" className="rounded-[20px] border border-white/5 overflow-hidden">
+                <View className="p-5 bg-card/40 items-center">
+                  <Text className="text-white text-xl font-extrabold">🚑</Text>
+                  <Text className="text-white font-bold text-lg mt-3">Asistencia en Ruta</Text>
+                </View>
+              </BlurView>
+            </TouchableOpacity>
+
+            <TouchableOpacity onPress={() => { setDocType('reparacion'); setDocModalVisible(true); }} className="flex-1 min-w-[160px] mx-2 mb-4">
+              <BlurView intensity={10} tint="dark" className="rounded-[20px] border border-white/5 overflow-hidden">
+                <View className="p-5 bg-card/40 items-center">
+                  <Text className="text-white text-xl font-extrabold">🛠️</Text>
+                  <Text className="text-white font-bold text-lg mt-3">Informe de Reparación</Text>
+                </View>
+              </BlurView>
+            </TouchableOpacity>
+
+            <TouchableOpacity onPress={() => { setDocType('presupuesto'); setDocModalVisible(true); }} className="flex-1 min-w-[160px] mx-2 mb-4">
+              <BlurView intensity={10} tint="dark" className="rounded-[20px] border border-white/5 overflow-hidden">
+                <View className="p-5 bg-card/40 items-center">
+                  <Text className="text-white text-xl font-extrabold">💰</Text>
+                  <Text className="text-white font-bold text-lg mt-3">Presupuesto</Text>
+                </View>
+              </BlurView>
+            </TouchableOpacity>
+          </View>
+        </View>
+
         {/* KANBAN SYSTEM */}
         <View className={`flex-1 ${isMonitor ? 'flex-row' : 'flex-col'} -mx-2`}>
           {isMonitor ? (
@@ -219,6 +255,14 @@ const AdminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
           )}
         </View>
       </LinearGradient>
+        {/* Document generator modal */}
+        {docType && (
+          <DocumentGenerator
+            visible={docModalVisible}
+            onClose={() => { setDocModalVisible(false); setDocType(null); }}
+            docType={docType}
+          />
+        )}
     </SafeAreaView>
   );
 };
