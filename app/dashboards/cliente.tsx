@@ -14,6 +14,7 @@ import Animated, { FadeInUp, FadeInRight } from 'react-native-reanimated';
 import TurnoDetailModal from '@/components/TurnoDetailModal';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/firebase/firebaseConfig';
+import UniversalImage from '@/components/UniversalImage';
 
 const ClienteDashboard = ({ onLogout }: { onLogout?: () => void }) => {
   const navigation = useNavigation<any>();
@@ -246,10 +247,30 @@ const ClienteDashboard = ({ onLogout }: { onLogout?: () => void }) => {
                 const estadoKey = (h.estado || '').toLowerCase();
                 const estadoLabel = estadoKey.includes('pending') ? 'Pendiente' : estadoKey.includes('in_progress') ? 'En Taller' : (estadoKey.includes('completed') ? 'Finalizado' : (h.estado || 'Pendiente'));
                 const estadoColor = estadoLabel === 'Pendiente' ? 'bg-warning/60' : estadoLabel === 'En Taller' ? 'bg-primary/60' : 'bg-success/60';
+                const evidenceUrl = h?.fotoTablero
+                  || h?.evidenceUrl
+                  || h?.photoUrl
+                  || h?.dashboardPhoto
+                  || h?.imageUrl
+                  || h?.checklistPhotoURL
+                  || h?.foto?.url
+                  || null;
+
+                const hasEvidence = typeof evidenceUrl === 'string' && evidenceUrl.length > 0;
+
                 return (
                   <Animated.View key={h.id} entering={FadeInRight.delay(i * 60)}>
                     <TouchableOpacity onPress={() => handleOpenTurnoDetail(h)} activeOpacity={0.9} className="mb-3 rounded-2xl overflow-hidden border border-white/5">
                       <View className="p-4 bg-card/40 flex-row items-center">
+                        {hasEvidence ? (
+                          <View className="w-14 h-14 rounded-xl overflow-hidden border border-white/10 mr-4">
+                            <UniversalImage uri={evidenceUrl} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                          </View>
+                        ) : (
+                          <View className="w-14 h-14 rounded-xl bg-white/5 border border-white/10 items-center justify-center mr-4">
+                            <MaterialIcons name="image" size={18} color="#555" />
+                          </View>
+                        )}
                         <View className="flex-1">
                           <Text className="text-white font-black text-sm">{h.numeroPatente || 'S/D'}</Text>
                           <Text className="text-gray-500 text-[10px]">{h.chofer || h.nombreChofer || 'Chofer desconocido'}</Text>

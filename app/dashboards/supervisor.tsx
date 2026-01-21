@@ -37,7 +37,7 @@ const SuperadminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
 
   const ingresosFiltrados = ingresosPendientesAll.filter(t => {
     const matchText = !filterText || (t.numeroPatente || '').toLowerCase().includes(filterText.toLowerCase());
-    const matchEstado = filterEstadoGeneral === 'all' || (filterEstadoGeneral === 'crit' ? t.estadoGeneral === 'crit' : t.estadoGeneral !== 'crit');
+    const matchEstado = filterEstadoGeneral === 'all' || (filterEstadoGeneral === 'crit' ? t.estadoGeneral === 'alert' : t.estadoGeneral !== 'alert');
     return matchText && matchEstado;
   });
 
@@ -107,14 +107,14 @@ const SuperadminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
             />
 
             <View className="flex-row space-x-2">
-              <TouchableOpacity onPress={() => { setFilterEstadoGeneral('all'); setPage(0); }} className={`px-3 py-2 rounded-2xl ${filterEstadoGeneral === 'all' ? 'bg-primary/20' : 'bg-white/5'}`}>
-                <Text className="text-white text-[12px]">Todos</Text>
-              </TouchableOpacity>
               <TouchableOpacity onPress={() => { setFilterEstadoGeneral('crit'); setPage(0); }} className={`px-3 py-2 rounded-2xl ${filterEstadoGeneral === 'crit' ? 'bg-danger/20' : 'bg-white/5'}`}>
-                <Text className="text-white text-[12px]">Críticos</Text>
+                <Text className="text-white text-[12px]">Alerta</Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={() => { setFilterEstadoGeneral('ok'); setPage(0); }} className={`px-3 py-2 rounded-2xl ${filterEstadoGeneral === 'ok' ? 'bg-success/20' : 'bg-white/5'}`}>
-                <Text className="text-white text-[12px]">OK</Text>
+                <Text className="text-white text-[12px]">Operativo</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => { setFilterEstadoGeneral('all'); setPage(0); }} className={`px-3 py-2 rounded-2xl ${filterEstadoGeneral === 'all' ? 'bg-primary/20' : 'bg-white/5'}`}>
+                <Text className="text-white text-[12px]">Todos</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -138,9 +138,9 @@ const SuperadminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
                       <Text className="text-white font-black text-lg">{turno.numeroPatente}</Text>
                       <Text className="text-primary text-[10px] font-bold uppercase tracking-tighter">Chofer: {turno.chofer}</Text>
                     </View>
-                    <View className={`px-3 py-1 rounded-full ${turno.estadoGeneral === 'crit' ? 'bg-danger/20' : 'bg-success/20'}`}>
-                      <Text className={`text-[8px] font-black ${turno.estadoGeneral === 'crit' ? 'text-danger' : 'text-success'}`}>
-                        {turno.estadoGeneral === 'crit' ? 'REPARACIÓN NECESARIA' : 'TODO OK'}
+                    <View className={`px-3 py-1 rounded-full ${turno.estadoGeneral === 'alert' ? 'bg-red-600' : 'bg-green-600'}`}>
+                      <Text className={`text-[8px] font-black ${turno.estadoGeneral === 'alert' ? 'text-white' : 'text-white'}`}>
+                        {turno.estadoGeneral === 'alert' ? 'UNIDAD EN ALERTA' : 'TODO OK'}
                       </Text>
                     </View>
                   </View>

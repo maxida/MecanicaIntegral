@@ -1,11 +1,12 @@
 import React, { useEffect } from 'react';
-import { View, Text, ScrollView, Image, TouchableOpacity, Modal, SafeAreaView } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Modal, SafeAreaView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInUp, FadeIn } from 'react-native-reanimated';
+import UniversalImage from '@/components/UniversalImage';
 
 // Diccionario para convertir los IDs de síntomas en algo visual para el Admin
 const SINTOMAS_MAP: Record<string, { label: string, icon: string, color: string }> = {
@@ -77,7 +78,7 @@ return (
                   <Text className="text-primary text-[10px] font-black uppercase tracking-[2px] mb-4">Evidencia de Tablero</Text>
                   <View className="w-full h-72 bg-card rounded-[40px] overflow-hidden border border-white/10 shadow-2xl mb-10">
                     {evidenceUrl ? (
-                      <Image source={{ uri: evidenceUrl }} className="w-full h-full" resizeMode="cover" />
+                      <UniversalImage uri={evidenceUrl} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
                     ) : (
                         <View className="flex-1 items-center justify-center bg-white/5">
                         <FontAwesome5 name="image" size={40} color="#222" />
