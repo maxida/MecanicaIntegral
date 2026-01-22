@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import { Modal, View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Alert, Platform } from 'react-native';
 import { BlurView } from 'expo-blur';
-import * as Print from 'expo-print';
-import * as Sharing from 'expo-sharing';
+import generateAndSharePDF from './pdfUtils';
 import * as FileSystem from 'expo-file-system';
 import { Asset } from 'expo-asset';
 
@@ -167,17 +166,17 @@ export async function generatePDF(type: DocType, data: any) {
   if (type === 'presupuesto') {
     const fechaHoy = new Date();
     const fechaHoyStr = fechaHoy.toLocaleDateString();
-    const fechaValida = new Date(fechaHoy.getTime() + 10 * 24 * 60 * 60 * 1000);
+    const fechaValida = new Date(fechaHoy.getTime() + 15 * 24 * 60 * 60 * 1000);
     const fechaValidaStr = fechaValida.toLocaleDateString();
 
     const patente = data.patente || data.vehiculo || '';
     const marca = data.marca || data.vehiculo || '';
-    const tipoOperacion = data.tipoOperacion || 'REPARACIÓN EN TALLER';
-    const ordenMantenimiento = data.ordenMantenimiento || '';
+    const tipoOperacion = 'REPARACIÓN EN TALLER';
     const trabajos = data.descripcion || '';
     const montoManoObra = Number(data.montoManoObra || data.costo || 0);
     const montoRepuestos = Number(data.montoRepuestos || 0);
-    const total = (montoManoObra + montoRepuestos).toFixed(2);
+    const totalNumber = montoManoObra + montoRepuestos;
+    const total = totalNumber.toFixed(2);
 
     const observationLines = Array.from({ length: 6 }).map(() => '<div style="border-bottom:1px solid #000;margin-top:8px;height:14px"></div>').join('');
 
@@ -187,47 +186,75 @@ export async function generatePDF(type: DocType, data: any) {
     <head>
       <meta charset="utf-8" />
       <meta name="viewport" content="width=device-width, initial-scale=1" />
-      <style>${baseStyles}</style>
+      <style>
+        ${baseStyles}
+        /* Presupuesto: hoja blanca y tablas con bordes negros para impresión */
+        body { background: #ffffff; color: #000; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .page { max-width: 900px; margin: 0 auto; background: #fff; border-radius: 6px; padding: 28px; border: 1px solid #000; box-shadow: none; }
+        .header { display:flex; justify-content:space-between; align-items:center; }
+        .title { font-family: Impact, Charcoal, sans-serif; font-size:34px; font-weight:900; color:#000; }
+        .logo img { width:110px; height:auto; }
+        .subheader { border-bottom:6px solid #000; margin-top:14px; padding:6px 0; font-weight:800; }
+        table { width:100%; border-collapse:collapse; margin-top:16px; }
+        th, td { border:1px solid #000; padding:10px; vertical-align:top; }
+        .section-title { margin-top:18px; margin-bottom:8px; font-weight:900; font-size:14px; color:#000; }
+        .obs-line { height:14px; margin-top:8px; border-bottom:1px solid #000; }
+        .cost-large { margin-top:12px; font-size:18px; font-weight:900; color:#000; text-align:left; }
+        .bank { text-align:right; font-size:12px; color:#000; }
+        .footer { margin-top:20px; display:flex; justify-content:space-between; align-items:flex-start; }
+      </style>
     </head>
     <body>
       <div class="page">
         <div class="header">
-          <div>
-            <div class="title">Presupuesto de Reparación</div>
-            <div class="meta">Orden de Trabajo: <span class="badge">${ordenId}</span></div>
-          </div>
+          <div class="title">PRESUPUESTO DE REPARACIÓN</div>
           <div class="logo">${base64Image ? `<img src="${base64Image}" alt="logo" />` : ''}</div>
         </div>
 
+        <div class="subheader">ORDEN DE TRABAJO: <span style="padding-left:8px;">${ordenId}</span></div>
+
         <table>
           <tr>
-            <td><strong>Concesionario</strong><br/><span class="text-muted">Mecánica Integral</span></td>
-            <td><strong>Cliente</strong><br/><span class="text-muted">${data.cliente || ''}</span></td>
+            <td><strong>Concesionario</strong><br/>Mecánica Integral (MIT)</td>
+            <td><strong>Cliente</strong><br/>${data.cliente || ''}</td>
           </tr>
           <tr>
-            <td><strong>Fecha cotización</strong><br/><span class="text-muted">${fechaHoyStr}</span><br/><strong>Válido hasta</strong><br/><span class="text-muted">${fechaValidaStr}</span></td>
-            <td><strong>N.º matrícula</strong><br/><span class="text-muted">${patente}</span><br/><strong>Marca</strong><br/><span class="text-muted">${marca}</span></td>
+            <td>
+              <strong>Fecha cotización:</strong><br/>${fechaHoyStr}
+              <br/>
+              <strong>Presupuesto válido hasta:</strong><br/>${fechaValidaStr}
+            </td>
+            <td>
+              <strong>N.º de matrícula:</strong><br/>${patente}
+              <br/>
+              <strong>Marca:</strong><br/>${marca}
+            </td>
           </tr>
           <tr>
-            <td><strong>Tipo de operación</strong><br/><span class="text-muted">${tipoOperacion}</span></td>
-            <td><strong>Orden de mantenimiento</strong><br/><span class="text-muted">${ordenMantenimiento}</span></td>
+            <td colspan="2"><strong>Tipo operación:</strong> ${tipoOperacion}</td>
           </tr>
         </table>
 
-        <div class="section-title">TRABAJOS A REALIZAR</div>
-        <div class="text-muted" style="line-height:1.5">${trabajos}</div>
-        ${Array.from({ length: 4 }).map(() => '<div class="obs-line"></div>').join('')}
+        <div class="section-title">TRABAJOS A REALIZAR / REPUESTOS</div>
+        <div style="line-height:1.4; color:#000;">${trabajos}</div>
+        ${Array.from({ length: 4 }).map(() => '<hr style="border:none;border-top:1px solid #000;margin:8px 0;"/>').join('')}
 
-        <div class="section-title">COSTOS</div>
-        <div class="cost-row"><div class="cost-label">Trabajo</div><div class="cost-value">$${montoManoObra.toLocaleString('es-AR')}</div></div>
-        <div class="cost-row"><div class="cost-label">Repuestos</div><div class="cost-value">$${montoRepuestos.toLocaleString('es-AR')}</div></div>
-        <div class="cost-row"><div class="cost-label">Total</div><div class="cost-value">$${Number(total).toLocaleString('es-AR')}</div></div>
+        <div class="section-title">SECCIÓN ECONÓMICA</div>
+        <div class="cost-large">COSTO MANO DE OBRA: $${montoManoObra.toLocaleString('es-AR')}</div>
+        <div class="cost-large">COSTO REPUESTOS: $${montoRepuestos.toLocaleString('es-AR')}</div>
+        <div class="cost-large">TOTAL: $${Number(total).toLocaleString('es-AR')} <span style="font-weight:700; font-size:12px; display:block; margin-top:6px;">(ABONANDO EN EFECTIVO 10% DESCUENTO)</span></div>
 
         <div class="section-title">OBSERVACIONES</div>
         ${observationLines}
 
         <div class="footer">
-          CBU: 0200302111000018656558 · ALIAS: marcote.ban.cor · CUIT: 23-39575400-9
+          <div></div>
+          <div class="bank">
+            CBU: 0200302111000018656558<br/>
+            ALIAS: marcote.ban.cor<br/>
+            CUIT: 23-39575400-9<br/>
+            SANTIAGO RAFAEL MARCOTE
+          </div>
         </div>
       </div>
     </body>
@@ -324,22 +351,10 @@ export default function DocumentGenerator({ visible, onClose, docType }: Props) 
       // Usar la nueva función generatePDF que convierte logo a base64
       const html = await generatePDF(docType, formData as any);
 
-      // Web: abrir diálogo de impresión renderizando solo el HTML
-      if (Platform.OS === 'web') {
-        try {
-          await Print.printAsync({ html });
-        } finally {
-          setBusy(false);
-          onClose();
-        }
-        return;
-      }
-
-      // Mobile: generar archivo y usar share
-      const { uri } = await Print.printToFileAsync({ html });
-      if (!uri) throw new Error('No se generó el PDF');
-
-      await Sharing.shareAsync(uri, { mimeType: 'application/pdf' });
+      // Usar util compartido que diferencia Web vs Mobile
+      await generateAndSharePDF(html);
+      // Cerrar modal después de la operación (printAsync resuelve cuando termina el flujo de impresión en web)
+      onClose();
     } catch (e: any) {
       console.error(e);
       Alert.alert('Error', e?.message || 'Ocurrió un error generando el documento');
