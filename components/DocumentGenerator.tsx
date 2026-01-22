@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Modal, View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Alert } from 'react-native';
+import { Modal, View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Alert, Platform } from 'react-native';
 import { BlurView } from 'expo-blur';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
@@ -47,6 +47,56 @@ export async function generatePDF(type: DocType, data: any) {
   const titulo = type === 'reparacion' ? 'INFORME DE REPARACIÓN' : 'ASISTENCIA EN RUTA';
   const ordenId = Math.floor(100000 + Math.random() * 900000).toString();
 
+  // Estilos comunes para todas las plantillas (dark, con color exacto en impresión)
+  const baseStyles = `
+    * { box-sizing: border-box; }
+    :root {
+      --bg: #0b0b0f;
+      --card: #11131a;
+      --panel: #0f1117;
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+      --border: #1f2937;
+      --accent: #ff4c4c;
+      --accent-2: #8b5cf6;
+    }
+    body {
+      margin: 0;
+      padding: 24px;
+      font-family: 'Inter', 'Helvetica', 'Arial', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    .page {
+      max-width: 900px;
+      margin: 0 auto;
+      background: var(--card);
+      border-radius: 16px;
+      padding: 28px;
+      border: 1px solid var(--border);
+      box-shadow: 0 20px 60px rgba(0,0,0,0.45);
+    }
+    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    .title { font-size: 26px; font-weight: 900; letter-spacing: 0.6px; color: var(--text); }
+    .logo img { width: 110px; border-radius: 10px; box-shadow: 0 10px 30px rgba(255,76,76,0.25); }
+    .badge { background: var(--accent); color: #fff; padding: 6px 10px; border-radius: 10px; font-weight: 700; font-size: 11px; letter-spacing: 0.5px; }
+    .meta { color: var(--muted); font-size: 12px; margin-top: 4px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 14px; }
+    th { background: var(--accent); color: #fff; padding: 10px; text-align: left; font-size: 12px; letter-spacing: 0.3px; }
+    td { border: 1px solid var(--border); padding: 10px; font-size: 12px; color: var(--text); background: var(--panel); }
+    .section-title { margin-top: 18px; margin-bottom: 8px; font-weight: 800; font-size: 14px; letter-spacing: 0.5px; color: var(--text); }
+    .text-muted { color: var(--muted); font-size: 12px; }
+    .grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 10px; }
+    .chip { background: rgba(255,76,76,0.12); color: var(--accent); padding: 8px 10px; border-radius: 10px; font-weight: 700; font-size: 12px; border: 1px solid rgba(255,76,76,0.35); }
+    .obs-line { border-bottom: 1px dashed var(--border); height: 18px; margin-top: 8px; opacity: 0.85; }
+    .cost-row { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; padding: 10px 12px; background: #0c0e14; border: 1px solid var(--border); border-radius: 10px; }
+    .cost-label { color: var(--muted); font-size: 12px; }
+    .cost-value { color: var(--text); font-weight: 800; font-size: 14px; }
+    .footer { margin-top: 26px; text-align: right; color: var(--muted); font-size: 11px; }
+  `;
+
   if (type === 'reparacion') {
     const fechaIngreso = data.fechaIngreso || data.fecha || '';
     const fechaEntrega = data.fechaEntrega || '';
@@ -65,68 +115,51 @@ export async function generatePDF(type: DocType, data: any) {
     <head>
       <meta charset="utf-8" />
       <meta name="viewport" content="width=device-width, initial-scale=1" />
-      <style>
-        body { font-family: 'Arial', 'Helvetica', sans-serif; color: #000; background: #fff; margin: 0; padding: 24px; }
-        .header { display: flex; justify-content: space-between; align-items: flex-start; }
-        .title { font-family: Impact, 'Arial Black', sans-serif; font-size: 28px; font-weight: 900; }
-        .logo { text-align: right; }
-        .logo img { width: 100px; }
-        .header-sep { border-bottom: 3px solid #000; margin-top: 12px; padding-bottom: 8px; }
-        .subheader { text-align: right; font-size: 12px; margin-top: 6px; }
-        table.info { width: 100%; border-collapse: collapse; margin-top: 12px; }
-        table.info td, table.info th { border: 1px solid #000; padding: 8px; vertical-align: top; }
-        .trabajos-title { font-weight:700; margin-top:18px; }
-        .trabajos { margin-top: 8px; }
-        .observaciones { margin-top: 12px; }
-        .costos { margin-top: 18px; font-weight:700; }
-        .bank { text-align: right; margin-top: 12px; }
-      </style>
+      <style>${baseStyles}</style>
     </head>
     <body>
-      <div class="header">
-        <div class="title">${titulo}</div>
-        <div class="logo">${base64Image ? `<img src="${base64Image}" alt="logo" />` : ''}</div>
+      <div class="page">
+        <div class="header">
+          <div>
+            <div class="title">${titulo}</div>
+            <div class="meta">Orden de Trabajo: <span class="badge">${ordenId}</span></div>
+          </div>
+          <div class="logo">${base64Image ? `<img src="${base64Image}" alt="logo" />` : ''}</div>
+        </div>
+
+        <table>
+          <tr>
+            <td><strong>Concesionario</strong><br/><span class="text-muted">Mecánica Integral</span></td>
+            <td><strong>Cliente</strong><br/><span class="text-muted">${data.cliente || ''}</span></td>
+          </tr>
+          <tr>
+            <td><strong>Fecha Ingreso</strong><br/><span class="text-muted">${fechaIngreso}</span><br/><strong>Fecha Entrega</strong><br/><span class="text-muted">${fechaEntrega}</span></td>
+            <td><strong>N.º matrícula</strong><br/><span class="text-muted">${patente}</span><br/><strong>Marca</strong><br/><span class="text-muted">${marca}</span></td>
+          </tr>
+          <tr>
+            <td><strong>Tipo de operación</strong><br/><span class="text-muted">${tipoOperacion}</span></td>
+            <td><strong>Orden de mantenimiento</strong><br/><span class="text-muted">${ordenMantenimiento}</span></td>
+          </tr>
+        </table>
+
+        <div class="section-title">TRABAJOS REALIZADOS</div>
+        <div class="text-muted" style="line-height:1.5">${trabajos}</div>
+        ${Array.from({ length: 4 }).map(() => '<div class="obs-line"></div>').join('')}
+
+        <div class="section-title">OBSERVACIONES</div>
+        ${Array.from({ length: 6 }).map(() => '<div class="obs-line"></div>').join('')}
+
+        <div class="cost-row" style="margin-top:20px;">
+          <div class="cost-label">Costo de trabajo</div>
+          <div class="cost-value">$${Number(costoTrabajo || 0).toLocaleString('es-AR')}</div>
+        </div>
+
+        <div class="footer">
+          CBU: 0200302111000018656558 · ALIAS: marcote.ban.cor · CUIT: 23-39575400-9
+        </div>
       </div>
-      <div class="header-sep">
-        <div class="subheader">ORDEN DE TRABAJO:${ordenId}</div>
-      </div>
-
-      <table class="info">
-        <tr>
-          <td style="width:50%"><strong>Concesionario:</strong><br/>MECÁNICA INTEGRAL</td>
-          <td style="width:50%"><strong>Nombre del cliente:</strong><br/>${data.cliente || ''}</td>
-        </tr>
-        <tr>
-          <td style="width:50%"><strong>Fecha Ingreso:</strong><br/>${fechaIngreso}<br/><strong>Fecha Entrega:</strong><br/>${fechaEntrega}</td>
-          <td style="width:50%"><strong>N.º de matrícula:</strong><br/>${patente}<br/><strong>Marca:</strong><br/>${marca}</td>
-        </tr>
-        <tr>
-          <td style="width:50%"><strong>Tipo de operación:</strong><br/>${tipoOperacion}</td>
-          <td style="width:50%"><strong>ORDEN DE MANTENIMIENTO:</strong><br/>${ordenMantenimiento}</td>
-        </tr>
-      </table>
-
-      <div class="trabajos-title">TRABAJOS REALIZADOS:</div>
-      <div class="trabajos">${trabajos}</div>
-      ${observationLines}
-
-      <div class="observaciones">
-        <div style="font-weight:700;margin-top:12px;">OBSERVACIONES:</div>
-        ${Array.from({ length: 8 }).map(() => '<div style="border-bottom:1px solid #000;margin-top:8px;height:14px"></div>').join('')}
-      </div>
-
-      <div class="costos">COSTO DE TRABAJO: $${Number(costoTrabajo || 0).toLocaleString('en-US')}</div>
-
-      <div class="bank">
-        <div>Datos bancarios: CBU: 0200302111000018656558</div>
-        <div>ALIAS: marcote.ban.cor</div>
-        <div>CUIT: 23-39575400-9</div>
-        <div>SANTIAGO RAFAEL MARCOTE</div>
-      </div>
-
     </body>
-    </html>
-    `;
+    </html>`;
 
     return htmlReparacion;
   }
@@ -154,72 +187,51 @@ export async function generatePDF(type: DocType, data: any) {
     <head>
       <meta charset="utf-8" />
       <meta name="viewport" content="width=device-width, initial-scale=1" />
-      <style>
-        body { font-family: 'Arial', 'Helvetica', sans-serif; color: #000; background: #fff; margin: 0; padding: 24px; }
-        .header { display: flex; justify-content: space-between; align-items: flex-start; }
-        .title { font-family: Impact, 'Arial Black', sans-serif; font-size: 30px; font-weight: 900; }
-        .logo { text-align: right; }
-        .logo img { width: 100px; }
-        .header-sep { border-bottom: 3px solid #000; margin-top: 12px; padding-bottom: 8px; }
-        .subheader { text-align: right; font-size: 12px; margin-top: 6px; }
-        table.info { width: 100%; border-collapse: collapse; margin-top: 12px; }
-        table.info td, table.info th { border: 1px solid #000; padding: 8px; vertical-align: top; }
-        .trabajos-title { font-weight:700; margin-top:18px; }
-        .trabajos { margin-top: 8px; }
-        .costos { margin-top: 18px; font-weight:700; }
-        .observaciones { margin-top: 12px; }
-        .bank { text-align: right; margin-top: 12px; }
-      </style>
+      <style>${baseStyles}</style>
     </head>
     <body>
-      <div class="header">
-        <div class="title">PRESUPUESTO DE REPARACIÓN</div>
-        <div class="logo">${base64Image ? `<img src="${base64Image}" alt="logo" />` : ''}</div>
-      </div>
-      <div class="header-sep">
-        <div class="subheader">ORDEN DE TRABAJO: ${ordenId}</div>
-      </div>
+      <div class="page">
+        <div class="header">
+          <div>
+            <div class="title">Presupuesto de Reparación</div>
+            <div class="meta">Orden de Trabajo: <span class="badge">${ordenId}</span></div>
+          </div>
+          <div class="logo">${base64Image ? `<img src="${base64Image}" alt="logo" />` : ''}</div>
+        </div>
 
-      <table class="info">
-        <tr>
-          <td style="width:50%"><strong>Concesionario:</strong><br/>MECÁNICA INTEGRAL</td>
-          <td style="width:50%"><strong>Nombre del cliente:</strong><br/>${data.cliente || ''}</td>
-        </tr>
-        <tr>
-          <td style="width:50%"><strong>Fecha cotización:</strong><br/>${fechaHoyStr}<br/><strong>Presupuesto válido hasta:</strong><br/>${fechaValidaStr}</td>
-          <td style="width:50%"><strong>N.º de matrícula:</strong><br/>${patente}<br/><strong>Marca:</strong><br/>${marca}</td>
-        </tr>
-        <tr>
-          <td style="width:50%"><strong>Tipo de operación:</strong><br/>${tipoOperacion}</td>
-          <td style="width:50%"><strong>ORDEN DE MANTENIMIENTO:</strong><br/>${ordenMantenimiento}</td>
-        </tr>
-      </table>
+        <table>
+          <tr>
+            <td><strong>Concesionario</strong><br/><span class="text-muted">Mecánica Integral</span></td>
+            <td><strong>Cliente</strong><br/><span class="text-muted">${data.cliente || ''}</span></td>
+          </tr>
+          <tr>
+            <td><strong>Fecha cotización</strong><br/><span class="text-muted">${fechaHoyStr}</span><br/><strong>Válido hasta</strong><br/><span class="text-muted">${fechaValidaStr}</span></td>
+            <td><strong>N.º matrícula</strong><br/><span class="text-muted">${patente}</span><br/><strong>Marca</strong><br/><span class="text-muted">${marca}</span></td>
+          </tr>
+          <tr>
+            <td><strong>Tipo de operación</strong><br/><span class="text-muted">${tipoOperacion}</span></td>
+            <td><strong>Orden de mantenimiento</strong><br/><span class="text-muted">${ordenMantenimiento}</span></td>
+          </tr>
+        </table>
 
-      <div class="trabajos-title">TRABAJOS A REALIZAR:</div>
-      <div class="trabajos">${trabajos}</div>
-      ${Array.from({ length: 6 }).map(() => '<div style="border-bottom:1px solid #000;margin-top:8px;height:14px"></div>').join('')}
+        <div class="section-title">TRABAJOS A REALIZAR</div>
+        <div class="text-muted" style="line-height:1.5">${trabajos}</div>
+        ${Array.from({ length: 4 }).map(() => '<div class="obs-line"></div>').join('')}
 
-      <div class="costos">
-        <div>COSTO DE TRABAJO: $${montoManoObra.toLocaleString('en-US')}</div>
-        <div>COSTO REPUESTOS: $${montoRepuestos.toLocaleString('en-US')}</div>
-        <div>COSTO TOTAL: $${Number(total).toLocaleString('en-US')} (ABONANDO EN EFECTIVO 10% DESCUENTO)</div>
-      </div>
+        <div class="section-title">COSTOS</div>
+        <div class="cost-row"><div class="cost-label">Trabajo</div><div class="cost-value">$${montoManoObra.toLocaleString('es-AR')}</div></div>
+        <div class="cost-row"><div class="cost-label">Repuestos</div><div class="cost-value">$${montoRepuestos.toLocaleString('es-AR')}</div></div>
+        <div class="cost-row"><div class="cost-label">Total</div><div class="cost-value">$${Number(total).toLocaleString('es-AR')}</div></div>
 
-      <div class="observaciones">
-        <div style="font-weight:700;margin-top:12px;">OBSERVACIONES:</div>
+        <div class="section-title">OBSERVACIONES</div>
         ${observationLines}
-      </div>
 
-      <div class="bank">
-        <div>Datos bancarios: CBU: 0200302111000018656558</div>
-        <div>ALIAS: marcote.ban.cor</div>
-        <div>CUIT: 23-39575400-9</div>
-        <div>SANTIAGO RAFAEL MARCOTE</div>
+        <div class="footer">
+          CBU: 0200302111000018656558 · ALIAS: marcote.ban.cor · CUIT: 23-39575400-9
+        </div>
       </div>
-
     </body>
-    </html>
-    `;
+    </html>`;
 
     return htmlPresupuesto;
   }
@@ -245,62 +257,51 @@ export async function generatePDF(type: DocType, data: any) {
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <style>
-      body { font-family: 'Arial', 'Helvetica', sans-serif; color: #000; background: #fff; margin: 0; padding: 24px; }
-      .header { display: flex; justify-content: space-between; align-items: flex-start; }
-      .title { font-family: Impact, 'Arial Black', sans-serif; font-size: 28px; font-weight: 900; }
-      .logo { text-align: right; }
-      .logo img { width: 100px; }
-      .header-sep { border-bottom: 3px solid #000; margin-top: 12px; padding-bottom: 8px; }
-      .subheader { text-align: right; font-size: 12px; margin-top: 6px; }
-      table.info { width: 100%; border-collapse: collapse; margin-top: 12px; }
-      table.info td, table.info th { border: 1px solid #000; padding: 6px; vertical-align: top; }
-      .centered-title { text-align: left; font-weight: 700; margin-top: 18px; margin-bottom: 6px; }
-      .trabajos { margin-top: 8px; }
-      .observaciones { margin-top: 12px; }
-      .costos { margin-top: 18px; font-weight:700; }
-    </style>
+    <style>${baseStyles}</style>
   </head>
   <body>
-    <div class="header">
-      <div class="title">${titulo}</div>
-      <div class="logo">${base64Image ? `<img src="${base64Image}" alt="logo" />` : ''}</div>
-    </div>
-    <div class="header-sep">
-      <div class="subheader">ORDEN DE TRABAJO: ${ordenId}</div>
-    </div>
+    <div class="page">
+      <div class="header">
+        <div>
+          <div class="title">${titulo}</div>
+          <div class="meta">Orden de Trabajo: <span class="badge">${ordenId}</span></div>
+        </div>
+        <div class="logo">${base64Image ? `<img src="${base64Image}" alt="logo" />` : ''}</div>
+      </div>
 
-    <table class="info">
-      <tr>
-        <td style="width:50%"><strong>Concesionario:</strong><br/>MECÁNICA INTEGRAL</td>
-        <td style="width:50%"><strong>Nombre del cliente:</strong><br/>${data.cliente || ''}</td>
-      </tr>
-      <tr>
-        <td style="width:33%"><strong>Fecha:</strong><br/>${fecha}</td>
-        <td style="width:33%"><strong>N.º de matrícula:</strong><br/>${patente}</td>
-        <td style="width:34%"><strong>Marca:</strong><br/>${marca}</td>
-      </tr>
-      <tr>
-        <td style="width:33%"><strong>Lugar:</strong><br/>${ubicacion}</td>
-        <td style="width:33%"><strong>Hora de Llegada:</strong><br/>${horaLlegada}</td>
-        <td style="width:34%"><strong>Hora de salida:</strong><br/>${horaSalida}</td>
-      </tr>
-    </table>
+      <table>
+        <tr>
+          <td><strong>Concesionario</strong><br/><span class="text-muted">Mecánica Integral</span></td>
+          <td><strong>Cliente</strong><br/><span class="text-muted">${data.cliente || ''}</span></td>
+        </tr>
+        <tr>
+          <td><strong>Fecha</strong><br/><span class="text-muted">${fecha}</span></td>
+          <td><strong>N.º Matrícula</strong><br/><span class="text-muted">${patente}</span></td>
+        </tr>
+        <tr>
+          <td><strong>Marca</strong><br/><span class="text-muted">${marca}</span></td>
+          <td><strong>Ubicación</strong><br/><span class="text-muted">${ubicacion}</span></td>
+        </tr>
+        <tr>
+          <td><strong>Hora de llegada</strong><br/><span class="text-muted">${horaLlegada}</span></td>
+          <td><strong>Hora de salida</strong><br/><span class="text-muted">${horaSalida}</span></td>
+        </tr>
+      </table>
 
-    <div class="centered-title">TRABAJOS REALIZADOS</div>
-    <div class="trabajos">${trabajos}</div>
+      <div class="section-title">TRABAJOS REALIZADOS</div>
+      <div class="text-muted" style="line-height:1.5">${trabajos}</div>
+      ${Array.from({ length: 4 }).map(() => '<div class="obs-line"></div>').join('')}
 
-    <div class="observaciones">
-      <div style="font-weight:700;margin-top:12px;">OBSERVACIONES:</div>
+      <div class="section-title">OBSERVACIONES</div>
       ${observationLines}
-    </div>
 
-    <div class="costos">
-      <div>COSTO DE TRABAJO: $${Number(costoTrabajo || 0).toLocaleString('en-US')}</div>
-      <div>COSTO DE TRASLADO: $${Number(costoTraslado || 0).toLocaleString('en-US')}</div>
-      <div>COSTO TOTAL: $${Number(total).toLocaleString('en-US')}</div>
-    </div>
+      <div class="section-title">COSTOS</div>
+      <div class="cost-row"><div class="cost-label">Trabajo</div><div class="cost-value">$${Number(costoTrabajo || 0).toLocaleString('es-AR')}</div></div>
+      <div class="cost-row"><div class="cost-label">Traslado</div><div class="cost-value">$${Number(costoTraslado || 0).toLocaleString('es-AR')}</div></div>
+      <div class="cost-row"><div class="cost-label">Total</div><div class="cost-value">$${Number(total).toLocaleString('es-AR')}</div></div>
 
+      <div class="footer">Mecánica Integral Tucumán — Servicio 24/7</div>
+    </div>
   </body>
   </html>
   `;
@@ -323,6 +324,18 @@ export default function DocumentGenerator({ visible, onClose, docType }: Props) 
       // Usar la nueva función generatePDF que convierte logo a base64
       const html = await generatePDF(docType, formData as any);
 
+      // Web: abrir diálogo de impresión renderizando solo el HTML
+      if (Platform.OS === 'web') {
+        try {
+          await Print.printAsync({ html });
+        } finally {
+          setBusy(false);
+          onClose();
+        }
+        return;
+      }
+
+      // Mobile: generar archivo y usar share
       const { uri } = await Print.printToFileAsync({ html });
       if (!uri) throw new Error('No se generó el PDF');
 

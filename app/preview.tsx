@@ -211,6 +211,21 @@ const PreviewScreen: React.FC = () => {
     setIsSaving(true);
     try {
       const html = generateInvoiceHTML();
+
+      // Web: abrir diálogo de impresión con el HTML limpio
+      if (Platform.OS === 'web') {
+        try {
+          // Guardar en BD antes de imprimir para mantener consistencia
+          await guardarNuevaFacturaDB();
+        } catch (e) {
+          console.error('Error guardando factura en BD antes de imprimir en web:', e);
+        }
+        await Print.printAsync({ html, width: 595, height: 842 });
+        navigation.reset({ index: 0, routes: [{ name: 'home' }] });
+        return;
+      }
+
+      // Mobile: flujo existente (generar archivo y compartir)
       const { uri: tempUri } = await Print.printToFileAsync({ html, width: 595, height: 842 });
       const newFileName = `${newIdPresupuesto}-${invoiceData.Patente}.pdf`;
       const newUri = `${FileSystem.cacheDirectory}${newFileName}`;

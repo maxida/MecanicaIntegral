@@ -11,7 +11,6 @@ import { actualizarTurno, setTurnos } from '@/redux/slices/turnosSlice';
 import { setFlagConFactura } from '@/redux/slices/invoiceSlice';
 import { actualizarTurnoService, obtenerTurnos, suscribirseATurnos } from '@/services/turnosService';
 import LoadingOverlay from '@/components/LoadingOverlay';
-import DocumentGenerator from '@/components/DocumentGenerator';
 
 // --- SUB-COMPONENTES PREMIUM ---
 
@@ -59,7 +58,9 @@ const AdminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
   const [modalVisible, setModalVisible] = useState(false);
   const [docModalVisible, setDocModalVisible] = useState(false);
   const [docType, setDocType] = useState<'asistencia' | 'reparacion' | 'presupuesto' | null>(null);
+  const [DocGen, setDocGen] = useState<any>(null);
   const router = useRouter();
+  const [activeTab, setActiveTab] = useState<'pendientes' | 'entaller' | 'finalizados'>('pendientes');
 
   // Lógica de carga y tiempo real
   useEffect(() => {
@@ -81,8 +82,6 @@ const AdminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
     { id: 'entaller', title: 'En Taller', icon: 'engineering', color: '#4ADE80', data: turnos.filter(t => t.estado === 'in_progress') },
     { id: 'finalizados', title: 'Finalizados', icon: 'verified', color: '#A855F7', data: turnos.filter(t => t.estado === 'completed') },
   ];
-
-  const [activeTab, setActiveTab] = useState<'pendientes' | 'entaller' | 'finalizados'>('pendientes');
   const ITEMS_PER_PAGE = 2;
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -92,6 +91,21 @@ const AdminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
       await actualizarTurnoService(id, { estado: nuevoEstado });
       dispatch(actualizarTurno({ id, estado: nuevoEstado }));
     } catch (e) { console.error(e); }
+  };
+
+  // Cargar DocumentGenerator dinámicamente para evitar dependencias circulares en build minificado
+  const openDoc = async (type: 'asistencia' | 'reparacion' | 'presupuesto') => {
+    setDocType(type);
+    setDocModalVisible(true);
+    if (!DocGen) {
+      try {
+        const mod = await import('@/components/DocumentGenerator');
+        // almacenar el componente default
+        setDocGen(() => mod.default || mod);
+      } catch (e) {
+        console.error('Error cargando DocumentGenerator dinámicamente', e);
+      }
+    }
   };
 
   const renderTurnoCard = (turno: any) => {
@@ -204,7 +218,7 @@ const AdminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
           <Text className="text-gray-400 uppercase text-[12px] font-bold mb-2">GESTIÓN DOCUMENTAL</Text>
           <View className="flex-row space-x-3">
             <TouchableOpacity
-              onPress={() => { setDocType('asistencia'); setDocModalVisible(true); }}
+              onPress={() => { openDoc('asistencia'); }}
               className="flex-1 bg-card/30 rounded-lg py-3 items-center justify-center"
               activeOpacity={0.8}
             >
@@ -213,7 +227,7 @@ const AdminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
             </TouchableOpacity>
 
             <TouchableOpacity
-              onPress={() => { setDocType('reparacion'); setDocModalVisible(true); }}
+              onPress={() => { openDoc('reparacion'); }}
               className="flex-1 bg-card/30 rounded-lg py-3 items-center justify-center"
               activeOpacity={0.8}
             >
@@ -222,7 +236,7 @@ const AdminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
             </TouchableOpacity>
 
             <TouchableOpacity
-              onPress={() => { setDocType('presupuesto'); setDocModalVisible(true); }}
+              onPress={() => { openDoc('presupuesto'); }}
               className="flex-1 bg-card/30 rounded-lg py-3 items-center justify-center"
               activeOpacity={0.8}
             >
@@ -310,8 +324,8 @@ const AdminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
         </View>
       </LinearGradient>
       {/* Document generator modal (compact) */}
-      {docType && (
-        <DocumentGenerator
+      {docType && DocGen && (
+        <DocGen
           visible={docModalVisible}
           onClose={() => { setDocModalVisible(false); setDocType(null); }}
           docType={docType}
