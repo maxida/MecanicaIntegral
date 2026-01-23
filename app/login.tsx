@@ -11,7 +11,7 @@ import {
   Modal,
   Animated as RNAnimated,
 } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
+import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
@@ -46,7 +46,7 @@ const LoginScreen = () => {
   // Estados de Lógica
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
+  const [isPasswordVisible, setPasswordVisible] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -182,14 +182,29 @@ const LoginScreen = () => {
                     onChangeText={setUsername}
                   />
 
-                  <PremiumInput 
-                    label="Clave de Seguridad" 
-                    icon="lock-open" 
-                    placeholder="••••••••" 
-                    secureTextEntry={!showPassword}
-                    value={password}
-                    onChangeText={setPassword}
-                  />
+                  {/* Password input with show/hide toggle */}
+                  <View className="my-2">
+                    <Text className="text-gray-500 text-[10px] uppercase font-black tracking-[2px] ml-4 mb-2">Clave de Seguridad</Text>
+                    <View className="flex-row items-center bg-white/5 rounded-2xl px-4 py-4 border border-white/10 relative">
+                      <MaterialIcons name="lock-open" size={18} color="#60A5FA" />
+                      <TextInput
+                        className="flex-1 text-white text-base ml-4 pr-12"
+                        placeholderTextColor="#444"
+                        autoCapitalize="none"
+                        secureTextEntry={!isPasswordVisible}
+                        placeholder="••••••••"
+                        value={password}
+                        onChangeText={setPassword}
+                      />
+                      <TouchableOpacity
+                        onPress={() => setPasswordVisible(v => !v)}
+                        className="absolute right-4"
+                        accessibilityLabel={isPasswordVisible ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                      >
+                        <Ionicons name={isPasswordVisible ? 'eye' : 'eye-off'} size={20} color="#94A3B8" />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
 
                   {error && (
                     <View className="bg-danger/10 border border-danger/20 p-3 rounded-xl mb-6 flex-row items-center">
