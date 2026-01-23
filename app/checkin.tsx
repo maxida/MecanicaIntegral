@@ -104,6 +104,11 @@ const NovedadesChoferForm = () => {
 
   const handleFinalizarIngreso = async () => {
     // Validaciones mínimas
+    if (!route.params?.numeroPatente) {
+      CustomAlert.alert('Por favor, seleccione un vehículo primero');
+      return;
+    }
+
     if (!km && km !== 0) {
       CustomAlert.alert('Por favor ingresa el kilometraje');
       return;
@@ -111,8 +116,14 @@ const NovedadesChoferForm = () => {
 
     setSaving(true);
     try {
+      const patenteVal = route.params?.numeroPatente || 'S/D';
+      const choferName = route.params?.choferName || user?.nombre || user?.username || null;
+
       const payload: any = {
-        numeroPatente: route.params?.numeroPatente || 'S/D',
+        numeroPatente: patenteVal,
+        patente: patenteVal,
+        vehiculo: patenteVal,
+        chofer: choferName,
         kilometraje: km,
         nivelNafta: fuel,
         fotoTablero: photo || null,

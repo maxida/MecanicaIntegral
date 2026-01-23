@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, SafeAreaView, TouchableOpacity, useWindowDimensions, Platform } from 'react-native';
+import { View, Text, ScrollView, SafeAreaView, TouchableOpacity, useWindowDimensions, Platform, Alert } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { FontAwesome5, Ionicons, MaterialIcons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -15,6 +16,7 @@ import TurnoDetailModal from '@/components/TurnoDetailModal';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/firebase/firebaseConfig';
 import UniversalImage from '@/components/UniversalImage';
+import { Picker } from '@react-native-picker/picker';
 
 const ClienteDashboard = ({ onLogout }: { onLogout?: () => void }) => {
   const navigation = useNavigation<any>();
@@ -29,6 +31,38 @@ const ClienteDashboard = ({ onLogout }: { onLogout?: () => void }) => {
   const historialPageSize = 3;
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [selectedVehicle, setSelectedVehicle] = useState<string | null>(null);
+
+  // Cargar vehículo persistido al montar
+  useEffect(() => {
+    let mounted = true;
+    const load = async () => {
+      try {
+        const saved = await AsyncStorage.getItem('currentVehicle');
+        if (mounted && saved) setSelectedVehicle(saved);
+      } catch (err) {
+        console.error('Error loading saved vehicle:', err);
+      }
+    };
+    load();
+    return () => { mounted = false; };
+  }, []);
+
+  // Persistir selección cuando cambie
+  useEffect(() => {
+    const save = async () => {
+      try {
+        if (selectedVehicle) {
+          await AsyncStorage.setItem('currentVehicle', selectedVehicle);
+        } else {
+          await AsyncStorage.removeItem('currentVehicle');
+        }
+      } catch (err) {
+        console.error('Error saving currentVehicle:', err);
+      }
+    };
+    save();
+  }, [selectedVehicle]);
 
   const handleOpenTurnoDetail = (turno: any) => {
     setSelectedTurno(turno);
@@ -133,16 +167,24 @@ const ClienteDashboard = ({ onLogout }: { onLogout?: () => void }) => {
     ultimoCheckin: 'Ayer, 18:30 hs'
   };
 
+  const VEHICLE_OPTIONS = [
+    'AE-744-GT',
+    'AC-197-RO',
+    'AD-555-XY',
+    'AF-321-ZQ',
+    'AG-888-BB',
+  ];
+
   return (
     <SafeAreaView className="flex-1 bg-surface pt-16">
       <LinearGradient colors={['#0b0b0b', '#000']} className="flex-1 px-6">
         <ScrollView showsVerticalScrollIndicator={false} className="pt-4">
           
           {/* HEADER CHOFER */}
-          <View className="flex-row justify-between items-center mb-6">
+          <View className="flex-row justify-between items-center mb-4">
             <View>
               <Text className="text-gray-500 text-[10px] font-black uppercase tracking-[3px]">Unidad Asignada</Text>
-              <Text className="text-white text-2xl font-black italic">{camionAsignado.patente}</Text>
+              <Text className="text-white text-2xl font-black italic">{selectedVehicle || camionAsignado.patente}</Text>
               <Text className="text-primary/80 font-bold text-xs">Chofer: {user?.nombre || 'Operador'}</Text>
             </View>
               <TouchableOpacity 
@@ -153,11 +195,35 @@ const ClienteDashboard = ({ onLogout }: { onLogout?: () => void }) => {
             </TouchableOpacity>
           </View>
 
+          {/* SELECTOR DE PATENTE */}
+          <View className="mb-6">
+            <Text className="text-gray-500 text-[10px] font-black uppercase tracking-[3px] mb-2">Vehículo a cargo hoy:</Text>
+            <View className="overflow-hidden rounded-2xl border border-white/10 bg-card/30">
+              <Picker
+                selectedValue={selectedVehicle}
+                onValueChange={(val) => setSelectedVehicle(val)}
+                style={{ color: '#fff' }}
+                itemStyle={{ color: '#fff' }}
+              >
+                <Picker.Item label="-- Seleccionar vehículo --" value={null} />
+                {VEHICLE_OPTIONS.map((p) => (
+                  <Picker.Item key={p} label={p} value={p} />
+                ))}
+              </Picker>
+            </View>
+          </View>
+
           {/* BOTÓN DE ACCIÓN PRINCIPAL: CHECK-IN AL GALPÓN */}
           <Animated.View entering={FadeInUp.delay(200)}>
             <TouchableOpacity 
               activeOpacity={0.9}
-              onPress={() => navigation.navigate('checkin', { numeroPatente: camionAsignado.patente })}
+              onPress={() => {
+                if (!selectedVehicle) {
+                  Alert.alert('Por favor, seleccione un vehículo primero');
+                  return;
+                }
+                navigation.navigate('checkin', { numeroPatente: selectedVehicle, choferName: user?.nombre || user?.username });
+              }}
               className="mb-6 overflow-hidden rounded-[28px] border border-primary/30 shadow-2xl shadow-primary/20"
             >
               <LinearGradient colors={['#60A5FA', '#2563EB']} start={{x:0, y:0}} end={{x:1, y:1}} className="py-4 px-6 flex-row items-center justify-between">
