@@ -160,7 +160,7 @@ const ClienteDashboard = ({ onLogout }: { onLogout?: () => void }) => {
 
   // Simulamos la vinculación del camión según el usuario logueado
   const camionAsignado = {
-    patente: 'AE-744-GT',
+    patente: 'SELECCIONA UNA PATENTE',
     modelo: 'Scania R500 V8',
     kmActual: '45.200 km',
     combustible: '75%',
