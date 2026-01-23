@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, SafeAreaView, TouchableOpacity, useWindowDimensions, Platform, Alert } from 'react-native';
+import { View, Text, ScrollView, SafeAreaView, TouchableOpacity, useWindowDimensions, Platform, Alert, Modal, Pressable } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { FontAwesome5, Ionicons, MaterialIcons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -16,7 +16,7 @@ import TurnoDetailModal from '@/components/TurnoDetailModal';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/firebase/firebaseConfig';
 import UniversalImage from '@/components/UniversalImage';
-import { Picker } from '@react-native-picker/picker';
+// custom dropdown will replace native Picker to force dark-mode styling
 
 const ClienteDashboard = ({ onLogout }: { onLogout?: () => void }) => {
   const navigation = useNavigation<any>();
@@ -168,15 +168,15 @@ const ClienteDashboard = ({ onLogout }: { onLogout?: () => void }) => {
   };
 
   const VEHICLE_OPTIONS = [
-    'AE-744-GT',
-    'AC-197-RO',
-    'AD-555-XY',
-    'AF-321-ZQ',
-    'AG-888-BB',
+    'NIG069',
+    'OQA986',
+    'OQA990',
+    'IWJ847',
   ];
+  const [vehicleDropdownOpen, setVehicleDropdownOpen] = useState(false);
 
   return (
-    <SafeAreaView className="flex-1 bg-surface pt-16">
+    <SafeAreaView className="flex-1 bg-surface pt-8">
       <LinearGradient colors={['#0b0b0b', '#000']} className="flex-1 px-6">
         <ScrollView showsVerticalScrollIndicator={false} className="pt-4">
           
@@ -196,20 +196,49 @@ const ClienteDashboard = ({ onLogout }: { onLogout?: () => void }) => {
           </View>
 
           {/* SELECTOR DE PATENTE */}
-          <View className="mb-6">
+          <View className="mt-1 mb-6">
             <Text className="text-gray-500 text-[10px] font-black uppercase tracking-[3px] mb-2">Vehículo a cargo hoy:</Text>
-            <View className="overflow-hidden rounded-2xl border border-white/10 bg-card/30">
-              <Picker
-                selectedValue={selectedVehicle}
-                onValueChange={(val) => setSelectedVehicle(val)}
-                style={{ color: '#fff' }}
-                itemStyle={{ color: '#fff' }}
+            <View className="h-12 rounded-xl bg-[#1F1F1F] border border-zinc-700 overflow-hidden">
+              <TouchableOpacity
+                activeOpacity={0.85}
+                onPress={() => setVehicleDropdownOpen(true)}
+                className="h-12 flex-row items-center px-4 justify-between"
               >
-                <Picker.Item label="-- Seleccionar vehículo --" value={null} />
-                {VEHICLE_OPTIONS.map((p) => (
-                  <Picker.Item key={p} label={p} value={p} />
-                ))}
-              </Picker>
+                <Text className={`${selectedVehicle ? 'text-white' : 'text-gray-400'} text-sm`}>{selectedVehicle || '-- Seleccionar vehículo --'}</Text>
+                <Ionicons name="chevron-down" size={20} color="#fff" />
+              </TouchableOpacity>
+
+              {/* Dropdown Modal with dark styling for options */}
+              <Modal
+                visible={vehicleDropdownOpen}
+                transparent
+                animationType="fade"
+                onRequestClose={() => setVehicleDropdownOpen(false)}
+              >
+                <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)' }} onPress={() => setVehicleDropdownOpen(false)}>
+                  <View style={{ marginTop: 120, marginHorizontal: 24 }}>
+                    <View className="rounded-xl border border-zinc-700" style={{ backgroundColor: '#1F1F1F', maxHeight: 260 }}>
+                      <ScrollView>
+                        {VEHICLE_OPTIONS.map((p) => (
+                          <TouchableOpacity
+                            key={p}
+                            onPress={() => { setSelectedVehicle(p); setVehicleDropdownOpen(false); }}
+                            className="px-4 py-3 border-b border-white/5"
+                          >
+                            <Text className="text-white">{p}</Text>
+                          </TouchableOpacity>
+                        ))}
+                        <TouchableOpacity
+                          onPress={() => { setSelectedVehicle(null); setVehicleDropdownOpen(false); }}
+                          className="px-4 py-3"
+                        >
+                          <Text className="text-gray-400">Limpiar selección</Text>
+                        </TouchableOpacity>
+                      </ScrollView>
+                    </View>
+                  </View>
+                </Pressable>
+              </Modal>
             </View>
           </View>
 
@@ -240,18 +269,18 @@ const ClienteDashboard = ({ onLogout }: { onLogout?: () => void }) => {
 
           {/* STATUS ACTUAL DEL CAMIÓN */}
           <View className="flex-row justify-between mb-4">
-            <BlurView intensity={10} tint="dark" className="flex-1 mr-2 h-24 rounded-2xl border border-white/5 overflow-hidden">
-              <View className="p-3 bg-card/40 items-center justify-center h-full">
-                <Ionicons name="speedometer-outline" size={18} color="#60A5FA" />
-                <Text className="text-white font-black text-base mt-1">{camionAsignado.kmActual}</Text>
+            <BlurView intensity={10} tint="dark" className="flex-1 mr-2 h-20 rounded-2xl border border-white/5 overflow-hidden">
+              <View className="p-2 bg-card/40 items-center justify-center h-full">
+                <Ionicons name="speedometer-outline" size={16} color="#60A5FA" />
+                <Text className="text-white font-black text-sm mt-1">{camionAsignado.kmActual}</Text>
                 <Text className="text-gray-600 text-[9px] uppercase font-bold">Odómetro</Text>
               </View>
             </BlurView>
 
-            <BlurView intensity={10} tint="dark" className="flex-1 ml-2 h-24 rounded-2xl border border-white/5 overflow-hidden">
-              <View className="p-3 bg-card/40 items-center justify-center h-full">
-                <FontAwesome5 name="gas-pump" size={18} color="#4ADE80" />
-                <Text className="text-white font-black text-base mt-1">{camionAsignado.combustible}</Text>
+            <BlurView intensity={10} tint="dark" className="flex-1 ml-2 h-20 rounded-2xl border border-white/5 overflow-hidden">
+              <View className="p-2 bg-card/40 items-center justify-center h-full">
+                <FontAwesome5 name="gas-pump" size={16} color="#4ADE80" />
+                <Text className="text-white font-black text-sm mt-1">{camionAsignado.combustible}</Text>
                 <Text className="text-gray-600 text-[9px] uppercase font-bold">Tanque</Text>
               </View>
             </BlurView>

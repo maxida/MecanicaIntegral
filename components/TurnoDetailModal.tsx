@@ -62,6 +62,7 @@ return (
                 <Text className="text-white text-3xl font-black italic mt-1">
                   {turno.numeroPatente === "S/D" ? "PENDIENTE DE PATENTE" : turno.numeroPatente}
                 </Text>
+                <Text className="text-zinc-400 text-base mt-1">Chofer: {turno.chofer || 'No registrado'}</Text>
               </View>
                 <TouchableOpacity onPress={onClose} className="bg-white/5 w-12 h-12 rounded-2xl items-center justify-center border border-white/10">
                 <FontAwesome5 name="times" size={20} color="#FF4C4C" />
