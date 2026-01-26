@@ -125,7 +125,7 @@ return (
                     <View className="flex-1 bg-card p-6 rounded-[35px] border border-white/5">
                       <FontAwesome5 name="gas-pump" size={20} color="#4ADE80" />
                       <Text className="text-white text-3xl font-black mt-2">{turno.nivelNafta}%</Text>
-                      <Text className="text-gray-600 text-[10px] font-bold">DIESEL</Text>
+                      <Text className="text-gray-600 text-[10px] font-bold">COMBUSTIBLE</Text>
                     </View>
                   </View>
 

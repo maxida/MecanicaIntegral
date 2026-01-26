@@ -378,7 +378,7 @@ const ClienteDashboard = ({ onLogout }: { onLogout?: () => void }) => {
               <View className="p-2 bg-card/40 items-center justify-center h-full">
                 <Ionicons name="speedometer-outline" size={16} color="#60A5FA" />
                 <Text className="text-white font-black text-sm mt-1">{kpiData.odometer === '-' ? '-' : `${kpiData.odometer} km`}</Text>
-                <Text className="text-gray-600 text-[9px] uppercase font-bold">Odómetro</Text>
+                <Text className="text-gray-600 text-[9px] uppercase font-bold">Kilometraje</Text>
               </View>
             </BlurView>
 
@@ -386,7 +386,7 @@ const ClienteDashboard = ({ onLogout }: { onLogout?: () => void }) => {
               <View className="p-2 bg-card/40 items-center justify-center h-full">
                 <FontAwesome5 name="gas-pump" size={16} color="#4ADE80" />
                 <Text className="text-white font-black text-sm mt-1">{kpiData.fuel === '-' ? '-' : kpiData.fuel}</Text>
-                <Text className="text-gray-600 text-[9px] uppercase font-bold">Tanque</Text>
+                <Text className="text-gray-600 text-[9px] uppercase font-bold">Combustible</Text>
               </View>
             </BlurView>
           </View>
