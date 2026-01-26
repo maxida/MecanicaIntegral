@@ -13,7 +13,7 @@ import { obtenerTurnos, suscribirseATurnos } from '@/services/turnosService';
 import LoadingOverlay from '@/components/LoadingOverlay';
 import Animated, { FadeInUp, FadeInRight } from 'react-native-reanimated';
 import TurnoDetailModal from '@/components/TurnoDetailModal';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
 import { db } from '@/firebase/firebaseConfig';
 import UniversalImage from '@/components/UniversalImage';
 // custom dropdown will replace native Picker to force dark-mode styling
@@ -62,6 +62,84 @@ const ClienteDashboard = ({ onLogout }: { onLogout?: () => void }) => {
       }
     };
     save();
+  }, [selectedVehicle]);
+
+  // Cuando cambia la patente seleccionada, consultar el último turno global de esa patente
+  useEffect(() => {
+    let mounted = true;
+    const fetchLastStatus = async () => {
+      if (!selectedVehicle) {
+        if (mounted) setKpiData({ odometer: '-', fuel: '-' });
+        return;
+      }
+
+      try {
+        setKpiLoading(true);
+        const col = collection(db, 'turnos');
+
+        // Intento preferido: pedir al servidor el último documento (orderBy + limit)
+        try {
+          const q = query(col, where('patente', '==', selectedVehicle), orderBy('createdAt', 'desc'), limit(1));
+          const snap = await getDocs(q);
+
+          if (!mounted) return;
+
+          if (snap.empty) {
+            setKpiData({ odometer: '-', fuel: '-' });
+          } else {
+            const d = snap.docs[0].data() as any;
+            const kmVal = d.kilometraje ?? d.km ?? d.odometro ?? null;
+            const fuelVal = d.nivelNafta ?? d.fuelLevel ?? d.fuel ?? d.combustible ?? null;
+
+            const odometerDisplay = kmVal != null ? formatOdometerOnly(kmVal) : '-';
+            const fuelDisplay = fuelVal != null ? (typeof fuelVal === 'number' ? `${fuelVal}%` : String(fuelVal)) : '-';
+
+            setKpiData({ odometer: odometerDisplay, fuel: fuelDisplay });
+          }
+        } catch (err: any) {
+          // Si Firestore requiere un índice compuesto, caemos a un fallback client-side
+          const msg = String(err?.message || err);
+          if (msg.toLowerCase().includes('requires an index') || msg.toLowerCase().includes('index')) {
+            console.warn('Firestore ordered query requires an index; falling back to client-side selection.');
+
+            // Traer todos los docs que coincidan con la patente y seleccionar el más reciente client-side
+            const q2 = query(col, where('patente', '==', selectedVehicle));
+            const snap2 = await getDocs(q2);
+            if (!mounted) return;
+            if (snap2.empty) {
+              setKpiData({ odometer: '-', fuel: '-' });
+            } else {
+              let latest: any = null;
+              let latestTime = 0;
+              snap2.forEach((s) => {
+                const data: any = s.data() || {};
+                const t = new Date(data.createdAt || data.fechaCreacion || data.fechaIngreso || 0).getTime();
+                if (t > latestTime) {
+                  latestTime = t;
+                  latest = data;
+                }
+              });
+              const kmVal = latest?.kilometraje ?? latest?.km ?? latest?.odometro ?? null;
+              const fuelVal = latest?.nivelNafta ?? latest?.fuelLevel ?? latest?.fuel ?? latest?.combustible ?? null;
+              const odometerDisplay = kmVal != null ? formatOdometerOnly(kmVal) : '-';
+              const fuelDisplay = fuelVal != null ? (typeof fuelVal === 'number' ? `${fuelVal}%` : String(fuelVal)) : '-';
+              setKpiData({ odometer: odometerDisplay, fuel: fuelDisplay });
+            }
+          } else {
+            // otro error
+            throw err;
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching last status for vehicle:', err);
+        if (mounted) setKpiData({ odometer: '-', fuel: '-' });
+      } finally {
+        if (mounted) setKpiLoading(false);
+      }
+    };
+
+    fetchLastStatus();
+    return () => { mounted = false; };
   }, [selectedVehicle]);
 
   const handleOpenTurnoDetail = (turno: any) => {
@@ -158,6 +236,10 @@ const ClienteDashboard = ({ onLogout }: { onLogout?: () => void }) => {
     return matchDate;
   });
 
+  // Estado para mostrar KPIs: odómetro y tanque
+  const [kpiData, setKpiData] = useState<{ odometer: string | number; fuel: string | number }>({ odometer: '-', fuel: '-' });
+  const [kpiLoading, setKpiLoading] = useState(false);
+
   // Simulamos la vinculación del camión según el usuario logueado
   const camionAsignado = {
     patente: 'SELECCIONA UNA PATENTE',
@@ -165,6 +247,29 @@ const ClienteDashboard = ({ onLogout }: { onLogout?: () => void }) => {
     kmActual: '45.200 km',
     combustible: '75%',
     ultimoCheckin: 'Ayer, 18:30 hs'
+  };
+
+  // Formatea el valor del odómetro para mostrar separadores de miles (ej: 100000 -> 100.000)
+  const formatOdometerOnly = (value: any) => {
+    if (value == null || value === '-') return '-';
+    try {
+      let num: number | null = null;
+      if (typeof value === 'number') num = value;
+      else if (typeof value === 'string') {
+        const digits = value.replace(/\D/g, '');
+        if (!digits) return value;
+        num = parseInt(digits, 10);
+      } else {
+        const s = String(value);
+        const digits = s.replace(/\D/g, '');
+        if (!digits) return s;
+        num = parseInt(digits, 10);
+      }
+      if (num == null || Number.isNaN(num)) return String(value);
+      return num.toLocaleString('es-AR');
+    } catch (err) {
+      return String(value);
+    }
   };
 
   const VEHICLE_OPTIONS = [
@@ -272,7 +377,7 @@ const ClienteDashboard = ({ onLogout }: { onLogout?: () => void }) => {
             <BlurView intensity={10} tint="dark" className="flex-1 mr-2 h-20 rounded-2xl border border-white/5 overflow-hidden">
               <View className="p-2 bg-card/40 items-center justify-center h-full">
                 <Ionicons name="speedometer-outline" size={16} color="#60A5FA" />
-                <Text className="text-white font-black text-sm mt-1">{camionAsignado.kmActual}</Text>
+                <Text className="text-white font-black text-sm mt-1">{kpiData.odometer === '-' ? '-' : `${kpiData.odometer} km`}</Text>
                 <Text className="text-gray-600 text-[9px] uppercase font-bold">Odómetro</Text>
               </View>
             </BlurView>
@@ -280,7 +385,7 @@ const ClienteDashboard = ({ onLogout }: { onLogout?: () => void }) => {
             <BlurView intensity={10} tint="dark" className="flex-1 ml-2 h-20 rounded-2xl border border-white/5 overflow-hidden">
               <View className="p-2 bg-card/40 items-center justify-center h-full">
                 <FontAwesome5 name="gas-pump" size={16} color="#4ADE80" />
-                <Text className="text-white font-black text-sm mt-1">{camionAsignado.combustible}</Text>
+                <Text className="text-white font-black text-sm mt-1">{kpiData.fuel === '-' ? '-' : kpiData.fuel}</Text>
                 <Text className="text-gray-600 text-[9px] uppercase font-bold">Tanque</Text>
               </View>
             </BlurView>
