@@ -189,7 +189,7 @@ const NovedadesChoferForm = () => {
         <ScrollView
           showsVerticalScrollIndicator={false}
           className="pt-10"
-          contentContainerStyle={{ paddingBottom: 150 }}
+          contentContainerStyle={{ paddingBottom: 80 }}
           keyboardShouldPersistTaps="handled"
         >
 
@@ -223,7 +223,7 @@ const NovedadesChoferForm = () => {
 
           {/* CHECKLIST CATEGORIZADO */}
           <Text className="text-gray-500 text-[10px] font-black uppercase tracking-[3px] mb-2 ml-2">¿Cómo sentiste el camión?</Text>
-          <View className="mb-6">
+          <View className="mb-4">
             {VEHICLE_CHECKLIST_ITEMS.map((group) => (
               <View key={group.category} className="mb-4">
                 <Text className="text-gray-400 text-[10px] font-bold mb-2 uppercase">{group.category}</Text>
@@ -248,10 +248,10 @@ const NovedadesChoferForm = () => {
           </View>
 
           {/* EVIDENCIA Y NOTAS */}
-          <View className="flex-row space-x-4 mb-1">
-            <TouchableOpacity onPress={takePhoto} className="flex-1 h-64 bg-card rounded-[20px] border border-dashed border-white/10 items-center justify-center overflow-hidden">
+          <View className="flex-row space-x-4 mt-2 mb-1">
+            <TouchableOpacity onPress={takePhoto} className="flex-1 h-32 bg-card rounded-[20px] border border-dashed border-white/10 items-center justify-center overflow-hidden">
               {photo ? (
-                <View className="w-full h-64 bg-zinc-800 rounded-2xl overflow-hidden border border-zinc-700 mb-6">
+                <View className="w-full h-32 bg-zinc-800 rounded-2xl overflow-hidden border border-zinc-700 mb-6">
                   <Image source={{ uri: photo }} className="w-full h-full" resizeMode="cover" />
                 </View>
               ) : (
@@ -267,8 +267,8 @@ const NovedadesChoferForm = () => {
               <TextInput
                 multiline
                 className="text-white text-xs"
-                placeholder="Ej: Golpe en puerta..."
-                placeholderTextColor="#222"
+                placeholder="Ej: • Golpe en puerta derecha."
+                placeholderTextColor="#f7f3f3"
                 value={notas}
                 onChangeText={setNotas}
               />
@@ -279,7 +279,7 @@ const NovedadesChoferForm = () => {
           <TouchableOpacity
             activeOpacity={0.8}
             onPress={handleFinalizarIngreso}
-            className="mt-3 mb-12 overflow-hidden rounded-[30px] shadow-2xl shadow-primary/40"
+            className="mt-5 mb-4 overflow-hidden rounded-[30px] shadow-2xl shadow-primary/40"
             disabled={saving}
           >
             <LinearGradient colors={['#60A5FA', '#2563EB']} className="py-4 items-center">
