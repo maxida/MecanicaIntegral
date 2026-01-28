@@ -16,13 +16,17 @@ const Badge = ({ label, styleClass, icon: Icon }: { label: string; styleClass: s
 export default function TicketCard({ turno, onPress, onDerivar, onLiberar }: { turno: Turno; onPress?: () => void; onDerivar?: (id: string) => void; onLiberar?: (id: string) => void; }) {
   const router = useRouter();
 
-  const isAlert = turno.estadoGeneral === 'alert';
-  const isEnTaller = turno.derivadoATaller || turno.estado === 'scheduled' || turno.estado === 'in_progress';
+  const hasEstadoTaller = !!(turno.estadoTaller || turno.derivadoATaller || turno.estado === 'scheduled' || turno.estado === 'in_progress' || turno.origen === 'derivacion' || turno.origenTurnoId);
+  const isAlert = turno.estadoGeneral === 'alert' && !hasEstadoTaller;
+  const isEnTaller = hasEstadoTaller;
+  const isOperativo = turno.estadoGeneral === 'ok' && !hasEstadoTaller;
   const isCompleted = turno.estado === 'completed' || turno.estadoGeneral === 'ok';
+
+  const borderClass = isAlert ? 'border-2 border-red-600' : isEnTaller ? 'border-2 border-yellow-500' : isOperativo ? 'border-2 border-emerald-500' : 'border border-white/10';
 
   return (
     <TouchableWithoutFeedback onPress={onPress}>
-      <View className="mb-4 overflow-hidden rounded-[24px] border border-white/10">
+      <View className={`mb-4 overflow-hidden rounded-[24px] ${borderClass}`}>
         <BlurView intensity={20} tint="dark" className="p-4 bg-card/40">
           <View className="flex-row justify-between items-start mb-2">
             <View>
@@ -31,17 +35,17 @@ export default function TicketCard({ turno, onPress, onDerivar, onLiberar }: { t
             </View>
 
             <View className="items-end space-y-1">
-               {isEnTaller && (
+              {isEnTaller && (
                 <Badge label="EN TALLER" styleClass="bg-yellow-500 text-black border border-yellow-400" icon={LucideWrench} />
               )}
               {isAlert && (
-                 <Badge label="ALERTA" styleClass="bg-red-600 text-white border border-red-500" icon={LucideAlertTriangle} />
+                <Badge label="ALERTA" styleClass="bg-red-600 text-white border border-red-500" icon={LucideAlertTriangle} />
               )}
-              {(!isAlert && !isEnTaller && isCompleted) && (
-                 <Badge label="OPERATIVO" styleClass="bg-emerald-600 text-white border border-emerald-500" icon={LucideCheckCircle2} />
+              {isOperativo && (
+                <Badge label="OPERATIVO" styleClass="bg-emerald-600 text-white border border-emerald-500" icon={LucideCheckCircle2} />
               )}
-               {(!isAlert && !isEnTaller && !isCompleted) && (
-                 <Badge label="PENDIENTE" styleClass="bg-gray-700 text-white border border-gray-600" />
+              {(!isAlert && !isEnTaller && !isOperativo) && (
+                <Badge label="PENDIENTE" styleClass="bg-gray-700 text-white border border-gray-600" />
               )}
             </View>
           </View>

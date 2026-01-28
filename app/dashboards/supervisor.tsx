@@ -8,7 +8,6 @@ import { useRouter } from 'expo-router';
 import { RootState } from '@/redux/store';
 import { setTurnos, actualizarTurno } from '@/redux/slices/turnosSlice';
 import { suscribirseAPendingTriage, actualizarTurnoService, suscribirseATurnos } from '@/services/turnosService';
-import TicketCard from '@/components/TicketCard';
 import TurnoDetailModal from '@/components/TurnoDetailModal'; // El que armamos antes
 
 const SuperadminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
@@ -21,7 +20,8 @@ const SuperadminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
   const [pendings, setPendings] = useState<any[]>([]);
   const [allTurnos, setAllTurnos] = useState<any[]>([]);
   const [filterText, setFilterText] = useState('');
-  const [filterEstadoGeneral, setFilterEstadoGeneral] = useState<'all' | 'crit' | 'ok'>('crit');
+  // Nuevo: pestañas claras: 'alerta' | 'entaller' | 'operativo' | 'todos'
+  const [activeTab, setActiveTab] = useState<'alerta' | 'entaller' | 'operativo' | 'todos'>('alerta');
   const [page, setPage] = useState(0);
   const pageSize = 2;
 
@@ -61,17 +61,30 @@ const SuperadminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
   // Orden descendente: el más reciente arriba
   combinedList.sort((a: any, b: any) => new Date(b._fechaOrden).getTime() - new Date(a._fechaOrden).getTime());
 
-  // Filtros por UI
-  const matchStatus = (t: any) => {
-    if (filterEstadoGeneral === 'all') return true;
-    if (filterEstadoGeneral === 'crit') return t.estadoGeneral === 'alert' || t.prioridad === 1;
-    if (filterEstadoGeneral === 'ok') return t.estado === 'completed' || t.estadoGeneral === 'ok';
-    return true;
+  // Helpers de estado
+  const isDerived = (t: any) => {
+    return !!(t.derivadoATaller || t.estado === 'scheduled' || t.estado === 'in_progress' || t.origen === 'derivacion' || t.origenTurnoId);
   };
 
+  // Filtros por UI (hacerlos explícitos por pestañas)
   const ingresosFiltrados = combinedList.filter((t: any) => {
     const matchText = !filterText || (t.numeroPatente || '').toLowerCase().includes(filterText.toLowerCase());
-    return matchText && matchStatus(t);
+
+    if (!matchText) return false;
+
+    switch (activeTab) {
+      case 'alerta':
+        // Alertas que NO fueron derivadas aún
+        return t.estadoGeneral === 'alert' && !isDerived(t);
+      case 'entaller':
+        // Exclusivamente los ya derivados / en taller
+        return isDerived(t);
+      case 'operativo':
+        return t.estadoGeneral === 'ok' || t.estado === 'completed';
+      case 'todos':
+      default:
+        return true;
+    }
   });
 
   const totalPages = Math.max(1, Math.ceil(ingresosFiltrados.length / pageSize));
@@ -144,13 +157,16 @@ const SuperadminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
             />
 
             <View className="flex-row space-x-2">
-              <TouchableOpacity onPress={() => { setFilterEstadoGeneral('crit'); setPage(0); }} className={`px-3 py-2 rounded-2xl ${filterEstadoGeneral === 'crit' ? 'bg-danger/20' : 'bg-white/5'}`}>
+              <TouchableOpacity onPress={() => { setActiveTab('alerta'); setPage(0); }} className={`px-3 py-2 rounded-2xl ${activeTab === 'alerta' ? 'bg-danger/20' : 'bg-white/5'}`}>
                 <Text className="text-white text-[12px]">Alerta</Text>
               </TouchableOpacity>
-              <TouchableOpacity onPress={() => { setFilterEstadoGeneral('ok'); setPage(0); }} className={`px-3 py-2 rounded-2xl ${filterEstadoGeneral === 'ok' ? 'bg-success/20' : 'bg-white/5'}`}>
+              <TouchableOpacity onPress={() => { setActiveTab('entaller'); setPage(0); }} className={`px-3 py-2 rounded-2xl ${activeTab === 'entaller' ? 'bg-primary/20' : 'bg-white/5'}`}>
+                <Text className="text-white text-[12px]">En Taller</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => { setActiveTab('operativo'); setPage(0); }} className={`px-3 py-2 rounded-2xl ${activeTab === 'operativo' ? 'bg-success/20' : 'bg-white/5'}`}>
                 <Text className="text-white text-[12px]">Operativo</Text>
               </TouchableOpacity>
-              <TouchableOpacity onPress={() => { setFilterEstadoGeneral('all'); setPage(0); }} className={`px-3 py-2 rounded-2xl ${filterEstadoGeneral === 'all' ? 'bg-primary/20' : 'bg-white/5'}`}>
+              <TouchableOpacity onPress={() => { setActiveTab('todos'); setPage(0); }} className={`px-3 py-2 rounded-2xl ${activeTab === 'todos' ? 'bg-primary/20' : 'bg-white/5'}`}>
                 <Text className="text-white text-[12px]">Todos</Text>
               </TouchableOpacity>
             </View>
@@ -162,35 +178,56 @@ const SuperadminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
               <Text className="text-white mt-4 font-bold tracking-widest">SIN RESULTADOS</Text>
             </View>
           ) : (
-            ingresosPendientes.map((turno: any) => (
-              <TicketCard
-                key={turno.id}
-                turno={turno}
-                onPress={() => { setSelectedTurno(turno); setModalVisible(true); }}
-                onDerivar={async (tId: string) => {
-                  // Acción de derivar desde la tarjeta: actualiza backend y localmente mantiene la tarjeta visible
-                  try {
-                    const metadata = { estado: 'scheduled' as const, derivadoATaller: true, fechaDerivacion: new Date().toISOString() };
-                    await actualizarTurnoService(tId, metadata);
-                    const current = turnos.find((t:any) => t.id === tId);
-                    if (current) dispatch(actualizarTurno({ ...current, ...metadata }));
-                    // No removemos la tarjeta: solamente se actualiza su badge por la suscripción
-                  } catch (e) {
-                    console.error('Error al derivar:', e);
-                  }
-                }}
-                onLiberar={async (tId: string) => {
-                  try {
-                    const metadata = { estado: 'completed' as const, fechaLiberacion: new Date().toISOString() };
-                    await actualizarTurnoService(tId, metadata);
-                    const current = turnos.find((t:any) => t.id === tId);
-                    if (current) dispatch(actualizarTurno({ ...current, ...metadata }));
-                  } catch (e) {
-                    console.error('Error al liberar:', e);
-                  }
-                }}
-              />
-            ))
+            ingresosPendientes.map((turno: any) => {
+              const isEnTaller = !!(turno.estadoTaller || turno.derivadoATaller || turno.estado === 'scheduled' || turno.estado === 'in_progress' || turno.origen === 'derivacion' || turno.origenTurnoId);
+              const isAlert = turno.estadoGeneral === 'alert' && !isEnTaller;
+              const isOperativo = turno.estadoGeneral === 'ok' && !isEnTaller;
+              const isCompleted = turno.estado === 'completed' || turno.estadoGeneral === 'ok';
+
+              const borderClass = isAlert
+                ? 'border-red-600'
+                : isEnTaller
+                  ? 'border-yellow-500'
+                  : isOperativo || isCompleted
+                    ? 'border-emerald-500'
+                    : 'border-white/5';
+
+              return (
+                <BlurView key={turno.id} intensity={6} className={`mb-4 rounded-3xl border-2 ${borderClass} overflow-hidden`}>
+                  <TouchableOpacity activeOpacity={0.9} onPress={() => { setSelectedTurno(turno); setModalVisible(true); }} className="p-4 bg-card/60">
+                    <View className="flex-row justify-between items-start mb-3">
+                      <View>
+                        <Text className="text-white font-bold text-base leading-tight">{turno.chofer || 'Chofer no identificado'}</Text>
+                        <Text className="text-primary font-mono text-xs mt-1 tracking-tighter">{turno.numeroPatente === 'S/D' ? '⚠️ SIN PATENTE' : turno.numeroPatente}</Text>
+                      </View>
+
+                      <View className="items-end space-y-1">
+                        {isEnTaller && <View className="px-2 py-1 rounded-md bg-yellow-500"><Text className="text-black text-[10px] font-bold">EN TALLER</Text></View>}
+                        {isAlert && !isEnTaller && <View className="px-2 py-1 rounded-md bg-danger"><Text className="text-white text-[10px] font-bold">ALERTA</Text></View>}
+                        {(!isAlert && !isEnTaller && (isOperativo || isCompleted)) && <View className="px-2 py-1 rounded-md bg-emerald-600"><Text className="text-white text-[10px] font-bold">OPERATIVO</Text></View>}
+                        {(!isAlert && !isEnTaller && !isCompleted) && <View className="px-2 py-1 rounded-md bg-gray-700"><Text className="text-white text-[10px] font-bold">PENDIENTE</Text></View>}
+                      </View>
+                    </View>
+
+                    <Text className="text-gray-400 text-xs mb-4" numberOfLines={2}>{turno.comentariosChofer || turno.descripcion || 'Sin descripción'}</Text>
+
+                    <View className="flex-row justify-between items-center border-t border-white/5 pt-3">
+                      <View className="flex-row items-center">
+                        <MaterialIcons name="history" size={12} color="#444" />
+                        <Text className="text-[9px] text-gray-600 font-mono ml-1">{new Date(turno.fechaCreacion).toLocaleDateString()}</Text>
+                      </View>
+                      <Text className="text-[9px] text-gray-600 font-mono italic">ID: {turno.id?.slice(-5)}</Text>
+                    </View>
+
+                    <View className="flex-row space-x-2 mt-3">
+                      <TouchableOpacity onPress={() => { setSelectedTurno(turno); setModalVisible(true); }} className="flex-1 bg-white/5 py-2 rounded-lg items-center">
+                        <Text className="text-white text-[12px]">Ver Detalle</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </TouchableOpacity>
+                </BlurView>
+              );
+            })
           )}
 
           {/* PAGINACIÓN */}

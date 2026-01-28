@@ -166,12 +166,12 @@ const AdminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-surface pt-4">
+    <SafeAreaView className="flex-1 bg-surface pt-8">
       <LinearGradient colors={['#0b0b0b', '#000']} className="flex-1 px-4">
         {loading && <LoadingOverlay message="Sincronizando..." />}
 
         {/* HEADER COMPACTO */}
-        <View className="flex-row justify-between items-end mt-4 mb-6">
+        <View className="flex-row justify-between items-end mt-4 mb-5">
           <View>
             <Text className="text-gray-500 text-[10px] font-black uppercase tracking-[4px]">Command Center</Text>
             <Text className="text-white text-2xl font-black italic">MIT_DASHBOARD</Text>
