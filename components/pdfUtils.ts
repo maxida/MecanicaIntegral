@@ -2,28 +2,33 @@ import { Platform } from 'react-native';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 
-/**
- * generateAndSharePDF
- * - En web: usa Print.printAsync({ html }) para imprimir SOLO el HTML en un iframe oculto.
- * - En mobile: genera archivo con printToFileAsync y lo comparte con Sharing.shareAsync.
- */
-export async function generateAndSharePDF(htmlContent: string) {
-  try {
-    if (Platform.OS === 'web') {
-      await Print.printAsync({ html: htmlContent });
-      return;
-    }
-
-    const { uri } = await Print.printToFileAsync({ html: htmlContent });
-    if (uri) {
-      await Sharing.shareAsync(uri, { mimeType: 'application/pdf' });
+export default async function generateAndSharePDF(html: string) {
+  if (Platform.OS === 'web') {
+    // TRUCO DEPURACIÓN: Abrir en pestaña nueva en lugar de iframe oculto
+    const printWindow = window.open('', '_blank');
+    
+    if (printWindow) {
+      printWindow.document.write(html);
+      printWindow.document.close();
+      
+      // Esperar un poco a que cargue el logo y fuentes
+      setTimeout(() => {
+        printWindow.focus();
+        printWindow.print();
+        // NO cerramos la ventana automáticamente para que puedas inspeccionar el HTML si falla
+        // printWindow.close(); 
+      }, 1000);
     } else {
-      console.warn('generateAndSharePDF: no uri returned from printToFileAsync');
+      alert("Por favor, permite las ventanas emergentes (popups) para generar el PDF.");
     }
+    return;
+  }
+
+  // Lógica Móvil (sin cambios)
+  try {
+    const { uri } = await Print.printToFileAsync({ html });
+    await Sharing.shareAsync(uri, { UTI: '.pdf', mimeType: 'application/pdf' });
   } catch (err) {
-    console.error('generateAndSharePDF error:', err);
-    throw err;
+    console.error('Error generando PDF móvil:', err);
   }
 }
-
-export default generateAndSharePDF;
