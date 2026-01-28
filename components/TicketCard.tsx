@@ -2,77 +2,95 @@ import React from 'react';
 import { View, Text, TouchableOpacity, TouchableWithoutFeedback } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { useRouter } from 'expo-router';
+import { LucideAlertTriangle, LucideCheckCircle2, LucideWrench } from 'lucide-react-native';
 
 type Turno = any;
 
-const Badge = ({ label, styleClass }: { label: string; styleClass: string }) => (
-  <View className={`px-3 py-1 rounded-full ${styleClass}`}>
-    <Text className="text-[10px] font-black uppercase">{label}</Text>
+const Badge = ({ label, styleClass, icon: Icon }: { label: string; styleClass: string; icon?: any }) => (
+  <View className={`px-2 py-1 rounded-full flex-row items-center space-x-1 ${styleClass}`}>
+    {Icon && <Icon size={10} color={styleClass.includes('text-black') ? '#000' : '#FFF'} />}
+    <Text className={`text-[9px] font-black uppercase ${styleClass.includes('text-black') ? 'text-black' : 'text-white'}`}>{label}</Text>
   </View>
 );
 
 export default function TicketCard({ turno, onPress, onDerivar, onLiberar }: { turno: Turno; onPress?: () => void; onDerivar?: (id: string) => void; onLiberar?: (id: string) => void; }) {
   const router = useRouter();
 
-  // Determinar badge según estado
-  const getBadge = () => {
-    // ALERTA: estadoGeneral === 'alert'
-    if (turno.estadoGeneral === 'alert') return { label: 'ALERTA', className: 'bg-red-600 text-white' };
-    // EN TALLER: derivadoATaller === true OR estado scheduled/in_progress
-    if (turno.derivadoATaller || turno.estado === 'scheduled' || turno.estado === 'in_progress') return { label: 'EN TALLER', className: 'bg-yellow-500 text-black' };
-    // OPERATIVO: estado === 'completed' or estadoGeneral === 'ok'
-    if (turno.estado === 'completed' || turno.estadoGeneral === 'ok') return { label: 'OPERATIVO', className: 'bg-green-600 text-white' };
-    // PENDIENTE: fallback
-    return { label: 'PENDIENTE', className: 'bg-gray-600 text-white' };
-  };
-
-  const badge = getBadge();
+  const isAlert = turno.estadoGeneral === 'alert';
+  const isEnTaller = turno.derivadoATaller || turno.estado === 'scheduled' || turno.estado === 'in_progress';
+  const isCompleted = turno.estado === 'completed' || turno.estadoGeneral === 'ok';
 
   return (
     <TouchableWithoutFeedback onPress={onPress}>
-      <View className="mb-4 overflow-hidden rounded-[28px] border border-white/10">
-        <BlurView intensity={10} tint="dark" className="p-4 bg-card/40">
+      <View className="mb-4 overflow-hidden rounded-[24px] border border-white/10">
+        <BlurView intensity={20} tint="dark" className="p-4 bg-card/40">
           <View className="flex-row justify-between items-start mb-2">
             <View>
-              <Text className="text-white font-black text-lg">{turno.numeroPatente || '—'}</Text>
-              <Text className="text-primary text-[10px] font-bold uppercase tracking-tighter">Chofer: {turno.chofer || 'N/D'}</Text>
+              <Text className="text-white font-black text-xl tracking-tight">{turno.numeroPatente || '—'}</Text>
+              <Text className="text-gray-400 text-[11px] font-bold uppercase tracking-wider mt-1">{turno.chofer || 'SIN CHOFER'}</Text>
             </View>
 
-            <View>
-              <View className="absolute right-0 -top-2" />
-              <View className={`px-3 py-1 rounded-full ${badge.className}`}>
-                <Text className={`text-[10px] font-black ${badge.className.includes('text-black') ? 'text-black' : 'text-white'}`}>{badge.label}</Text>
-              </View>
+            <View className="items-end space-y-1">
+               {isEnTaller && (
+                <Badge label="EN TALLER" styleClass="bg-yellow-500 text-black border border-yellow-400" icon={LucideWrench} />
+              )}
+              {isAlert && (
+                 <Badge label="ALERTA" styleClass="bg-red-600 text-white border border-red-500" icon={LucideAlertTriangle} />
+              )}
+              {(!isAlert && !isEnTaller && isCompleted) && (
+                 <Badge label="OPERATIVO" styleClass="bg-emerald-600 text-white border border-emerald-500" icon={LucideCheckCircle2} />
+              )}
+               {(!isAlert && !isEnTaller && !isCompleted) && (
+                 <Badge label="PENDIENTE" styleClass="bg-gray-700 text-white border border-gray-600" />
+              )}
             </View>
           </View>
 
-          <Text className="text-gray-400 text-xs mb-3 italic" numberOfLines={2}>
-            {turno.comentariosChofer || turno.descripcion || 'Sin comentarios adicionales'}
-          </Text>
-
-          <View className="flex-row items-center justify-between">
-            <View>
-              {turno.fechaDerivacion && (
-                <Text className="text-yellow-300 text-[11px]">Derivado: {new Date(turno.fechaDerivacion).toLocaleString()}</Text>
+          {/* Singleton Chips */}
+          {turno.sintomas && turno.sintomas.length > 0 && (
+            <View className="flex-row flex-wrap gap-1 mb-3">
+              {turno.sintomas.slice(0, 3).map((s: string, i: number) => (
+                <View key={i} className="bg-white/5 px-2 py-1 rounded-md border border-white/5">
+                  <Text className="text-gray-300 text-[10px]">{s}</Text>
+                </View>
+              ))}
+               {turno.sintomas.length > 3 && (
+                <View className="bg-white/5 px-2 py-1 rounded-md border border-white/5">
+                  <Text className="text-gray-300 text-[10px]">+{turno.sintomas.length - 3}</Text>
+                </View>
               )}
-              {turno.fechaLiberacion && (
-                <Text className="text-green-300 text-[11px]">Liberado: {new Date(turno.fechaLiberacion).toLocaleString()}</Text>
+            </View>
+          )}
+
+
+          <View className="flex-row items-center justify-between mt-2 pt-3 border-t border-white/5">
+             <View className="flex-1 pr-2">
+              {turno.fechaDerivacion ? (
+                 <Text className="text-yellow-500/80 text-[10px] font-mono">Derivado: {new Date(turno.fechaDerivacion).toLocaleDateString()}</Text>
+              ) : (
+                <Text className="text-gray-500 text-[10px] font-mono">{new Date(turno.createdAt || turno.fechaCreacion || Date.now()).toLocaleDateString()}</Text>
               )}
             </View>
 
             <View className="flex-row space-x-2">
-              {/* Liberar siempre visible (si no está liberado) */}
-              {turno.estado !== 'completed' && (
-                <TouchableOpacity onPress={() => onLiberar && onLiberar(turno.id)} className="px-3 py-2 rounded-2xl bg-success/10 border border-success/20">
-                  <Text className="text-success text-[12px] font-black uppercase">Liberar</Text>
+              {/* Liberar siempre visible (si no está liberado y no está en taller) */}
+              {!isCompleted && !isEnTaller && (
+                <TouchableOpacity onPress={() => onLiberar && onLiberar(turno.id)} className="px-3 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30">
+                  <Text className="text-emerald-500 text-[11px] font-black uppercase">Liberar</Text>
                 </TouchableOpacity>
               )}
 
-              {/* Derivar: mostrar sólo si no fue derivado todavía */}
-              {!(turno.derivadoATaller || turno.estado === 'scheduled' || turno.estado === 'in_progress') && (
-                <TouchableOpacity onPress={() => onDerivar ? onDerivar(turno.id) : router.push({ pathname: '/solicitud', params: { prefillData: JSON.stringify(turno) } })} className="px-3 py-2 rounded-2xl bg-danger">
-                  <Text className="text-white text-[12px] font-black uppercase">Derivar a Taller</Text>
-                </TouchableOpacity>
+              {/* Botón de Acción Principal */}
+              {isEnTaller ? (
+                 <TouchableOpacity disabled className="px-3 py-2 rounded-xl bg-white/5 border border-white/10 opacity-70">
+                    <Text className="text-gray-400 text-[11px] font-black uppercase">EN TALLER</Text>
+                 </TouchableOpacity>
+              ) : (
+                !isCompleted && (
+                  <TouchableOpacity onPress={() => onDerivar ? onDerivar(turno.id) : router.push({ pathname: '/solicitud', params: { prefillData: JSON.stringify(turno) } })} className="px-3 py-2 rounded-xl bg-red-600 shadow-sm shadow-red-900/50">
+                    <Text className="text-white text-[11px] font-black uppercase">Derivar</Text>
+                  </TouchableOpacity>
+                )
               )}
             </View>
           </View>

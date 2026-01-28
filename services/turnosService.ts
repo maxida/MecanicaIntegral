@@ -132,7 +132,8 @@ export const crearTurnosPrueba = async (): Promise<void> => {
 
 // Configurar listener en tiempo real para turnos
 export const suscribirseATurnos = (callback: (turnos: Turno[]) => void) => {
-  const q = query(collection(db, TURNOS_COLLECTION), orderBy('fechaReparacion', 'asc'));
+  // Use fechaCreacion to ensure all tickets are retrieved, even those without a repair date
+  const q = query(collection(db, TURNOS_COLLECTION), orderBy('fechaCreacion', 'desc'));
 
   return onSnapshot(q, (querySnapshot) => {
     const turnos: Turno[] = [];
