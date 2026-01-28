@@ -105,12 +105,12 @@ const SuperadminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
   return (
     <SafeAreaView className="flex-1 bg-surface">
       <LinearGradient colors={['#0b0b0b', '#000']} className="flex-1 px-6">
-        <ScrollView showsVerticalScrollIndicator={false} className="pt-8">
+        <ScrollView showsVerticalScrollIndicator={false} className="pt-11">
           
           {/* HEADER PREMIUM */}
           <View className="mb-10">
             <Text className="text-gray-500 text-[10px] font-black uppercase tracking-[4px]">Logistics Management</Text>
-            <Text className="text-white text-3xl font-black italic">CENTRO DE TRIAJE</Text>
+            <Text className="text-white text-3xl font-black italic">CENTRO DE CONTROL</Text>
           </View>
           {onLogout && (
             <View style={{ position: 'absolute', right: 24, top: 24 }}>

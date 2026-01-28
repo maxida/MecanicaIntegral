@@ -25,6 +25,7 @@ const ClienteDashboard = ({ onLogout }: { onLogout?: () => void }) => {
   const turnos = useSelector((state: RootState) => state.turnos.turnos);
   const [loading, setLoading] = useState(false);
   const [historial, setHistorial] = useState<any[]>([]);
+  const [vehicleList, setVehicleList] = useState<string[]>([]);
   const [selectedTurno, setSelectedTurno] = useState<any | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [historialPage, setHistorialPage] = useState(0);
@@ -45,6 +46,31 @@ const ClienteDashboard = ({ onLogout }: { onLogout?: () => void }) => {
       }
     };
     load();
+    return () => { mounted = false; };
+  }, []);
+
+  // Cargar la lista de vehículos desde Firestore (colección 'vehiculo')
+  useEffect(() => {
+    let mounted = true;
+    const fetchVehicles = async () => {
+      try {
+        setLoading(true);
+        const col = collection(db, 'vehiculo');
+        // Limit para evitar descargar colecciones gigantescas en una sola llamada
+        const q = query(col, orderBy('numeroPatente'), limit(1000));
+        const snap = await getDocs(q);
+        if (!mounted) return;
+        const list = snap.docs
+          .map((d) => ((d.data() as any)?.numeroPatente ?? null))
+          .filter(Boolean) as string[];
+        setVehicleList(list);
+      } catch (err) {
+        console.error('Error fetching vehicle list:', err);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+    fetchVehicles();
     return () => { mounted = false; };
   }, []);
 
@@ -79,7 +105,8 @@ const ClienteDashboard = ({ onLogout }: { onLogout?: () => void }) => {
 
         // Intento preferido: pedir al servidor el último documento (orderBy + limit)
         try {
-          const q = query(col, where('patente', '==', selectedVehicle), orderBy('createdAt', 'desc'), limit(1));
+          // Use the canonical field name 'numeroPatente' as per data model
+          const q = query(col, where('numeroPatente', '==', selectedVehicle), orderBy('createdAt', 'desc'), limit(1));
           const snap = await getDocs(q);
 
           if (!mounted) return;
@@ -103,7 +130,7 @@ const ClienteDashboard = ({ onLogout }: { onLogout?: () => void }) => {
             console.warn('Firestore ordered query requires an index; falling back to client-side selection.');
 
             // Traer todos los docs que coincidan con la patente y seleccionar el más reciente client-side
-            const q2 = query(col, where('patente', '==', selectedVehicle));
+            const q2 = query(col, where('numeroPatente', '==', selectedVehicle));
             const snap2 = await getDocs(q2);
             if (!mounted) return;
             if (snap2.empty) {
@@ -242,7 +269,7 @@ const ClienteDashboard = ({ onLogout }: { onLogout?: () => void }) => {
 
   // Simulamos la vinculación del camión según el usuario logueado
   const camionAsignado = {
-    patente: 'SELECCIONA UNA PATENTE',
+    patente: 'Sin Asignar',
     modelo: 'Scania R500 V8',
     kmActual: '45.200 km',
     combustible: '75%',
@@ -272,12 +299,7 @@ const ClienteDashboard = ({ onLogout }: { onLogout?: () => void }) => {
     }
   };
 
-  const VEHICLE_OPTIONS = [
-    'NIG069',
-    'OQA986',
-    'OQA990',
-    'IWJ847',
-  ];
+  // vehicleList se pobla desde Firestore (colección 'vehiculo')
   const [vehicleDropdownOpen, setVehicleDropdownOpen] = useState(false);
 
   return (
@@ -289,7 +311,8 @@ const ClienteDashboard = ({ onLogout }: { onLogout?: () => void }) => {
           <View className="flex-row justify-between items-center mb-4">
             <View>
               <Text className="text-gray-500 text-[10px] font-black uppercase tracking-[3px]">Unidad Asignada</Text>
-              <Text className="text-white text-2xl font-black italic">{selectedVehicle || camionAsignado.patente}</Text>
+              <Text className="text-white text-2xl font-black italic">{selectedVehicle ?? 'Seleccione una patente'}</Text>
+              
               <Text className="text-primary/80 font-bold text-xs">Chofer: {user?.nombre || 'Operador'}</Text>
             </View>
               <TouchableOpacity 
@@ -309,7 +332,7 @@ const ClienteDashboard = ({ onLogout }: { onLogout?: () => void }) => {
                 onPress={() => setVehicleDropdownOpen(true)}
                 className="h-12 flex-row items-center px-4 justify-between"
               >
-                <Text className={`${selectedVehicle ? 'text-white' : 'text-gray-400'} text-sm`}>{selectedVehicle || '-- Seleccionar vehículo --'}</Text>
+                <Text className={`${selectedVehicle ? 'text-white' : 'text-gray-400'} text-sm`}>{selectedVehicle ?? 'Seleccione una patente'}</Text>
                 <Ionicons name="chevron-down" size={20} color="#fff" />
               </TouchableOpacity>
 
@@ -324,15 +347,21 @@ const ClienteDashboard = ({ onLogout }: { onLogout?: () => void }) => {
                   <View style={{ marginTop: 120, marginHorizontal: 24 }}>
                     <View className="rounded-xl border border-zinc-700" style={{ backgroundColor: '#1F1F1F', maxHeight: 260 }}>
                       <ScrollView>
-                        {VEHICLE_OPTIONS.map((p) => (
-                          <TouchableOpacity
-                            key={p}
-                            onPress={() => { setSelectedVehicle(p); setVehicleDropdownOpen(false); }}
-                            className="px-4 py-3 border-b border-white/5"
-                          >
-                            <Text className="text-white">{p}</Text>
-                          </TouchableOpacity>
-                        ))}
+                        {vehicleList.length > 0 ? (
+                          vehicleList.map((p) => (
+                            <TouchableOpacity
+                              key={p}
+                              onPress={() => { setSelectedVehicle(p); setVehicleDropdownOpen(false); }}
+                              className="px-4 py-3 border-b border-white/5"
+                            >
+                              <Text className="text-white">{p}</Text>
+                            </TouchableOpacity>
+                          ))
+                        ) : (
+                          <View className="px-4 py-3">
+                            <Text className="text-gray-400">No hay vehículos cargados</Text>
+                          </View>
+                        )}
                         <TouchableOpacity
                           onPress={() => { setSelectedVehicle(null); setVehicleDropdownOpen(false); }}
                           className="px-4 py-3"
@@ -374,7 +403,7 @@ const ClienteDashboard = ({ onLogout }: { onLogout?: () => void }) => {
 
           {/* STATUS ACTUAL DEL CAMIÓN */}
           <View className="flex-row justify-between mb-4">
-            <BlurView intensity={10} tint="dark" className="flex-1 mr-2 h-20 rounded-2xl border border-white/5 overflow-hidden">
+            <BlurView intensity={10} tint="dark" className={`flex-1 mr-2 h-20 rounded-2xl border border-white/5 overflow-hidden ${selectedVehicle ? '' : 'opacity-50'}`}>
               <View className="p-2 bg-card/40 items-center justify-center h-full">
                 <Ionicons name="speedometer-outline" size={16} color="#60A5FA" />
                 <Text className="text-white font-black text-sm mt-1">{kpiData.odometer === '-' ? '-' : `${kpiData.odometer} km`}</Text>
@@ -382,7 +411,7 @@ const ClienteDashboard = ({ onLogout }: { onLogout?: () => void }) => {
               </View>
             </BlurView>
 
-            <BlurView intensity={10} tint="dark" className="flex-1 ml-2 h-20 rounded-2xl border border-white/5 overflow-hidden">
+            <BlurView intensity={10} tint="dark" className={`flex-1 ml-2 h-20 rounded-2xl border border-white/5 overflow-hidden ${selectedVehicle ? '' : 'opacity-50'}`}>
               <View className="p-2 bg-card/40 items-center justify-center h-full">
                 <FontAwesome5 name="gas-pump" size={16} color="#4ADE80" />
                 <Text className="text-white font-black text-sm mt-1">{kpiData.fuel === '-' ? '-' : kpiData.fuel}</Text>

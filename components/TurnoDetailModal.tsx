@@ -1,22 +1,25 @@
 import React, { useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Modal, SafeAreaView } from 'react-native';
 import { useRouter } from 'expo-router';
-import { FontAwesome5 } from '@expo/vector-icons';
-import { Ionicons } from '@expo/vector-icons';
+import { Droplet, Disc, Battery, Lightbulb, CircleDot, Image as LucideImage, Info, X, Gauge } from 'lucide-react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInUp, FadeIn } from 'react-native-reanimated';
 import UniversalImage from '@/components/UniversalImage';
 
 // Diccionario para convertir los IDs de síntomas en algo visual para el Admin
-const SINTOMAS_MAP: Record<string, { label: string, icon: string, color: string }> = {
-  ruido_motor: { label: 'Ruido Motor', icon: 'volume-up', color: '#FF4C4C' },
-  tira_lado: { label: 'Tira a un lado', icon: 'alt-route', color: '#FACC15' },
-  freno_largo: { label: 'Freno Largo', icon: 'stop-circle', color: '#FF4C4C' },
-  vibracion: { label: 'Vibración', icon: 'vibration', color: '#60A5FA' },
-  luz_quemada: { label: 'Luz Quemada', icon: 'lightbulb', color: '#FACC15' },
-  humo: { label: 'Humo/Olor', icon: 'cloud', color: '#FF4C4C' },
-  aire_ac: { label: 'Falla A/A', icon: 'ac-unit', color: '#60A5FA' },
+const SINTOMAS_MAP: Record<string, { label: string, Icon: any, color: string }> = {
+  aceite: { label: 'Aceite', Icon: Droplet, color: '#60A5FA' },
+  fuga: { label: 'Fugas', Icon: Droplet, color: '#FF4C4C' },
+  frenos: { label: 'Frenos', Icon: Disc, color: '#FF4C4C' },
+  freno_largo: { label: 'Freno Largo', Icon: Disc, color: '#FF4C4C' },
+  vibracion: { label: 'Vibración', Icon: Gauge, color: '#60A5FA' },
+  luz_quemada: { label: 'Luces', Icon: Lightbulb, color: '#FACC15' },
+  humo: { label: 'Humo/Olor', Icon: Info, color: '#FF4C4C' },
+  aire_ac: { label: 'Falla A/A', Icon: Info, color: '#60A5FA' },
+  bateria: { label: 'Batería', Icon: Battery, color: '#FACC15' },
+  neumaticos: { label: 'Neumáticos', Icon: CircleDot, color: '#60A5FA' },
+  vidrios: { label: 'Vidrios', Icon: LucideImage, color: '#60A5FA' },
 };
 
 const TurnoDetailModal = ({ visible, turno, onClose, onAction, readOnly = false }: any) => {
@@ -37,9 +40,12 @@ const TurnoDetailModal = ({ visible, turno, onClose, onAction, readOnly = false 
   }, [visible, turno]);
 
   if (!turno) return null;
-	const isAlert = turno.estadoGeneral === 'alert';
+  const isAlert = turno.estadoGeneral === 'alert';
 
-return (
+  // utility para capitalizar palabras
+  const capitalize = (s: string) => s?.toString().split(/[_\s-]+/).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+
+  return (
     <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
       <View className="flex-1 bg-black/95 justify-center items-center">
         <Animated.View 
@@ -49,7 +55,7 @@ return (
           <SafeAreaView className="flex-1">
             
             {/* HEADER */}
-            <View className="px-8 py-6 flex-row justify-between items-center border-b border-white/5 bg-black/40">
+                <View className="px-6 py-4 flex-row justify-between items-center border-b border-white/5 bg-black/40">
               <View>
                 <View className="flex-row items-center">
                   <Text className="text-gray-500 text-[10px] font-black uppercase tracking-[3px]">Expediente de Unidad</Text>
@@ -64,47 +70,38 @@ return (
                 </Text>
                 <Text className="text-zinc-400 text-base mt-1">Chofer: {turno.chofer || 'No registrado'}</Text>
               </View>
-                <TouchableOpacity onPress={onClose} className="bg-white/5 w-12 h-12 rounded-2xl items-center justify-center border border-white/10">
-                <FontAwesome5 name="times" size={20} color="#FF4C4C" />
-              </TouchableOpacity>
+                <TouchableOpacity onPress={onClose} className="bg-white/5 w-10 h-10 rounded-2xl items-center justify-center border border-white/10">
+                  <X color="#FF4C4C" width={18} height={18} />
+                </TouchableOpacity>
             </View>
 
-            <ScrollView showsVerticalScrollIndicator={false} className="flex-1 px-8 pt-8">
+            <ScrollView showsVerticalScrollIndicator={false} className="flex-1 px-6 pt-6" contentContainerStyle={{ paddingBottom: 40 }}>
               
               {/* LAYOUT DE COLUMNAS CON GAP (ESPACIADO) */}
               <View className="flex-col monitor:flex-row monitor:space-x-12">
                 
                 {/* COLUMNA IZQUIERDA: FOTO Y SÍNTOMAS */}
-                <View className="flex-1 mb-10 monitor:mb-0">
-                  <Text className="text-primary text-[10px] font-black uppercase tracking-[2px] mb-4">Evidencia de Tablero</Text>
-                  <View className="w-full h-72 bg-card rounded-[40px] overflow-hidden border border-white/10 shadow-2xl mb-10">
+                <View className="flex-1 mb-6 monitor:mb-0">
+                  <Text className="text-primary text-[10px] font-black uppercase tracking-[2px] mb-2">Evidencia de Tablero</Text>
+                  <View className="w-full h-56 rounded-xl overflow-hidden border border-white/10 bg-zinc-800 mb-3">
                     {evidenceUrl ? (
-                      <UniversalImage uri={evidenceUrl} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                      <UniversalImage uri={evidenceUrl} style={{ width: '100%', height: '100%', borderRadius: 12 }} resizeMode="cover" />
                     ) : (
-                        <View className="flex-1 items-center justify-center bg-white/5">
-                        <FontAwesome5 name="image" size={40} color="#222" />
+                      <View className="flex-1 items-center justify-center bg-white/5">
+                        <LucideImage color="#222" width={40} height={40} />
                       </View>
                     )}
                   </View>
 
-                  <Text className="text-gray-500 text-[10px] font-black uppercase tracking-[2px] mb-4">Síntomas Reportados</Text>
-                  <View className="flex-row flex-wrap gap-3">
+                  <Text className="text-gray-500 text-[10px] font-black uppercase tracking-[2px] mb-2">Síntomas Reportados</Text>
+                  <View className="flex-row flex-wrap gap-2">
                     {turno.sintomas?.length > 0 ? turno.sintomas.map((sId: string) => {
-                      const sInfo = SINTOMAS_MAP[sId] || { label: sId, icon: 'error-outline', color: '#888' };
+                      const sInfo = SINTOMAS_MAP[sId] || { label: sId, Icon: Info, color: '#888' };
+                      const chipBg = isAlert ? 'bg-red-900/40' : 'bg-zinc-800';
                       return (
-                        <View key={sId} className="flex-row items-center bg-white/5 border border-white/5 px-4 py-3 rounded-2xl">
-                          {/* Mapeo simple de iconos para web usando react-icons */}
-                          {sInfo.icon === 'volume-up' && <FontAwesome5 name="volume-up" size={14} color={sInfo.color} />}
-                          {sInfo.icon === 'alt-route' && <FontAwesome5 name="road" size={14} color={sInfo.color} />}
-                          {sInfo.icon === 'stop-circle' && <FontAwesome5 name="stop-circle" size={14} color={sInfo.color} />}
-                          {sInfo.icon === 'lightbulb' && <FontAwesome5 name="lightbulb" size={14} color={sInfo.color} />}
-                          {sInfo.icon === 'cloud' && <FontAwesome5 name="cloud" size={14} color={sInfo.color} />}
-                          {sInfo.icon === 'ac-unit' && <FontAwesome5 name="exclamation-triangle" size={14} color={sInfo.color} />}
-                          {/* Fallback genérico */}
-                          {!['volume-up','alt-route','stop-circle','lightbulb','cloud','ac-unit'].includes(sInfo.icon) && (
-														<Ionicons name="exclamation-triangle" size={24} color={sInfo.color} />
-                          )}
-                          <Text className="text-white text-xs font-bold ml-2">{sInfo.label}</Text>
+                        <View key={sId} className={`${chipBg} border border-zinc-700 px-3 py-1 rounded-full flex-row items-center`}>
+                          {sInfo.Icon ? <sInfo.Icon color={sInfo.color} width={14} height={14} /> : <Info color={sInfo.color} width={14} height={14} />}
+                          <Text className="text-white text-xs font-bold ml-2">{capitalize(sInfo.label)}</Text>
                         </View>
                       );
                     }) : (
@@ -115,22 +112,26 @@ return (
 
                 {/* COLUMNA DERECHA: DATOS DUROS */}
                 <View className="flex-1">
-                  <Text className="text-gray-500 text-[10px] font-black uppercase tracking-[2px] mb-4">Telemetría de Ingreso</Text>
-                  <View className="flex-row gap-4 mb-10">
-                    <View className="flex-1 bg-card p-6 rounded-[35px] border border-white/5">
-                      <Ionicons name="speedometer-outline" size={22} color="#60A5FA" />
-                      <Text className="text-white text-3xl font-black mt-2">{Number(turno.kilometraje || 0).toLocaleString('es-ES')}</Text>
-                      <Text className="text-gray-600 text-[10px] font-bold">KM TOTALES</Text>
+                  <Text className="text-gray-500 text-[10px] font-black uppercase tracking-[2px] mb-2">Telemetría de Ingreso</Text>
+                  <View className="flex-row gap-3 mb-4">
+                    <View className="flex-1 bg-card h-20 p-3 rounded-2xl border border-white/5 flex-row items-center">
+                      <Gauge color="#60A5FA" width={20} height={20} />
+                      <View className="ml-3">
+                        <Text className="text-white text-2xl font-black">{Number(turno.kilometraje || 0).toLocaleString('es-ES')}</Text>
+                        <Text className="text-gray-600 text-[10px] font-bold">KM TOTALES</Text>
+                      </View>
                     </View>
-                    <View className="flex-1 bg-card p-6 rounded-[35px] border border-white/5">
-                      <FontAwesome5 name="gas-pump" size={20} color="#4ADE80" />
-                      <Text className="text-white text-3xl font-black mt-2">{turno.nivelNafta}%</Text>
-                      <Text className="text-gray-600 text-[10px] font-bold">COMBUSTIBLE</Text>
+                    <View className="flex-1 bg-card h-20 p-3 rounded-2xl border border-white/5 flex-row items-center">
+                      <Droplet color="#4ADE80" width={18} height={18} />
+                      <View className="ml-3">
+                        <Text className="text-white text-2xl font-black">{turno.nivelNafta}%</Text>
+                        <Text className="text-gray-600 text-[10px] font-bold">COMBUSTIBLE</Text>
+                      </View>
                     </View>
                   </View>
 
-                  <Text className="text-gray-500 text-[10px] font-black uppercase tracking-[2px] mb-4">Notas del Chofer</Text>
-                  <View className="bg-danger/5 border border-danger/10 p-6 rounded-[35px] mb-10">
+                  <Text className="text-gray-500 text-[10px] font-black uppercase tracking-[2px] mb-2">Notas del Chofer</Text>
+                  <View className="min-h-[80px] p-4 bg-zinc-800/50 rounded-xl border border-zinc-700/50 mb-6">
                     <Text className="text-gray-300 text-sm leading-6 italic">
                       "{turno.comentariosChofer || turno.descripcion || 'Sin comentarios.'}"
                     </Text>
