@@ -21,7 +21,7 @@ const SuperadminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
   const [pendings, setPendings] = useState<any[]>([]);
   const [allTurnos, setAllTurnos] = useState<any[]>([]);
   const [filterText, setFilterText] = useState('');
-  const [filterEstadoGeneral, setFilterEstadoGeneral] = useState<'all' | 'crit' | 'ok'>('all');
+  const [filterEstadoGeneral, setFilterEstadoGeneral] = useState<'all' | 'crit' | 'ok'>('crit');
   const [page, setPage] = useState(0);
   const pageSize = 2;
 
