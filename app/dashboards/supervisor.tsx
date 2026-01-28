@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, SafeAreaView, Image, TextInput } from 'react-native';
 import { MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
@@ -65,6 +65,31 @@ const SuperadminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
   const isDerived = (t: any) => {
     return !!(t.derivadoATaller || t.estado === 'scheduled' || t.estado === 'in_progress' || t.origen === 'derivacion' || t.origenTurnoId);
   };
+
+  // KPIs en tiempo real (alineados exactamente a las tabs)
+  const { countAlerta, countTaller, countOperativo } = useMemo(() => {
+    let alerta = 0;
+    let taller = 0;
+    let operativo = 0;
+
+    for (const t of combinedList) {
+      // “estadoTaller” puede venir como string o boolean; además soportamos flags legacy.
+      const hasEstadoTaller = !!(
+        t.estadoTaller ||
+        t.derivadoATaller ||
+        t.estado === 'scheduled' ||
+        t.estado === 'in_progress' ||
+        t.origen === 'derivacion' ||
+        t.origenTurnoId
+      );
+
+      if (t.estadoGeneral === 'alert' && !hasEstadoTaller) alerta += 1;
+      if (hasEstadoTaller) taller += 1;
+      if (t.estadoGeneral === 'ok' && !hasEstadoTaller) operativo += 1;
+    }
+
+    return { countAlerta: alerta, countTaller: taller, countOperativo: operativo };
+  }, [combinedList]);
 
   // Filtros por UI (hacerlos explícitos por pestañas)
   const ingresosFiltrados = combinedList.filter((t: any) => {
@@ -133,15 +158,21 @@ const SuperadminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
             </View>
           )}
 
-          {/* ESTADÍSTICAS RÁPIDAS */}
-          <View className="flex-row space-x-4 mb-10">
-            <View className="flex-1 bg-card/40 border border-white/5 p-4 rounded-3xl">
-              <Text className="text-primary text-2xl font-black">{ingresosFiltrados.length}</Text>
-              <Text className="text-gray-600 text-[8px] font-bold uppercase">Por Revisar</Text>
+          {/* KPIs (alineados con filtros) */}
+          <View className="flex-row mb-6" style={{ gap: 10 }}>
+            <View className="flex-1 bg-card/40 rounded-3xl p-4 border border-red-600/70">
+              <Text className="text-red-500 text-3xl font-bold">{countAlerta}</Text>
+              <Text className="text-gray-400 text-[9px] font-black uppercase tracking-widest mt-1">EN ALERTA</Text>
             </View>
-            <View className="flex-1 bg-card/40 border border-white/5 p-4 rounded-3xl">
-              <Text className="text-danger text-2xl font-black">{enTaller.length}</Text>
-              <Text className="text-gray-600 text-[8px] font-bold uppercase">En Taller MIT</Text>
+
+            <View className="flex-1 bg-card/40 rounded-3xl p-4 border border-yellow-500/70">
+              <Text className="text-yellow-500 text-3xl font-bold">{countTaller}</Text>
+              <Text className="text-gray-400 text-[9px] font-black uppercase tracking-widest mt-1">TALLER MIT</Text>
+            </View>
+
+            <View className="flex-1 bg-card/40 rounded-3xl p-4 border border-emerald-500/70">
+              <Text className="text-emerald-500 text-3xl font-bold">{countOperativo}</Text>
+              <Text className="text-gray-400 text-[9px] font-black uppercase tracking-widest mt-1">OPERATIVO</Text>
             </View>
           </View>
 
