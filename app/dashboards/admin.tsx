@@ -1,6 +1,18 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, SafeAreaView, TouchableOpacity, Modal, useWindowDimensions } from 'react-native';
-import { MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
+import { View, Text, ScrollView, SafeAreaView, TouchableOpacity, Modal, useWindowDimensions, Platform } from 'react-native';
+import { 
+  Clock, 
+  Wrench, 
+  CheckCircle2, 
+  LogOut, 
+  History, 
+  AlertTriangle,
+  Ambulance,
+  FileText,
+  Receipt,
+  ChevronLeft,
+  ChevronRight
+} from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { useDispatch, useSelector } from 'react-redux';
@@ -11,36 +23,155 @@ import { actualizarTurno, setTurnos } from '@/redux/slices/turnosSlice';
 import { setFlagConFactura } from '@/redux/slices/invoiceSlice';
 import { actualizarTurnoService, obtenerTurnos, suscribirseATurnos } from '@/services/turnosService';
 import LoadingOverlay from '@/components/LoadingOverlay';
+import TurnoDetailModal from '@/components/TurnoDetailModal';
+
+// --- CONSTANTES DE COLORES (Strict Color Scheme) ---
+const COLUMN_COLORS = {
+  pendientes: '#ef4444',  // red-500 - Urgencia/Cola de espera
+  entaller: '#eab308',    // yellow-500 - Trabajo en progreso
+  finalizados: '#10b981', // emerald-500 - Tarea completada
+} as const;
 
 // --- SUB-COMPONENTES PREMIUM ---
 
-const StatCard = ({ label, value, color, icon }: any) => (
-  <View className="flex-1 min-w-[160px] monitor:min-w-0 mx-2 mb-4">
-    <BlurView intensity={10} tint="dark" className="rounded-[30px] border border-white/5 overflow-hidden">
-      <View className="p-5 bg-card/40">
-        <View className="flex-row justify-between items-center mb-2">
-          <View className="p-2 rounded-xl bg-surface/50">
-            <MaterialIcons name={icon} size={20} color={color} />
-          </View>
-          <Text style={{ color }} className="text-2xl font-black">{value}</Text>
+// Burbuja de Conteo con Color Sólido Vibrante
+const CountBadge = ({ count, color }: { count: number; color: string }) => {
+  // Contraste: texto blanco para rojo/verde, texto negro para amarillo
+  const textColor = color === COLUMN_COLORS.entaller ? '#000' : '#FFF';
+  return (
+    <View 
+      style={{ backgroundColor: color }} 
+      className="px-3 py-1.5 rounded-full min-w-[28px] items-center justify-center shadow-lg"
+    >
+      <Text style={{ color: textColor }} className="text-xs font-black">{count}</Text>
+    </View>
+  );
+};
+
+// KPI Card con Estilo Semáforo Vibrante
+const KpiCard = ({ 
+  label, 
+  value, 
+  color, 
+  icon: Icon,
+  subtitle 
+}: { 
+  label: string; 
+  value: number; 
+  color: string; 
+  icon: any;
+  subtitle?: string;
+}) => (
+  <View 
+    className="flex-1 mx-1.5"
+    style={Platform.select({
+      web: { boxShadow: `0 0 30px ${color}20, 0 4px 20px rgba(0,0,0,0.3)` } as any,
+      default: {}
+    })}
+  >
+    <View 
+      className="rounded-2xl overflow-hidden border-2 bg-zinc-900/80"
+      style={{ borderColor: color }}
+    >
+      {/* Glow Effect Top */}
+      <View 
+        style={{ backgroundColor: color, opacity: 0.15 }} 
+        className="absolute top-0 left-0 right-0 h-16 blur-xl"
+      />
+      
+      <View className="p-4 items-center">
+        {/* Icono con Halo */}
+        <View 
+          style={{ backgroundColor: color + '20', borderColor: color + '40' }} 
+          className="w-14 h-14 rounded-2xl items-center justify-center mb-3 border"
+        >
+          <Icon size={28} color={color} strokeWidth={2} />
         </View>
-        <Text className="text-gray-500 text-[10px] uppercase font-bold tracking-widest">{label}</Text>
+        
+        {/* Contador Grande */}
+        <Text style={{ color }} className="text-4xl font-black">{value}</Text>
+        
+        {/* Label */}
+        <Text className="text-white text-xs font-bold uppercase tracking-wider mt-1">{label}</Text>
+        
+        {/* Subtitle opcional */}
+        {subtitle && (
+          <Text className="text-gray-500 text-[10px] mt-1">{subtitle}</Text>
+        )}
       </View>
-    </BlurView>
+      
+      {/* Bottom Accent Strip */}
+      <View style={{ backgroundColor: color }} className="h-1 opacity-80" />
+    </View>
   </View>
 );
 
-const KanbanColumn = ({ title, data, color, icon, renderCard }: any) => (
-  <View className="flex-1 mx-2 min-w-[300px] monitor:min-w-0">
-    <View className="flex-row items-center mb-4 px-2">
-      <View style={{ backgroundColor: color }} className="w-2 h-2 rounded-full mr-2 shadow-lg" />
-      <Text className="text-white font-bold uppercase text-xs tracking-widest flex-1">{title}</Text>
-      <View className="bg-white/10 px-2 py-1 rounded-lg">
-        <Text className="text-white text-[10px] font-bold">{data.length}</Text>
+// Action Tile (Baldosa Grande) para Gestión Documental
+const ActionTile = ({ 
+  title, 
+  subtitle, 
+  icon: Icon, 
+  accentColor, 
+  onPress 
+}: { 
+  title: string; 
+  subtitle: string; 
+  icon: any; 
+  accentColor: string;
+  onPress: () => void;
+}) => (
+  <TouchableOpacity 
+    onPress={onPress} 
+    activeOpacity={0.85}
+    className="flex-1 mx-1.5"
+    style={Platform.select({
+      web: { boxShadow: `0 4px 20px ${accentColor}15` } as any,
+      default: {}
+    })}
+  >
+    <View 
+      className="rounded-2xl overflow-hidden border p-5 items-center justify-center"
+      style={{ 
+        backgroundColor: accentColor + '10',
+        borderColor: accentColor + '30'
+      }}
+    >
+      {/* Icono Grande Centrado */}
+      <View 
+        style={{ backgroundColor: accentColor + '20', borderColor: accentColor + '50' }} 
+        className="w-16 h-16 rounded-2xl items-center justify-center mb-3 border"
+      >
+        <Icon size={32} color={accentColor} strokeWidth={2} />
       </View>
+      
+      {/* Título en Negrita */}
+      <Text className="text-white font-black text-base text-center">{title}</Text>
+      
+      {/* Subtítulo */}
+      <Text style={{ color: accentColor }} className="text-[11px] font-semibold mt-1 uppercase tracking-wide">
+        {subtitle}
+      </Text>
+    </View>
+  </TouchableOpacity>
+);
+
+const KanbanColumn = ({ title, data, color, icon: Icon, renderCard }: { 
+  title: string; 
+  data: any[]; 
+  color: string; 
+  icon: any; 
+  renderCard: (item: any, columnColor: string) => React.ReactNode;
+}) => (
+  <View className="flex-1 mx-2 min-w-[300px] monitor:min-w-0">
+    {/* Header de Columna con Burbuja de Conteo */}
+    <View className="flex-row items-center mb-4 px-2">
+      <View style={{ backgroundColor: color }} className="w-3 h-3 rounded-full mr-3 shadow-lg" />
+      <Icon size={16} color={color} strokeWidth={2.5} />
+      <Text className="text-white font-bold uppercase text-xs tracking-widest flex-1 ml-2">{title}</Text>
+      <CountBadge count={data.length} color={color} />
     </View>
     <ScrollView showsVerticalScrollIndicator={false} className="flex-1">
-      {data.map((item: any) => renderCard(item))}
+      {data.map((item: any) => renderCard(item, color))}
     </ScrollView>
   </View>
 );
@@ -78,18 +209,21 @@ const AdminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
 
   // Consolidación de columnas -> 3 categorías: pendientes (backlog + scheduled), en taller, finalizados
   const columns = [
-    { id: 'pendientes', title: 'Pendientes', icon: 'hourglass-empty', color: '#FACC15', data: turnos.filter(t => t.estado === 'pending' || t.estado === 'scheduled') },
-    { id: 'entaller', title: 'En Taller', icon: 'engineering', color: '#4ADE80', data: turnos.filter(t => t.estado === 'in_progress') },
-    { id: 'finalizados', title: 'Finalizados', icon: 'verified', color: '#A855F7', data: turnos.filter(t => t.estado === 'completed') },
+    { id: 'pendientes', title: 'Pendientes', icon: Clock, color: COLUMN_COLORS.pendientes, data: turnos.filter(t => t.estado === 'pending' || t.estado === 'scheduled') },
+    { id: 'entaller', title: 'En Taller', icon: Wrench, color: COLUMN_COLORS.entaller, data: turnos.filter(t => t.estado === 'in_progress') },
+    { id: 'finalizados', title: 'Finalizados', icon: CheckCircle2, color: COLUMN_COLORS.finalizados, data: turnos.filter(t => t.estado === 'completed') },
   ];
   const ITEMS_PER_PAGE = 2;
   const [currentPage, setCurrentPage] = useState(1);
 
+  // Tipo de estados válidos
+  type TurnoEstado = 'pending' | 'scheduled' | 'in_progress' | 'completed';
+
   // Acciones de Negocio
-  const handleUpdateStatus = async (id: string, nuevoEstado: string) => {
+  const handleUpdateStatus = async (id: string, nuevoEstado: TurnoEstado) => {
     try {
       await actualizarTurnoService(id, { estado: nuevoEstado });
-      dispatch(actualizarTurno({ id, estado: nuevoEstado }));
+      dispatch(actualizarTurno({ id, estado: nuevoEstado } as any));
     } catch (e) { console.error(e); }
   };
 
@@ -108,19 +242,46 @@ const AdminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
     }
   };
 
-  const renderTurnoCard = (turno: any) => {
+  const renderTurnoCard = (turno: any, columnColor: string = COLUMN_COLORS.pendientes) => {
     // CORRECCIÓN: Buscamos "alert" que es como viene de tu DB
     const isAlert = turno.estadoGeneral === 'alert';
+    
+    // Determinar si el turno está en estado pendiente (permite derivar)
+    const isPending = columnColor === COLUMN_COLORS.pendientes;
+
+    // Determinar color del badge según la columna
+    const getBadgeStyle = () => {
+      if (columnColor === COLUMN_COLORS.pendientes) {
+        return { bg: 'bg-red-500', text: 'text-white' };
+      } else if (columnColor === COLUMN_COLORS.entaller) {
+        return { bg: 'bg-yellow-500', text: 'text-black' };
+      } else {
+        return { bg: 'bg-emerald-500', text: 'text-white' };
+      }
+    };
+    const badgeStyle = getBadgeStyle();
 
     return (
-      <BlurView key={turno.id} intensity={5}
-        // Si es alert, ponemos un borde rojo sutil
-        className={`mb-4 rounded-3xl border ${isAlert ? 'border-danger/50' : 'border-white/5'} overflow-hidden`}
+      <View 
+        key={turno.id} 
+        className="mb-4 rounded-2xl overflow-hidden bg-zinc-900 border border-zinc-800"
+        style={Platform.select({
+          web: { 
+            boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 4px 6px -2px rgba(0, 0, 0, 0.3)',
+          } as any,
+          default: {}
+        })}
       >
+        {/* Borde lateral izquierdo grueso del color de la columna */}
+        <View 
+          style={{ backgroundColor: columnColor }} 
+          className="absolute left-0 top-0 bottom-0 w-1.5 rounded-l-2xl"
+        />
+        
         <TouchableOpacity
           activeOpacity={0.9}
           onPress={() => { setSelectedTurno(turno); setModalVisible(true); }}
-          className="p-4 bg-card/60"
+          className="p-4 pl-5"
         >
           <View className="flex-row justify-between items-start mb-3">
             <View>
@@ -131,9 +292,9 @@ const AdminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
               </Text>
             </View>
 
-            {/* INDICADOR DE ESTADO CRÍTICO EN EL DASHBOARD */}
-            <View className={`px-2 py-1 rounded-md ${isAlert ? 'bg-danger' : 'bg-white/5'}`}>
-              <Text className={`text-[10px] font-bold italic ${isAlert ? 'text-white' : 'text-gray-500'}`}>
+            {/* INDICADOR DE ESTADO - Badge que hereda color de columna */}
+            <View className={`px-2 py-1 rounded-md ${isAlert ? 'bg-red-600' : badgeStyle.bg}`}>
+              <Text className={`text-[10px] font-bold italic ${isAlert ? 'text-white' : badgeStyle.text}`}>
                 {isAlert ? 'CRÍTICO' : (turno.tipo || 'SERVICIO')}
               </Text>
             </View>
@@ -143,25 +304,41 @@ const AdminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
             {turno.comentariosChofer || turno.descripcion || "Sin descripción"}
           </Text>
 
-          <View className="flex-row justify-between items-center border-t border-white/5 pt-3">
+          <View className="flex-row justify-between items-center border-t border-zinc-700 pt-3">
             <View className="flex-row items-center">
-              <MaterialIcons name="history" size={12} color="#444" />
+              <History size={12} color="#666" />
               <Text className="text-[9px] text-gray-600 font-mono ml-1">
                 {new Date(turno.fechaCreacion).toLocaleDateString()}
               </Text>
             </View>
             <Text className="text-[9px] text-gray-600 font-mono italic">ID: {turno.id?.slice(-5)}</Text>
           </View>
+          
+          {/* BOTONES CONDICIONALES: Solo mostramos "Derivar" en PENDIENTES */}
           <View className="flex-row space-x-2 mt-3">
-            <TouchableOpacity onPress={() => { setSelectedTurno(turno); setModalVisible(true); }} className="flex-1 bg-white/5 py-2 rounded-lg items-center">
-              <Text className="text-white text-[12px]">Ver Detalle</Text>
+            <TouchableOpacity 
+              onPress={() => { setSelectedTurno(turno); setModalVisible(true); }} 
+              className={`${isPending ? 'flex-1' : 'w-full'} bg-zinc-800 py-2.5 rounded-xl items-center border border-zinc-700`}
+            >
+              <Text className="text-white text-[12px] font-semibold">Ver Detalle</Text>
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => router.push({ pathname: '/solicitud', params: { prefillData: JSON.stringify(turno) } })} className="flex-1 bg-danger py-2 rounded-lg items-center">
-              <Text className="text-white text-[12px]">Derivar a Taller</Text>
-            </TouchableOpacity>
+            
+            {/* Botón DERIVAR solo visible en columna PENDIENTES */}
+            {isPending && (
+              <TouchableOpacity 
+                onPress={() => router.push({ pathname: '/solicitud', params: { prefillData: JSON.stringify(turno) } })} 
+                className="flex-1 bg-red-600 py-2.5 rounded-xl items-center"
+                style={Platform.select({
+                  web: { boxShadow: '0 4px 12px rgba(239, 68, 68, 0.4)' } as any,
+                  default: {}
+                })}
+              >
+                <Text className="text-white text-[12px] font-bold">Derivar a Taller</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </TouchableOpacity>
-      </BlurView>
+      </View>
     );
   };
 
@@ -174,7 +351,7 @@ const AdminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
         <View className="flex-row justify-between items-end mt-4 mb-5">
           <View>
             <Text className="text-gray-500 text-[10px] font-black uppercase tracking-[4px]">Command Center</Text>
-            <Text className="text-white text-2xl font-black italic">MIT_DASHBOARD</Text>
+            <Text className="text-white text-2xl font-black italic">ADMINISTRACIÓN DE TALLER</Text>
           </View>
 
           <View className="flex-row items-center bg-card px-3 py-1 rounded-2xl border border-white/10">
@@ -184,65 +361,68 @@ const AdminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
 
           {onLogout && (
             <TouchableOpacity onPress={onLogout} className="ml-3 rounded-xl p-2" style={{ backgroundColor: '#FF4C4C12', borderWidth: 1, borderColor: '#FF4C4C22' }}>
-              <MaterialIcons name="logout" size={18} color="#FF4C4C" />
+              <LogOut size={18} color="#FF4C4C" />
             </TouchableOpacity>
           )}
         </View>
 
-        {/* KPIS COMPACTOS - UNA FILA */}
-        <View className="flex-row items-center justify-between mb-4 space-x-3">
-          <View className="flex-1 h-20 rounded-2xl overflow-hidden">
-            <BlurView intensity={8} tint="dark" className="p-3 bg-card/30 rounded-2xl border border-white/5 h-full">
-              <Text className="text-gray-400 text-[10px] uppercase font-bold">Entregas</Text>
-              <Text className="text-white text-lg font-black mt-1">{columns[2].data.length}</Text>
-            </BlurView>
-          </View>
-
-          <View className="flex-1 h-20 rounded-2xl overflow-hidden">
-            <BlurView intensity={8} tint="dark" className="p-3 bg-card/30 rounded-2xl border border-white/5 h-full">
-              <Text className="text-gray-400 text-[10px] uppercase font-bold">Ocupación</Text>
-              <Text className="text-white text-lg font-black mt-1">{columns[1].data.length}</Text>
-            </BlurView>
-          </View>
-
-          <View className="flex-1 h-20 rounded-2xl overflow-hidden">
-            <BlurView intensity={8} tint="dark" className="p-3 bg-card/30 rounded-2xl border border-white/5 h-full">
-              <Text className="text-gray-400 text-[10px] uppercase font-bold">Esperando</Text>
-              <Text className="text-white text-lg font-black mt-1">{columns[0].data.length}</Text>
-            </BlurView>
-          </View>
+        {/* KPIs SEMÁFORO - Vista Rápida del Estado del Taller */}
+        <View className="flex-row mb-6 -mx-1.5">
+          {/* ROJO: Pendientes (La Cola) */}
+          <KpiCard
+            label="Pendientes"
+            subtitle="En cola de espera"
+            value={columns[0].data.length}
+            color={COLUMN_COLORS.pendientes}
+            icon={Clock}
+          />
+          
+          {/* AMARILLO: En Taller (El Proceso) */}
+          <KpiCard
+            label="En Taller"
+            subtitle="Reparando ahora"
+            value={columns[1].data.length}
+            color={COLUMN_COLORS.entaller}
+            icon={Wrench}
+          />
+          
+          {/* VERDE: Finalizados (El Éxito) */}
+          <KpiCard
+            label="Finalizados"
+            subtitle="Listos para entrega"
+            value={columns[2].data.length}
+            color={COLUMN_COLORS.finalizados}
+            icon={CheckCircle2}
+          />
         </View>
 
-        {/* GESTIÓN DOCUMENTAL - FRANJA DELGADA COMPACTA */}
-        <View className="mb-4">
-          <Text className="text-gray-400 uppercase text-[12px] font-bold mb-2">GESTIÓN DOCUMENTAL</Text>
-          <View className="flex-row space-x-3">
-            <TouchableOpacity
-              onPress={() => { openDoc('asistencia'); }}
-              className="flex-1 bg-card/30 rounded-lg py-3 items-center justify-center"
-              activeOpacity={0.8}
-            >
-              <Text className="text-white text-2xl">🚑</Text>
-              <Text className="text-white text-sm mt-1">Asistencia</Text>
-            </TouchableOpacity>
+        {/* GESTIÓN DOCUMENTAL - Action Tiles Premium */}
+        <View className="mb-5">
+          <Text className="text-gray-500 uppercase text-[10px] font-black tracking-[3px] mb-3 ml-1">ACCIONES RÁPIDAS</Text>
+          <View className="flex-row -mx-1.5">
+            <ActionTile
+              title="Asistencia"
+              subtitle="→ Generar PDF"
+              icon={Ambulance}
+              accentColor="#f97316"
+              onPress={() => openDoc('asistencia')}
+            />
 
-            <TouchableOpacity
-              onPress={() => { openDoc('reparacion'); }}
-              className="flex-1 bg-card/30 rounded-lg py-3 items-center justify-center"
-              activeOpacity={0.8}
-            >
-              <Text className="text-white text-2xl">🛠️</Text>
-              <Text className="text-white text-sm mt-1">Informe</Text>
-            </TouchableOpacity>
+            <ActionTile
+              title="Informe"
+              subtitle="→ Reporte Técnico"
+              icon={FileText}
+              accentColor="#3b82f6"
+              onPress={() => openDoc('reparacion')}
+            />
 
-            <TouchableOpacity
-              onPress={() => { openDoc('presupuesto'); }}
-              className="flex-1 bg-card/30 rounded-lg py-3 items-center justify-center"
-              activeOpacity={0.8}
-            >
-              <Text className="text-white text-2xl">💰</Text>
-              <Text className="text-white text-sm mt-1">Presupuesto</Text>
-            </TouchableOpacity>
+            <ActionTile
+              title="Presupuesto"
+              subtitle="→ Cotización"
+              icon={Receipt}
+              accentColor="#10b981"
+              onPress={() => openDoc('presupuesto')}
+            />
           </View>
         </View>
 
@@ -261,15 +441,45 @@ const AdminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
             ))
           ) : (
             <View className="flex-1">
-              <View className="flex-row justify-between mb-3">
-                <TouchableOpacity onPress={() => setActiveTab('pendientes')} className={`flex-1 py-2 mr-2 rounded-2xl items-center ${activeTab === 'pendientes' ? 'bg-primary/20' : 'bg-white/5'}`}>
-                  <Text className="text-white text-sm font-bold">Pendientes</Text>
+              {/* Mobile Tabs con colores de columna */}
+              <View className="flex-row justify-between mb-4">
+                <TouchableOpacity 
+                  onPress={() => setActiveTab('pendientes')} 
+                  className={`flex-1 py-2.5 mr-2 rounded-2xl items-center flex-row justify-center space-x-2`}
+                  style={{ 
+                    backgroundColor: activeTab === 'pendientes' ? COLUMN_COLORS.pendientes + '30' : 'rgba(255,255,255,0.05)',
+                    borderWidth: activeTab === 'pendientes' ? 1 : 0,
+                    borderColor: COLUMN_COLORS.pendientes + '50'
+                  }}
+                >
+                  <Clock size={14} color={activeTab === 'pendientes' ? COLUMN_COLORS.pendientes : '#888'} />
+                  <Text style={{ color: activeTab === 'pendientes' ? COLUMN_COLORS.pendientes : '#FFF' }} className="text-sm font-bold">Pendientes</Text>
                 </TouchableOpacity>
-                <TouchableOpacity onPress={() => setActiveTab('entaller')} className={`flex-1 py-2 mx-1 rounded-2xl items-center ${activeTab === 'entaller' ? 'bg-primary/20' : 'bg-white/5'}`}>
-                  <Text className="text-white text-sm font-bold">En Taller</Text>
+                
+                <TouchableOpacity 
+                  onPress={() => setActiveTab('entaller')} 
+                  className={`flex-1 py-2.5 mx-1 rounded-2xl items-center flex-row justify-center space-x-2`}
+                  style={{ 
+                    backgroundColor: activeTab === 'entaller' ? COLUMN_COLORS.entaller + '30' : 'rgba(255,255,255,0.05)',
+                    borderWidth: activeTab === 'entaller' ? 1 : 0,
+                    borderColor: COLUMN_COLORS.entaller + '50'
+                  }}
+                >
+                  <Wrench size={14} color={activeTab === 'entaller' ? COLUMN_COLORS.entaller : '#888'} />
+                  <Text style={{ color: activeTab === 'entaller' ? COLUMN_COLORS.entaller : '#FFF' }} className="text-sm font-bold">En Taller</Text>
                 </TouchableOpacity>
-                <TouchableOpacity onPress={() => setActiveTab('finalizados')} className={`flex-1 py-2 ml-2 rounded-2xl items-center ${activeTab === 'finalizados' ? 'bg-primary/20' : 'bg-white/5'}`}>
-                  <Text className="text-white text-sm font-bold">Finalizados</Text>
+                
+                <TouchableOpacity 
+                  onPress={() => setActiveTab('finalizados')} 
+                  className={`flex-1 py-2.5 ml-2 rounded-2xl items-center flex-row justify-center space-x-2`}
+                  style={{ 
+                    backgroundColor: activeTab === 'finalizados' ? COLUMN_COLORS.finalizados + '30' : 'rgba(255,255,255,0.05)',
+                    borderWidth: activeTab === 'finalizados' ? 1 : 0,
+                    borderColor: COLUMN_COLORS.finalizados + '50'
+                  }}
+                >
+                  <CheckCircle2 size={14} color={activeTab === 'finalizados' ? COLUMN_COLORS.finalizados : '#888'} />
+                  <Text style={{ color: activeTab === 'finalizados' ? COLUMN_COLORS.finalizados : '#FFF' }} className="text-sm font-bold">Finalizados</Text>
                 </TouchableOpacity>
               </View>
 
@@ -279,40 +489,44 @@ const AdminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
                   const totalPages = Math.max(1, Math.ceil(total / ITEMS_PER_PAGE));
                   const start = (currentPage - 1) * ITEMS_PER_PAGE;
                   const pageItems = col.data.slice(start, start + ITEMS_PER_PAGE);
+                  const ColIcon = col.icon;
 
                   return (
                     <View key={col.id} className="px-1 flex-1">
-                      <View className="flex-row items-center mb-3 px-2">
-                        <View style={{ backgroundColor: col.color }} className="w-2 h-2 rounded-full mr-2 shadow-lg" />
-                        <Text className="text-white font-bold uppercase text-xs tracking-widest flex-1">{col.title}</Text>
-                        <View className="bg-white/10 px-2 py-1 rounded-lg">
-                          <Text className="text-white text-[10px] font-bold">{total}</Text>
-                        </View>
+                      {/* Header de columna móvil con CountBadge vibrante */}
+                      <View className="flex-row items-center mb-4 px-2">
+                        <View style={{ backgroundColor: col.color }} className="w-3 h-3 rounded-full mr-3 shadow-lg" />
+                        <ColIcon size={16} color={col.color} strokeWidth={2.5} />
+                        <Text className="text-white font-bold uppercase text-xs tracking-widest flex-1 ml-2">{col.title}</Text>
+                        <CountBadge count={total} color={col.color} />
                       </View>
 
                       <ScrollView showsVerticalScrollIndicator={false} className="flex-1">
-                        {pageItems.map((item: any) => renderTurnoCard(item))}
+                        {pageItems.map((item: any) => renderTurnoCard(item, col.color))}
                       </ScrollView>
 
-                      <View className="flex-row items-center justify-between mt-3">
+                      {/* Paginación con iconos Lucide */}
+                      <View className="flex-row items-center justify-between mt-4 px-2">
                         <TouchableOpacity
                           onPress={() => setCurrentPage(p => Math.max(1, p - 1))}
                           disabled={currentPage <= 1}
-                          className={`px-4 py-2 rounded-lg ${currentPage <= 1 ? 'bg-white/5' : 'bg-primary'}`}
+                          className={`flex-row items-center px-4 py-2.5 rounded-xl ${currentPage <= 1 ? 'bg-zinc-800/50' : 'bg-zinc-800 border border-zinc-700'}`}
                         >
-                          <Text className="text-white">Anterior</Text>
+                          <ChevronLeft size={16} color={currentPage <= 1 ? '#555' : '#FFF'} />
+                          <Text className={`ml-1 ${currentPage <= 1 ? 'text-gray-600' : 'text-white'}`}>Anterior</Text>
                         </TouchableOpacity>
 
-                        <View>
-                          <Text className="text-gray-300">Página {currentPage} de {totalPages}</Text>
+                        <View className="bg-zinc-800/50 px-4 py-2 rounded-xl">
+                          <Text className="text-gray-300 text-sm">{currentPage} / {totalPages}</Text>
                         </View>
 
                         <TouchableOpacity
                           onPress={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                           disabled={currentPage >= totalPages}
-                          className={`px-4 py-2 rounded-lg ${currentPage >= totalPages ? 'bg-white/5' : 'bg-primary'}`}
+                          className={`flex-row items-center px-4 py-2.5 rounded-xl ${currentPage >= totalPages ? 'bg-zinc-800/50' : 'bg-zinc-800 border border-zinc-700'}`}
                         >
-                          <Text className="text-white">Siguiente</Text>
+                          <Text className={`mr-1 ${currentPage >= totalPages ? 'text-gray-600' : 'text-white'}`}>Siguiente</Text>
+                          <ChevronRight size={16} color={currentPage >= totalPages ? '#555' : '#FFF'} />
                         </TouchableOpacity>
                       </View>
                     </View>
@@ -331,6 +545,14 @@ const AdminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
           docType={docType}
         />
       )}
+      
+      {/* Turno Detail Modal - Vista Pro del Admin */}
+      <TurnoDetailModal
+        visible={modalVisible}
+        turno={selectedTurno}
+        onClose={() => { setModalVisible(false); setSelectedTurno(null); }}
+        adminContext={true}
+      />
     </SafeAreaView>
   );
 };

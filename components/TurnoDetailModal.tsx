@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Modal, SafeAreaView } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Droplet, Disc, Battery, Lightbulb, CircleDot, Image as LucideImage, Info, X, Gauge } from 'lucide-react-native';
+import { Droplet, Disc, Battery, Lightbulb, CircleDot, Image as LucideImage, Info, X, Gauge, Wrench, FileCheck, ArrowRight } from 'lucide-react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInUp, FadeIn } from 'react-native-reanimated';
@@ -20,9 +20,29 @@ const SINTOMAS_MAP: Record<string, { label: string, Icon: any, color: string }> 
   bateria: { label: 'Batería', Icon: Battery, color: '#FACC15' },
   neumaticos: { label: 'Neumáticos', Icon: CircleDot, color: '#60A5FA' },
   vidrios: { label: 'Vidrios', Icon: LucideImage, color: '#60A5FA' },
+  ruido_motor: { label: 'Ruido Motor', Icon: Wrench, color: '#FF4C4C' },
+  freno_mano: { label: 'Freno de Mano', Icon: Disc, color: '#FACC15' },
+  cubiertas_dano: { label: 'Daño Cubiertas', Icon: CircleDot, color: '#FF4C4C' },
+  luces_traseras: { label: 'Luces Traseras', Icon: Lightbulb, color: '#FACC15' },
+  tablero: { label: 'Tablero', Icon: Gauge, color: '#60A5FA' },
+  limpiaparabrisas: { label: 'Limpiaparabrisas', Icon: Droplet, color: '#60A5FA' },
+  refrigerante: { label: 'Refrigerante', Icon: Droplet, color: '#60A5FA' },
 };
 
-const TurnoDetailModal = ({ visible, turno, onClose, onAction, readOnly = false }: any) => {
+// Tipos de estado del turno
+type TurnoEstado = 'pending' | 'scheduled' | 'in_progress' | 'completed';
+
+interface TurnoDetailModalProps {
+  visible: boolean;
+  turno: any;
+  onClose: () => void;
+  onAction?: () => void;
+  readOnly?: boolean;
+  // Contexto del Admin: permite acciones contextuales según estado
+  adminContext?: boolean;
+}
+
+const TurnoDetailModal = ({ visible, turno, onClose, onAction, readOnly = false, adminContext = false }: TurnoDetailModalProps) => {
   const router = useRouter();
   const evidenceUrl = turno?.fotoTablero
     || turno?.evidenceUrl
@@ -41,9 +61,94 @@ const TurnoDetailModal = ({ visible, turno, onClose, onAction, readOnly = false 
 
   if (!turno) return null;
   const isAlert = turno.estadoGeneral === 'alert';
+  
+  // Determinar el estado actual del turno
+  const turnoEstado: TurnoEstado = turno.estado || 'pending';
+  const isPending = turnoEstado === 'pending' || turnoEstado === 'scheduled';
+  const isInProgress = turnoEstado === 'in_progress';
+  const isCompleted = turnoEstado === 'completed';
 
   // utility para capitalizar palabras
   const capitalize = (s: string) => s?.toString().split(/[_\s-]+/).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+
+  // Renderizar botones de acción según el contexto y estado
+  const renderActionButtons = () => {
+    // Si es contexto Admin, mostrar botones contextuales según estado
+    if (adminContext) {
+      return (
+        <View className="flex-row gap-3">
+          {/* Botón Cerrar siempre visible */}
+          <TouchableOpacity 
+            onPress={onClose} 
+            className="flex-1 bg-zinc-800 py-4 rounded-2xl items-center border border-zinc-700"
+          >
+            <Text className="text-gray-400 font-bold uppercase text-xs">Cerrar</Text>
+          </TouchableOpacity>
+          
+          {/* Botón Principal Contextual */}
+          {isPending && (
+            <TouchableOpacity 
+              onPress={() => {
+                router.push({ pathname: '/solicitud', params: { prefillData: JSON.stringify(turno) } });
+                onClose();
+              }}
+              className="flex-[2] bg-red-600 py-4 rounded-2xl items-center flex-row justify-center"
+              style={{ shadowColor: '#ef4444', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 12 }}
+            >
+              <Wrench size={18} color="#FFF" strokeWidth={2.5} />
+              <Text className="text-white font-black text-xs uppercase ml-2">Derivar a Mecánico</Text>
+              <ArrowRight size={16} color="#FFF" strokeWidth={2.5} style={{ marginLeft: 8 }} />
+            </TouchableOpacity>
+          )}
+          
+          {isInProgress && (
+            <TouchableOpacity 
+              onPress={() => {
+                // Ver orden de trabajo actual
+                router.push({ pathname: '/solicitud', params: { turnoId: turno.id, viewMode: 'true' } });
+                onClose();
+              }}
+              className="flex-[2] bg-yellow-500 py-4 rounded-2xl items-center flex-row justify-center"
+            >
+              <FileCheck size={18} color="#000" strokeWidth={2.5} />
+              <Text className="text-black font-black text-xs uppercase ml-2">Ver Orden de Trabajo</Text>
+            </TouchableOpacity>
+          )}
+          
+          {isCompleted && (
+            <TouchableOpacity 
+              onPress={() => {
+                // Ver historial o cerrar
+                onClose();
+              }}
+              className="flex-[2] bg-emerald-600 py-4 rounded-2xl items-center flex-row justify-center"
+            >
+              <FileCheck size={18} color="#FFF" strokeWidth={2.5} />
+              <Text className="text-white font-black text-xs uppercase ml-2">Ver Historial</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      );
+    }
+    
+    // Comportamiento por defecto (no Admin)
+    return (
+      <View className="flex-row gap-4">
+        <TouchableOpacity onPress={onClose} className="flex-1 bg-white/5 py-5 rounded-2xl items-center">
+          <Text className="text-gray-500 font-bold uppercase text-[10px]">Cerrar</Text>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          onPress={() => {
+            router.push({ pathname: '/solicitud', params: { prefillData: JSON.stringify(turno) } });
+            onClose();
+          }}
+          className="flex-[2] bg-danger py-5 rounded-2xl items-center shadow-lg shadow-danger/40"
+        >
+          <Text className="text-white font-black text-xs uppercase italic">Derivar a Reparación</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  };
 
   return (
     <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
@@ -142,22 +247,10 @@ const TurnoDetailModal = ({ visible, turno, onClose, onAction, readOnly = false 
               <View className="h-40" />
             </ScrollView>
 
-            {/* BOTONES DE ACCIÓN (ocultos en modo readOnly) */}
+            {/* BOTONES DE ACCIÓN CONTEXTUALES */}
             {!readOnly && (
-              <BlurView intensity={40} tint="dark" className="p-8 border-t border-white/10 flex-row gap-4">
-                <TouchableOpacity onPress={onClose} className="flex-1 bg-white/5 py-5 rounded-2xl items-center">
-                   <Text className="text-gray-500 font-bold uppercase text-[10px]">Cerrar</Text>
-                </TouchableOpacity>
-                <TouchableOpacity 
-                  onPress={() => {
-                    router.push({ pathname: '/solicitud', params: { prefillData: JSON.stringify(turno) } });
-                    // Cerramos el modal localmente al navegar
-                    onClose && onClose();
-                  }}
-                  className="flex-2 bg-danger py-5 rounded-2xl items-center shadow-lg shadow-danger/40"
-                >
-                  <Text className="text-white font-black text-xs uppercase italic">Derivar a Reparación</Text>
-                </TouchableOpacity>
+              <BlurView intensity={40} tint="dark" className="p-6 border-t border-white/10">
+                {renderActionButtons()}
               </BlurView>
             )}
           </SafeAreaView>

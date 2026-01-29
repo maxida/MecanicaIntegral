@@ -159,6 +159,26 @@ export const obtenerCamionesDelCliente = async (clienteId: string): Promise<Cami
   }
 };
 
+// Obtener todos los mecánicos activos
+export const obtenerMecanicos = async (): Promise<Usuario[]> => {
+  try {
+    const q = query(
+      collection(db, USUARIOS_COLLECTION), 
+      where('rol', '==', 'mecanico'),
+      where('estado', '==', 'activo')
+    );
+    const querySnapshot = await getDocs(q);
+    
+    return querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+    })) as Usuario[];
+  } catch (error) {
+    console.error('Error obteniendo mecánicos:', error);
+    throw error;
+  }
+};
+
 // Datos iniciales de usuarios para demo
 export const crearUsuariosDemo = async (): Promise<void> => {
   try {
