@@ -1,546 +1,377 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, SafeAreaView, TouchableOpacity, useWindowDimensions, Platform, Alert, Modal, Pressable } from 'react-native';
+import React, { useEffect, useState, useCallback } from 'react';
+import { View, Text, ScrollView, SafeAreaView, TouchableOpacity, Modal, Pressable, Alert, Platform, ActivityIndicator } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { FontAwesome5, Ionicons, MaterialIcons } from '@expo/vector-icons';
+import { FontAwesome5, Ionicons, MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigation } from '@react-navigation/native';
 import { RootState } from '@/redux/store';
-import { setTurnos } from '@/redux/slices/turnosSlice';
-import { obtenerTurnos, suscribirseATurnos } from '@/services/turnosService';
-import LoadingOverlay from '@/components/LoadingOverlay';
-import Animated, { FadeInUp, FadeInRight } from 'react-native-reanimated';
+import Animated, { FadeInUp } from 'react-native-reanimated';
+import { useFocusEffect } from 'expo-router';
 import TurnoDetailModal from '@/components/TurnoDetailModal';
 import { collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
 import { db } from '@/firebase/firebaseConfig';
-import UniversalImage from '@/components/UniversalImage';
-// custom dropdown will replace native Picker to force dark-mode styling
 
 const ClienteDashboard = ({ onLogout }: { onLogout?: () => void }) => {
   const navigation = useNavigation<any>();
-  const dispatch = useDispatch();
   const user = useSelector((state: RootState) => state.login.user);
-  const turnos = useSelector((state: RootState) => state.turnos.turnos);
-  const [loading, setLoading] = useState(false);
-  const [historial, setHistorial] = useState<any[]>([]);
+
+  // --- ESTADOS ---
   const [vehicleList, setVehicleList] = useState<string[]>([]);
+  const [selectedVehicle, setSelectedVehicle] = useState<string | null>(null);
+  const [vehicleDropdownOpen, setVehicleDropdownOpen] = useState(false);
+  const [loadingVehicles, setLoadingVehicles] = useState(true);
+
+  // KPIs y Estado (Dependen del Vehículo Seleccionado)
+  const [kpiData, setKpiData] = useState<{ odometer: string | number; fuel: string | number }>({ odometer: '-', fuel: '-' });
+  const [camionEstado, setCamionEstado] = useState<string>('disponible');
+  const [kpiLoading, setKpiLoading] = useState(false);
+
+  // Historial (Depende del Chofer Logueado)
+  const [historial, setHistorial] = useState<any[]>([]);
   const [selectedTurno, setSelectedTurno] = useState<any | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [historialPage, setHistorialPage] = useState(0);
-  const historialPageSize = 3;
+  const historialPageSize = 5;
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [selectedVehicle, setSelectedVehicle] = useState<string | null>(null);
 
-  // Cargar vehículo persistido al montar
-  useEffect(() => {
-    let mounted = true;
-    const load = async () => {
-      try {
-        const saved = await AsyncStorage.getItem('currentVehicle');
-        if (mounted && saved) setSelectedVehicle(saved);
-      } catch (err) {
-        console.error('Error loading saved vehicle:', err);
-      }
-    };
-    load();
-    return () => { mounted = false; };
-  }, []);
+  // --- HELPERS DE FECHA ---
+  const formatTimestamp = (ts: any) => {
+    if (!ts) return null;
+    const date = ts.seconds ? new Date(ts.seconds * 1000) : new Date(ts);
+    if (isNaN(date.getTime())) return null;
+    return date.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' }) + ' ' + date.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+  };
 
-  // Cargar la lista de vehículos desde Firestore (colección 'vehiculo')
-  useEffect(() => {
-    let mounted = true;
-    const fetchVehicles = async () => {
-      try {
-        setLoading(true);
-        const col = collection(db, 'vehiculo');
-        // Limit para evitar descargar colecciones gigantescas en una sola llamada
-        const q = query(col, orderBy('numeroPatente'), limit(1000));
-        const snap = await getDocs(q);
-        if (!mounted) return;
-        const list = snap.docs
-          .map((d) => ((d.data() as any)?.numeroPatente ?? null))
-          .filter(Boolean) as string[];
-        setVehicleList(list);
-      } catch (err) {
-        console.error('Error fetching vehicle list:', err);
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    };
-    fetchVehicles();
-    return () => { mounted = false; };
-  }, []);
+  // --- CARGA DE DATOS ---
 
-  // Persistir selección cuando cambie
-  useEffect(() => {
-    const save = async () => {
-      try {
-        if (selectedVehicle) {
-          await AsyncStorage.setItem('currentVehicle', selectedVehicle);
-        } else {
-          await AsyncStorage.removeItem('currentVehicle');
-        }
-      } catch (err) {
-        console.error('Error saving currentVehicle:', err);
-      }
-    };
-    save();
-  }, [selectedVehicle]);
-
-  // Cuando cambia la patente seleccionada, consultar el último turno global de esa patente
-  useEffect(() => {
-    let mounted = true;
-    const fetchLastStatus = async () => {
-      if (!selectedVehicle) {
-        if (mounted) setKpiData({ odometer: '-', fuel: '-' });
-        return;
-      }
-
-      try {
-        setKpiLoading(true);
-        const col = collection(db, 'turnos');
-
-        // Intento preferido: pedir al servidor el último documento (orderBy + limit)
+  // 1. Vehículos (Al inicio)
+  useFocusEffect(
+    useCallback(() => {
+      const fetchVehicles = async () => {
         try {
-          // Use the canonical field name 'numeroPatente' as per data model
-          const q = query(col, where('numeroPatente', '==', selectedVehicle), orderBy('createdAt', 'desc'), limit(1));
+          const col = collection(db, 'vehiculo');
+          const q = query(col, orderBy('numeroPatente'), limit(100));
           const snap = await getDocs(q);
+          const list = snap.docs.map(d => d.data().numeroPatente).filter(Boolean);
+          setVehicleList(list);
+        } catch (err) { console.error(err); }
+        finally { setLoadingVehicles(false); }
+      };
+      fetchVehicles();
+    }, [])
+  );
 
-          if (!mounted) return;
-
-          if (snap.empty) {
-            setKpiData({ odometer: '-', fuel: '-' });
+  // 2. Historial DEL CHOFER (Siempre visible, no depende de selección de camión)
+  useFocusEffect(
+    useCallback(() => {
+      if (!user) return;
+      const fetchUserHistory = async () => {
+        try {
+          const col = collection(db, 'turnos');
+          // Buscamos TODO el historial de este chofer, sin importar la patente
+          const q = query(
+            col,
+            where('chofer', '==', user.nombre),
+            orderBy('fechaCreacion', 'desc'),
+            limit(20)
+          );
+          const snap = await getDocs(q);
+          if (!snap.empty) {
+            let list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            list.sort((a: any, b: any) => {
+              const dateA = new Date(a.fechaIngreso || a.fechaCreacion).getTime();
+              const dateB = new Date(b.fechaIngreso || b.fechaCreacion).getTime();
+              return dateB - dateA;
+            });
+            setHistorial(list);
           } else {
-            const d = snap.docs[0].data() as any;
-            const kmVal = d.kilometraje ?? d.km ?? d.odometro ?? null;
-            const fuelVal = d.nivelNafta ?? d.fuelLevel ?? d.fuel ?? d.combustible ?? null;
-
-            const odometerDisplay = kmVal != null ? formatOdometerOnly(kmVal) : '-';
-            const fuelDisplay = fuelVal != null ? (typeof fuelVal === 'number' ? `${fuelVal}%` : String(fuelVal)) : '-';
-
-            setKpiData({ odometer: odometerDisplay, fuel: fuelDisplay });
+            setHistorial([]);
           }
-        } catch (err: any) {
-          // Si Firestore requiere un índice compuesto, caemos a un fallback client-side
-          const msg = String(err?.message || err);
-          if (msg.toLowerCase().includes('requires an index') || msg.toLowerCase().includes('index')) {
-            console.warn('Firestore ordered query requires an index; falling back to client-side selection.');
-
-            // Traer todos los docs que coincidan con la patente y seleccionar el más reciente client-side
-            const q2 = query(col, where('numeroPatente', '==', selectedVehicle));
-            const snap2 = await getDocs(q2);
-            if (!mounted) return;
-            if (snap2.empty) {
-              setKpiData({ odometer: '-', fuel: '-' });
-            } else {
-              let latest: any = null;
-              let latestTime = 0;
-              snap2.forEach((s) => {
-                const data: any = s.data() || {};
-                const t = new Date(data.createdAt || data.fechaCreacion || data.fechaIngreso || 0).getTime();
-                if (t > latestTime) {
-                  latestTime = t;
-                  latest = data;
-                }
-              });
-              const kmVal = latest?.kilometraje ?? latest?.km ?? latest?.odometro ?? null;
-              const fuelVal = latest?.nivelNafta ?? latest?.fuelLevel ?? latest?.fuel ?? latest?.combustible ?? null;
-              const odometerDisplay = kmVal != null ? formatOdometerOnly(kmVal) : '-';
-              const fuelDisplay = fuelVal != null ? (typeof fuelVal === 'number' ? `${fuelVal}%` : String(fuelVal)) : '-';
-              setKpiData({ odometer: odometerDisplay, fuel: fuelDisplay });
-            }
-          } else {
-            // otro error
-            throw err;
-          }
+        } catch (error) {
+          console.error("Error cargando historial:", error);
         }
-      } catch (err) {
-        console.error('Error fetching last status for vehicle:', err);
-        if (mounted) setKpiData({ odometer: '-', fuel: '-' });
-      } finally {
-        if (mounted) setKpiLoading(false);
-      }
-    };
+      };
+      fetchUserHistory();
+    }, [user])
+  );
 
-    fetchLastStatus();
-    return () => { mounted = false; };
-  }, [selectedVehicle]);
+  // 3. Estado del Vehículo Seleccionado (KPIs y Botones)
+  useFocusEffect(
+    useCallback(() => {
+      let isActive = true;
+      const refreshStatus = async () => {
+        if (!selectedVehicle) return;
+
+        try {
+          setKpiLoading(true);
+          const col = collection(db, 'turnos');
+          const qStatus = query(col, where('numeroPatente', '==', selectedVehicle), orderBy('fechaCreacion', 'desc'), limit(1));
+          const snapStatus = await getDocs(qStatus);
+
+          if (isActive) {
+            if (snapStatus.empty) {
+              setKpiData({ odometer: '-', fuel: '-' });
+              setCamionEstado('disponible');
+            } else {
+              const d = snapStatus.docs[0].data() as any;
+              const kmVal = d.kilometrajeIngreso ?? d.kilometrajeSalida ?? d.kilometraje ?? null;
+              const fuelVal = d.nivelNaftaIngreso ?? d.nivelNaftaSalida ?? d.nivelNafta ?? null;
+
+              setKpiData({
+                odometer: kmVal ? String(kmVal).replace(/\B(?=(\d{3})+(?!\d))/g, ".") : '-',
+                fuel: fuelVal ? `${fuelVal}%` : '-'
+              });
+              setCamionEstado(d.estado || 'disponible');
+            }
+          }
+        } catch (err) {
+          console.error(err);
+        } finally {
+          if (isActive) setKpiLoading(false);
+        }
+      };
+
+      refreshStatus();
+      return () => { isActive = false; };
+    }, [selectedVehicle])
+  );
+
+  // --- FILTROS ---
+  const normalizeDateKey = (dateInput: any) => {
+    if (!dateInput) return null;
+    const d = new Date(dateInput);
+    return isNaN(d.getTime()) ? null : d.toISOString().split('T')[0];
+  };
+
+  const selectedDateKey = selectedDate ? normalizeDateKey(selectedDate) : null;
+
+  const historialFiltrado = historial.filter((h) => {
+    // YA NO FILTRAMOS POR CAMIÓN AQUÍ. El chofer ve todo su historial.
+    if (selectedDateKey) {
+      const itemKey = normalizeDateKey(h.fechaIngreso || h.fechaCreacion);
+      return itemKey === selectedDateKey;
+    }
+    return true;
+  });
+
+  const isEnViaje = camionEstado === 'en_viaje';
+  const isEnTaller = ['pending_triage', 'scheduled', 'in_progress'].includes(camionEstado);
+  const canCheckout = !isEnViaje && !isEnTaller;
+  const canCheckin = isEnViaje;
+
+  const handleAction = (action: 'checkout' | 'checkin' | 'sos') => {
+    if (!selectedVehicle) return;
+    const commonParams = { numeroPatente: selectedVehicle, choferName: user?.nombre };
+
+    if (action === 'checkout') navigation.navigate('checkout', commonParams);
+    else if (action === 'checkin') navigation.navigate('checkin', commonParams);
+    else if (action === 'sos') Alert.alert("Emergencia", "Enviando alerta...");
+  };
 
   const handleOpenTurnoDetail = (turno: any) => {
     setSelectedTurno(turno);
     setModalVisible(true);
   };
 
-  useEffect(() => {
-    const unsubscribe = suscribirseATurnos((data) => dispatch(setTurnos(data)));
-    return () => unsubscribe();
-  }, [dispatch]);
-
-  // Obtener historial de turnos / ingresos para el cliente logueado
-  useEffect(() => {
-    let mounted = true;
-    const fetchHistorial = async () => {
-      if (!user) return;
-      try {
-        const col = collection(db, 'turnos');
-        const userAny = user as any;
-        const userId = userAny?.clientId || user?.id || null;
-        const queries = [] as ReturnType<typeof query>[];
-
-        if (userId) {
-          queries.push(query(col, where('clientId', '==', userId)));
-          queries.push(query(col, where('clienteId', '==', userId)));
-        }
-
-        if (user?.id) {
-          queries.push(query(col, where('choferId', '==', user.id)));
-        }
-
-        if (queries.length === 0) {
-          if (mounted) setHistorial([]);
-          return;
-        }
-
-        const results = await Promise.allSettled(queries.map((q) => getDocs(q)));
-        const items: any[] = [];
-        results.forEach((res) => {
-          if (res.status === 'fulfilled') {
-            res.value.forEach((d) => items.push({ id: d.id, ...((d.data() as any) || {}) }));
-          }
-        });
-
-        // Unificar por id y ordenar por fecha (intenta createdAt, fechaCreacion, fechaIngreso)
-        const map = new Map<string, any>();
-        items.forEach(it => map.set(it.id, it));
-        const unique = Array.from(map.values());
-        unique.sort((a, b) => {
-          const dateA = new Date(a.createdAt || a.fechaCreacion || a.fechaIngreso || 0).getTime();
-          const dateB = new Date(b.createdAt || b.fechaCreacion || b.fechaIngreso || 0).getTime();
-          return dateB - dateA;
-        });
-        if (mounted) setHistorial(unique);
-      } catch (err) {
-        console.error('Error fetching historial de flota:', err);
-      }
-    };
-    fetchHistorial();
-    return () => { mounted = false; };
-  }, [user]);
-
-  useEffect(() => {
-    setHistorialPage(0);
-  }, [historial]);
-
-  const normalizeDateKey = (dateInput: any) => {
-    if (!dateInput) return null;
-
-    let d: Date | null = null;
-
-    if (dateInput instanceof Date) {
-      d = dateInput;
-    } else if (typeof dateInput === 'string' || typeof dateInput === 'number') {
-      const parsed = new Date(dateInput);
-      d = Number.isNaN(parsed.getTime()) ? null : parsed;
-    } else if (typeof dateInput?.toDate === 'function') {
-      const parsed = dateInput.toDate();
-      d = parsed instanceof Date && !Number.isNaN(parsed.getTime()) ? parsed : null;
-    } else if (typeof dateInput?.seconds === 'number') {
-      const parsed = new Date(dateInput.seconds * 1000);
-      d = Number.isNaN(parsed.getTime()) ? null : parsed;
-    }
-
-    return d ? d.toISOString().split('T')[0] : null;
-  };
-
-  const selectedDateKey = selectedDate ? normalizeDateKey(selectedDate) : null;
-  const historialFiltrado = historial.filter((h) => {
-    const fechaRaw = h.createdAt || h.fechaCreacion || h.fechaIngreso || null;
-    const itemKey = normalizeDateKey(fechaRaw);
-    const matchDate = selectedDateKey ? itemKey === selectedDateKey : true;
-    return matchDate;
-  });
-
-  // Estado para mostrar KPIs: odómetro y tanque
-  const [kpiData, setKpiData] = useState<{ odometer: string | number; fuel: string | number }>({ odometer: '-', fuel: '-' });
-  const [kpiLoading, setKpiLoading] = useState(false);
-
-  // Simulamos la vinculación del camión según el usuario logueado
-  const camionAsignado = {
-    patente: 'Sin Asignar',
-    modelo: 'Scania R500 V8',
-    kmActual: '45.200 km',
-    combustible: '75%',
-    ultimoCheckin: 'Ayer, 18:30 hs'
-  };
-
-  // Formatea el valor del odómetro para mostrar separadores de miles (ej: 100000 -> 100.000)
-  const formatOdometerOnly = (value: any) => {
-    if (value == null || value === '-') return '-';
-    try {
-      let num: number | null = null;
-      if (typeof value === 'number') num = value;
-      else if (typeof value === 'string') {
-        const digits = value.replace(/\D/g, '');
-        if (!digits) return value;
-        num = parseInt(digits, 10);
-      } else {
-        const s = String(value);
-        const digits = s.replace(/\D/g, '');
-        if (!digits) return s;
-        num = parseInt(digits, 10);
-      }
-      if (num == null || Number.isNaN(num)) return String(value);
-      return num.toLocaleString('es-AR');
-    } catch (err) {
-      return String(value);
-    }
-  };
-
-  // vehicleList se pobla desde Firestore (colección 'vehiculo')
-  const [vehicleDropdownOpen, setVehicleDropdownOpen] = useState(false);
-
   return (
     <SafeAreaView className="flex-1 bg-surface pt-8">
       <LinearGradient colors={['#0b0b0b', '#000']} className="flex-1 px-6">
         <ScrollView showsVerticalScrollIndicator={false} className="pt-4">
-          
-          {/* HEADER CHOFER */}
-          <View className="flex-row justify-between items-center mb-4">
+
+          {/* HEADER */}
+          <View className="flex-row justify-between items-center mb-6">
             <View>
-              <Text className="text-gray-500 text-[10px] font-black uppercase tracking-[3px]">Unidad Asignada</Text>
-              <Text className="text-white text-2xl font-black italic">{selectedVehicle ?? 'Seleccione una patente'}</Text>
-              
-              <Text className="text-primary/80 font-bold text-xs">Chofer: {user?.nombre || 'Operador'}</Text>
+              <Text className="text-gray-500 text-[10px] font-black uppercase tracking-[3px]">Bienvenido</Text>
+              <Text className="text-white text-xl font-black italic">{user?.nombre || 'Chofer'}</Text>
             </View>
-              <TouchableOpacity 
-              onPress={onLogout}
-              className="w-10 h-10 rounded-2xl bg-danger/10 border border-danger/20 items-center justify-center"
-            >
-              <MaterialIcons name="logout" size={18} color="#FF4C4C" />
+            <TouchableOpacity onPress={onLogout} className="p-2 bg-white/5 rounded-xl border border-white/10">
+              <MaterialIcons name="logout" size={20} color="#FF4C4C" />
             </TouchableOpacity>
           </View>
 
-          {/* SELECTOR DE PATENTE */}
-          <View className="mt-1 mb-6">
-            <Text className="text-gray-500 text-[10px] font-black uppercase tracking-[3px] mb-2">Vehículo a cargo hoy:</Text>
-            <View className="h-12 rounded-xl bg-[#1F1F1F] border border-zinc-700 overflow-hidden">
-              <TouchableOpacity
-                activeOpacity={0.85}
-                onPress={() => setVehicleDropdownOpen(true)}
-                className="h-12 flex-row items-center px-4 justify-between"
-              >
-                <Text className={`${selectedVehicle ? 'text-white' : 'text-gray-400'} text-sm`}>{selectedVehicle ?? 'Seleccione una patente'}</Text>
-                <Ionicons name="chevron-down" size={20} color="#fff" />
-              </TouchableOpacity>
-
-              {/* Dropdown Modal with dark styling for options */}
-              <Modal
-                visible={vehicleDropdownOpen}
-                transparent
-                animationType="fade"
-                onRequestClose={() => setVehicleDropdownOpen(false)}
-              >
-                <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)' }} onPress={() => setVehicleDropdownOpen(false)}>
-                  <View style={{ marginTop: 120, marginHorizontal: 24 }}>
-                    <View className="rounded-xl border border-zinc-700" style={{ backgroundColor: '#1F1F1F', maxHeight: 260 }}>
-                      <ScrollView>
-                        {vehicleList.length > 0 ? (
-                          vehicleList.map((p) => (
-                            <TouchableOpacity
-                              key={p}
-                              onPress={() => { setSelectedVehicle(p); setVehicleDropdownOpen(false); }}
-                              className="px-4 py-3 border-b border-white/5"
-                            >
-                              <Text className="text-white">{p}</Text>
-                            </TouchableOpacity>
-                          ))
-                        ) : (
-                          <View className="px-4 py-3">
-                            <Text className="text-gray-400">No hay vehículos cargados</Text>
-                          </View>
-                        )}
-                        <TouchableOpacity
-                          onPress={() => { setSelectedVehicle(null); setVehicleDropdownOpen(false); }}
-                          className="px-4 py-3"
-                        >
-                          <Text className="text-gray-400">Limpiar selección</Text>
-                        </TouchableOpacity>
-                      </ScrollView>
-                    </View>
+          {/* SELECTOR */}
+          <View className="mb-8">
+            <Text className="text-gray-500 text-[10px] font-black uppercase tracking-[3px] mb-2">Seleccionar Unidad</Text>
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => !loadingVehicles && setVehicleDropdownOpen(true)}
+              className={`flex-row items-center justify-between p-4 rounded-2xl border ${selectedVehicle ? 'bg-zinc-900 border-white/20' : 'bg-primary/10 border-primary/50'}`}
+            >
+              {loadingVehicles ? (
+                <View className="flex-row items-center">
+                  <ActivityIndicator size="small" color="#60A5FA" />
+                  <Text className="text-gray-400 ml-2 text-xs">Cargando flota...</Text>
+                </View>
+              ) : (
+                <>
+                  <View className="flex-row items-center">
+                    <FontAwesome5 name="truck" size={18} color={selectedVehicle ? "white" : "#60A5FA"} />
+                    <Text className={`ml-3 text-lg font-black italic ${selectedVehicle ? 'text-white' : 'text-primary'}`}>
+                      {selectedVehicle || 'TOCA PARA ELEGIR'}
+                    </Text>
                   </View>
-                </Pressable>
-              </Modal>
-            </View>
-          </View>
-
-          {/* BOTÓN DE ACCIÓN PRINCIPAL: CHECK-IN AL GALPÓN */}
-          <Animated.View entering={FadeInUp.delay(200)}>
-            <TouchableOpacity 
-              activeOpacity={0.9}
-              onPress={() => {
-                if (!selectedVehicle) {
-                  Alert.alert('Por favor, seleccione un vehículo primero');
-                  return;
-                }
-                navigation.navigate('checkin', { numeroPatente: selectedVehicle, choferName: user?.nombre || user?.username });
-              }}
-              className="mb-6 overflow-hidden rounded-[28px] border border-primary/30 shadow-2xl shadow-primary/20"
-            >
-              <LinearGradient colors={['#60A5FA', '#2563EB']} start={{x:0, y:0}} end={{x:1, y:1}} className="py-4 px-6 flex-row items-center justify-between">
-                <View className="flex-1">
-                  <Text className="text-white text-xl font-black italic uppercase">Ingreso al Galpón</Text>
-                  <Text className="text-white/80 text-xs font-bold mt-1">INICIAR CHECKLIST DE ENTRADA</Text>
-                </View>
-                <View className="bg-white/20 p-3 rounded-full">
-                  <FontAwesome5 name="clipboard-list" size={24} color="white" />
-                </View>
-              </LinearGradient>
+                  <Ionicons name="chevron-down" size={20} color={selectedVehicle ? "#666" : "#60A5FA"} />
+                </>
+              )}
             </TouchableOpacity>
-          </Animated.View>
-
-          {/* STATUS ACTUAL DEL CAMIÓN */}
-          <View className="flex-row justify-between mb-4">
-            <BlurView intensity={10} tint="dark" className={`flex-1 mr-2 h-20 rounded-2xl border border-white/5 overflow-hidden ${selectedVehicle ? '' : 'opacity-50'}`}>
-              <View className="p-2 bg-card/40 items-center justify-center h-full">
-                <Ionicons name="speedometer-outline" size={16} color="#60A5FA" />
-                <Text className="text-white font-black text-sm mt-1">{kpiData.odometer === '-' ? '-' : `${kpiData.odometer} km`}</Text>
-                <Text className="text-gray-600 text-[9px] uppercase font-bold">Kilometraje</Text>
-              </View>
-            </BlurView>
-
-            <BlurView intensity={10} tint="dark" className={`flex-1 ml-2 h-20 rounded-2xl border border-white/5 overflow-hidden ${selectedVehicle ? '' : 'opacity-50'}`}>
-              <View className="p-2 bg-card/40 items-center justify-center h-full">
-                <FontAwesome5 name="gas-pump" size={16} color="#4ADE80" />
-                <Text className="text-white font-black text-sm mt-1">{kpiData.fuel === '-' ? '-' : kpiData.fuel}</Text>
-                <Text className="text-gray-600 text-[9px] uppercase font-bold">Combustible</Text>
-              </View>
-            </BlurView>
           </View>
 
-          {/* HISTORIAL TÉCNICO compacto removido - redundante con Historial de Flota */}
+          {/* DASHBOARD CONTENT (Botones solo si hay selección) */}
+          {selectedVehicle && (
+            <Animated.View entering={FadeInUp.duration(500)}>
+              {/* KPI */}
+              <View className="flex-row gap-3 mb-8">
+                <View className="flex-1 bg-gray-900/50 p-3 rounded-2xl border border-white/5 flex-row items-center">
+                  <View className="bg-blue-500/20 p-2 rounded-lg mr-3"><Ionicons name="speedometer" size={18} color="#60A5FA" /></View>
+                  <View>
+                    <Text className="text-white font-black text-sm">{kpiLoading ? '...' : kpiData.odometer} {kpiData.odometer !== '-' && !kpiLoading && 'km'}</Text>
+                    <Text className="text-gray-500 text-[9px] uppercase font-bold">Odómetro</Text>
+                  </View>
+                </View>
+                <View className="flex-1 bg-gray-900/50 p-3 rounded-2xl border border-white/5 flex-row items-center">
+                  <View className="bg-green-500/20 p-2 rounded-lg mr-3"><FontAwesome5 name="gas-pump" size={16} color="#4ADE80" /></View>
+                  <View>
+                    <Text className="text-white font-black text-sm">{kpiLoading ? '...' : kpiData.fuel}</Text>
+                    <Text className="text-gray-500 text-[9px] uppercase font-bold">Nivel</Text>
+                  </View>
+                </View>
+              </View>
 
-          {/* HISTORIAL DE FLOTA (Cliente) */}
-          <View className="mt-6 mb-2">
-            <View className="flex-row justify-between items-end mb-3">
-              <Text className="text-gray-500 text-[10px] font-black uppercase tracking-[3px]">Historial de Flota</Text>
-            </View>
+              {/* ALERTA TALLER */}
+              {isEnTaller && !kpiLoading && (
+                <View className="bg-yellow-900/30 border border-yellow-600/50 p-3 rounded-xl mb-4 flex-row items-center">
+                  <MaterialIcons name="warning" size={20} color="#F59E0B" />
+                  <Text className="text-yellow-500 text-xs font-bold ml-2 flex-1">Unidad en revisión. Operación bloqueada.</Text>
+                </View>
+              )}
 
+              {/* ACCIONES */}
+              {kpiLoading ? (
+                <View className="py-10 items-center"><ActivityIndicator size="large" color="#60A5FA" /></View>
+              ) : (
+                <>
+                  <TouchableOpacity activeOpacity={0.9} disabled={!canCheckout} onPress={() => handleAction('checkout')} className={`mb-4 overflow-hidden rounded-[24px] border ${canCheckout ? 'border-emerald-500/30' : 'border-gray-800 opacity-40'}`}>
+                    <LinearGradient colors={canCheckout ? ['#059669', '#047857'] : ['#1a1a1a', '#111']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} className="p-5 flex-row items-center justify-between">
+                      <View>
+                        <Text className={`text-lg font-black italic uppercase ${canCheckout ? 'text-white' : 'text-gray-500'}`}>{isEnViaje ? 'VIAJE EN CURSO' : isEnTaller ? 'EN REVISIÓN' : 'INICIAR VIAJE'}</Text>
+                        <Text className={`${canCheckout ? 'text-emerald-100' : 'text-gray-600'} text-[10px] font-bold mt-1`}>INSPECCIÓN DE SALIDA</Text>
+                      </View>
+                      <MaterialCommunityIcons name="truck-check" size={28} color={canCheckout ? 'white' : '#444'} />
+                    </LinearGradient>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity activeOpacity={0.9} disabled={!canCheckin} onPress={() => handleAction('checkin')} className={`mb-4 overflow-hidden rounded-[24px] border ${canCheckin ? 'border-blue-500/30' : 'border-gray-800 opacity-40'}`}>
+                    <LinearGradient colors={canCheckin ? ['#3B82F6', '#1D4ED8'] : ['#1a1a1a', '#111']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} className="p-5 flex-row items-center justify-between">
+                      <View>
+                        <Text className={`text-lg font-black italic uppercase ${canCheckin ? 'text-white' : 'text-gray-500'}`}>FINALIZAR VIAJE</Text>
+                        <Text className={`${canCheckin ? 'text-blue-100' : 'text-gray-600'} text-[10px] font-bold mt-1`}>INGRESO GALPÓN</Text>
+                      </View>
+                      <MaterialIcons name="garage" size={28} color={canCheckin ? 'white' : '#444'} />
+                    </LinearGradient>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity activeOpacity={0.9} onPress={() => handleAction('sos')} className="mb-8 overflow-hidden rounded-[24px] border border-red-500/30">
+                    <LinearGradient colors={['#EF4444', '#B91C1C']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} className="p-5 flex-row items-center justify-between">
+                      <View>
+                        <Text className="text-white text-lg font-black italic uppercase">Asistencia</Text>
+                        <Text className="text-red-100 text-[10px] font-bold mt-1">MECÁNICO RUTA</Text>
+                      </View>
+                      <MaterialIcons name="sos" size={28} color="white" />
+                    </LinearGradient>
+                  </TouchableOpacity>
+                </>
+              )}
+            </Animated.View>
+          )}
+
+          {/* --- HISTORIAL COMPLETO DEL CHOFER --- */}
+          <View className="mt-6 mb-8">
             <View className="flex-row items-center justify-between mb-4">
-              <TouchableOpacity
-                onPress={() => setShowDatePicker(true)}
-                className="flex-row items-center px-4 py-2 rounded-full border border-white/10 bg-white/5"
-              >
-                <MaterialIcons name="date-range" size={16} color="#60A5FA" />
-                <Text className="text-white text-[11px] font-bold ml-2">
-                  {selectedDate ? selectedDate.toLocaleDateString('es-AR') : 'Seleccionar Fecha'}
-                </Text>
+              <Text className="text-gray-500 text-[10px] font-black uppercase tracking-[3px]">
+                HISTORIAL DE {user?.nombre?.toUpperCase()}
+              </Text>
+              <TouchableOpacity onPress={() => setShowDatePicker(true)} className="bg-white/5 px-3 py-1 rounded-full border border-white/10">
+                <Text className="text-primary text-[10px]">{selectedDate ? selectedDate.toLocaleDateString() : 'Filtrar Fecha'}</Text>
               </TouchableOpacity>
-
-              {selectedDate && (
-                <TouchableOpacity
-                  onPress={() => setSelectedDate(null)}
-                  className="px-3 py-2 rounded-full border border-white/10 bg-white/5"
-                >
-                  <Text className="text-gray-300 text-[11px] font-bold">Limpiar</Text>
-                </TouchableOpacity>
-              )}
             </View>
 
-            {showDatePicker && (
-              <DateTimePicker
-                value={selectedDate || new Date()}
-                mode="date"
-                display={Platform.OS === 'ios' ? 'inline' : 'default'}
-                onChange={(_, date) => {
-                  setShowDatePicker(Platform.OS === 'ios');
-                  if (date) setSelectedDate(date);
-                }}
-              />
-            )}
+            {showDatePicker && (<DateTimePicker value={selectedDate || new Date()} mode="date" display="default" onChange={(_, d) => { setShowDatePicker(Platform.OS === 'ios'); if (d) setSelectedDate(d); }} />)}
 
-            <View>
-              {historialFiltrado.length === 0 && (
-                <Text className="text-gray-600 text-[12px]">No se encontraron ingresos para tu cuenta.</Text>
-              )}
+            {historialFiltrado.length === 0 ? (
+              <View className="py-10 items-center justify-center bg-white/5 rounded-2xl border border-dashed border-white/10">
+                <MaterialCommunityIcons name="history" size={32} color="#666" />
+                <Text className="text-gray-600 text-xs italic mt-2">Sin actividad registrada.</Text>
+              </View>
+            ) : (
+              historialFiltrado.slice(historialPage * historialPageSize, (historialPage + 1) * historialPageSize).map((h, i) => {
+                const estadoLabel = h.estado || 'Pendiente';
 
-              {historialFiltrado
-                .slice(historialPage * historialPageSize, (historialPage + 1) * historialPageSize)
-                .map((h, i) => {
-                const fechaRaw = h.createdAt || h.fechaCreacion || h.fechaIngreso || null;
-                const fecha = fechaRaw ? new Date(fechaRaw).toLocaleDateString('es-AR') : 'S/F';
-                const estadoKey = (h.estado || '').toLowerCase();
-                const estadoLabel = estadoKey.includes('pending') ? 'Pendiente' : estadoKey.includes('in_progress') ? 'En Taller' : (estadoKey.includes('completed') ? 'Finalizado' : (h.estado || 'Pendiente'));
-                const estadoColor = estadoLabel === 'Pendiente' ? 'bg-warning/60' : estadoLabel === 'En Taller' ? 'bg-primary/60' : 'bg-success/60';
-                const evidenceUrl = h?.fotoTablero
-                  || h?.evidenceUrl
-                  || h?.photoUrl
-                  || h?.dashboardPhoto
-                  || h?.imageUrl
-                  || h?.checklistPhotoURL
-                  || h?.foto?.url
-                  || null;
+                // DATOS DE LA CARD MEJORADA
+                const salidaStr = formatTimestamp(h.fechaSalida || h.fechaCreacion) || '---';
+                const ingresoStr = h.fechaIngreso ? formatTimestamp(h.fechaIngreso) : 'EN CURSO';
 
-                const hasEvidence = typeof evidenceUrl === 'string' && evidenceUrl.length > 0;
+                let badgeColor = 'bg-gray-700';
+                if (estadoLabel === 'en_viaje') badgeColor = 'bg-emerald-600';
+                if (estadoLabel === 'pending_triage') badgeColor = 'bg-yellow-600';
+                if (estadoLabel === 'completed') badgeColor = 'bg-blue-600';
 
                 return (
-                  <Animated.View key={h.id} entering={FadeInRight.delay(i * 60)}>
-                    <TouchableOpacity onPress={() => handleOpenTurnoDetail(h)} activeOpacity={0.9} className="mb-3 rounded-2xl overflow-hidden border border-white/5">
-                      <View className="p-4 bg-card/40 flex-row items-center">
-                        {hasEvidence ? (
-                          <View className="w-14 h-14 rounded-xl overflow-hidden border border-white/10 mr-4">
-                            <UniversalImage uri={evidenceUrl} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
-                          </View>
-                        ) : (
-                          <View className="w-14 h-14 rounded-xl bg-white/5 border border-white/10 items-center justify-center mr-4">
-                            <MaterialIcons name="image" size={18} color="#555" />
-                          </View>
-                        )}
-                        <View className="flex-1">
-                          <Text className="text-white font-black text-sm">{h.numeroPatente || 'S/D'}</Text>
-                          <Text className="text-gray-500 text-[10px]">{h.chofer || h.nombreChofer || 'Chofer desconocido'}</Text>
-                        </View>
-                        <View className="items-end">
-                          <Text className="text-gray-400 text-[11px] mb-1">{fecha}</Text>
-                          <View className={`px-3 py-1 rounded-full ${estadoColor}`}>
-                            <Text className="text-white text-[11px] font-bold">{estadoLabel}</Text>
-                          </View>
+                  <TouchableOpacity key={h.id || i} onPress={() => handleOpenTurnoDetail(h)} className="mb-3 bg-card/40 border border-white/5 p-4 rounded-2xl flex-row justify-between items-start">
+                    <View className="flex-1 mr-4">
+                      {/* TÍTULO: CHOFER + PATENTE */}
+                      <View className="flex-row items-center mb-2">
+                        <Text className="text-white font-black text-sm uppercase mr-2">{h.chofer}</Text>
+                        <View className="bg-white/10 px-2 py-0.5 rounded">
+                          <Text className="text-zinc-400 text-[10px] font-bold">{h.numeroPatente}</Text>
                         </View>
                       </View>
-                    </TouchableOpacity>
-                  </Animated.View>
+
+                      {/* DETALLE: FECHAS */}
+                      <View className="space-y-1">
+                        <View className="flex-row items-center">
+                          <MaterialIcons name="north-east" size={12} color="#60A5FA" style={{ marginRight: 4 }} />
+                          <Text className="text-gray-500 text-[10px]">
+                            Salida: <Text className="text-gray-300 font-bold">{salidaStr}</Text>
+                          </Text>
+                        </View>
+                        <View className="flex-row items-center">
+                          <MaterialIcons name="south-west" size={12} color={h.fechaIngreso ? "#4ADE80" : "#F59E0B"} style={{ marginRight: 4 }} />
+                          <Text className="text-gray-500 text-[10px]">
+                            Llegada: <Text className={h.fechaIngreso ? "text-gray-300 font-bold" : "text-emerald-400 font-black italic"}>{ingresoStr}</Text>
+                          </Text>
+                        </View>
+                      </View>
+                    </View>
+
+                    {/* BADGE ESTADO */}
+                    <View className={`${badgeColor} px-3 py-1 rounded-full`}>
+                      <Text className="text-white text-[9px] font-bold uppercase">{estadoLabel.replace(/_/g, ' ')}</Text>
+                    </View>
+                  </TouchableOpacity>
                 );
-              })}
-
-              {historialFiltrado.length > historialPageSize && (
-                <View className="flex-row justify-between items-center mt-2">
-                  <TouchableOpacity
-                    onPress={() => setHistorialPage(p => Math.max(0, p - 1))}
-                    disabled={historialPage === 0}
-                    className={`px-4 py-2 rounded-full border ${historialPage === 0 ? 'border-white/5 bg-white/5' : 'border-primary/30 bg-primary/10'}`}
-                  >
-                    <Text className={`text-[11px] font-bold ${historialPage === 0 ? 'text-gray-600' : 'text-primary'}`}>Anterior</Text>
-                  </TouchableOpacity>
-
-                  <Text className="text-gray-500 text-[11px]">
-                    Página {historialPage + 1} / {Math.max(1, Math.ceil(historialFiltrado.length / historialPageSize))}
-                  </Text>
-
-                  <TouchableOpacity
-                    onPress={() => setHistorialPage(p => Math.min(Math.ceil(historialFiltrado.length / historialPageSize) - 1, p + 1))}
-                    disabled={historialPage >= Math.ceil(historialFiltrado.length / historialPageSize) - 1}
-                    className={`px-4 py-2 rounded-full border ${historialPage >= Math.ceil(historialFiltrado.length / historialPageSize) - 1 ? 'border-white/5 bg-white/5' : 'border-primary/30 bg-primary/10'}`}
-                  >
-                    <Text className={`text-[11px] font-bold ${historialPage >= Math.ceil(historialFiltrado.length / historialPageSize) - 1 ? 'text-gray-600' : 'text-primary'}`}>Siguiente</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-            </View>
+              })
+            )}
           </View>
 
-          {/* Modal detalle solo lectura */}
+          {/* Modal Selección */}
+          <Modal visible={vehicleDropdownOpen} transparent animationType="fade">
+            <Pressable className="flex-1 bg-black/80 justify-center px-6" onPress={() => setVehicleDropdownOpen(false)}>
+              <View className="bg-gray-900 rounded-3xl border border-white/10 max-h-[400px]">
+                <Text className="text-white text-center font-bold py-4 border-b border-white/5">Seleccionar Unidad</Text>
+                <ScrollView>
+                  {vehicleList.map(patente => (
+                    <TouchableOpacity key={patente} onPress={() => { setSelectedVehicle(patente); setVehicleDropdownOpen(false); }} className="p-4 border-b border-white/5">
+                      <Text className="text-white text-center font-bold">{patente}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            </Pressable>
+          </Modal>
+
           <TurnoDetailModal visible={modalVisible} turno={selectedTurno} onClose={() => setModalVisible(false)} readOnly />
 
         </ScrollView>

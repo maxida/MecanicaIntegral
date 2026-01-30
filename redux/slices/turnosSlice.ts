@@ -6,7 +6,7 @@ export interface Turno {
   fechaReparacion: string;
   horaReparacion: string;
   descripcion: string;
-  estado: 'pending' | 'scheduled' | 'in_progress' | 'completed' | 'derivado' | 'pending_triage';
+  estado: 'pending' | 'scheduled' | 'in_progress' | 'completed';
   fechaCreacion: string;
   mecanico?: string | null;
   prioridad?: number;
@@ -17,11 +17,6 @@ export interface Turno {
   fechaFinTrabajo?: string | null;
   tiempoTrabajado?: number; // en minutos
   notasMecanico?: string;
-  // Campos de derivación
-  derivadoATaller?: boolean;
-  mecanicoAsignado?: string;
-  mecanicoNombre?: string;
-  fechaDerivacion?: string;
 }
 
 interface TurnosState {

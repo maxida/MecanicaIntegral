@@ -1,262 +1,300 @@
-import React, { useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Modal, SafeAreaView } from 'react-native';
+import React from 'react';
+import { View, Text, ScrollView, TouchableOpacity, Modal, SafeAreaView, Platform, Image } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Droplet, Disc, Battery, Lightbulb, CircleDot, Image as LucideImage, Info, X, Gauge, Wrench, FileCheck, ArrowRight } from 'lucide-react-native';
+import {
+  Droplet, Disc, Battery, Lightbulb, CircleDot, Image as LucideImage,
+  Info, X, Gauge, Wrench, FileCheck, Calendar, Clock, Hash, AlertTriangle, CheckCircle, ArrowRight
+} from 'lucide-react-native';
 import { BlurView } from 'expo-blur';
-import { LinearGradient } from 'expo-linear-gradient';
-import Animated, { FadeInUp, FadeIn } from 'react-native-reanimated';
-import UniversalImage from '@/components/UniversalImage';
+import Animated, { FadeInUp } from 'react-native-reanimated';
 
-// Diccionario para convertir los IDs de síntomas en algo visual para el Admin
+// --- CONFIGURACIÓN Y MAPAS ---
 const SINTOMAS_MAP: Record<string, { label: string, Icon: any, color: string }> = {
-  aceite: { label: 'Aceite', Icon: Droplet, color: '#60A5FA' },
-  fuga: { label: 'Fugas', Icon: Droplet, color: '#FF4C4C' },
-  frenos: { label: 'Frenos', Icon: Disc, color: '#FF4C4C' },
-  freno_largo: { label: 'Freno Largo', Icon: Disc, color: '#FF4C4C' },
-  vibracion: { label: 'Vibración', Icon: Gauge, color: '#60A5FA' },
-  luz_quemada: { label: 'Luces', Icon: Lightbulb, color: '#FACC15' },
-  humo: { label: 'Humo/Olor', Icon: Info, color: '#FF4C4C' },
-  aire_ac: { label: 'Falla A/A', Icon: Info, color: '#60A5FA' },
-  bateria: { label: 'Batería', Icon: Battery, color: '#FACC15' },
-  neumaticos: { label: 'Neumáticos', Icon: CircleDot, color: '#60A5FA' },
-  vidrios: { label: 'Vidrios', Icon: LucideImage, color: '#60A5FA' },
-  ruido_motor: { label: 'Ruido Motor', Icon: Wrench, color: '#FF4C4C' },
-  freno_mano: { label: 'Freno de Mano', Icon: Disc, color: '#FACC15' },
-  cubiertas_dano: { label: 'Daño Cubiertas', Icon: CircleDot, color: '#FF4C4C' },
-  luces_traseras: { label: 'Luces Traseras', Icon: Lightbulb, color: '#FACC15' },
-  tablero: { label: 'Tablero', Icon: Gauge, color: '#60A5FA' },
-  limpiaparabrisas: { label: 'Limpiaparabrisas', Icon: Droplet, color: '#60A5FA' },
-  refrigerante: { label: 'Refrigerante', Icon: Droplet, color: '#60A5FA' },
+  aceite: { label: 'Nivel/Presión Aceite', Icon: Droplet, color: '#EF4444' },
+  fuga: { label: 'Fuga Detectada', Icon: Droplet, color: '#EF4444' },
+  frenos: { label: 'Sistema de Frenos', Icon: Disc, color: '#EF4444' },
+  freno_largo: { label: 'Freno Largo', Icon: Disc, color: '#F59E0B' },
+  vibracion: { label: 'Vibración Anormal', Icon: Gauge, color: '#F59E0B' },
+  luz_quemada: { label: 'Luces Quemadas', Icon: Lightbulb, color: '#EAB308' },
+  humo: { label: 'Humo o Mal Olor', Icon: Info, color: '#EF4444' },
+  aire_ac: { label: 'Falla A/A', Icon: Info, color: '#3B82F6' },
+  bateria: { label: 'Batería/Arranque', Icon: Battery, color: '#EAB308' },
+  neumaticos: { label: 'Neumáticos/Presión', Icon: CircleDot, color: '#EF4444' },
+  vidrios: { label: 'Parabrisas/Vidrios', Icon: LucideImage, color: '#3B82F6' },
+  ruido_motor: { label: 'Ruido en Motor', Icon: Wrench, color: '#EF4444' },
+  freno_mano: { label: 'Freno de Mano', Icon: Disc, color: '#EAB308' },
+  cubiertas_dano: { label: 'Daño en Cubierta', Icon: CircleDot, color: '#EF4444' },
+  luces_traseras: { label: 'Luces Traseras', Icon: Lightbulb, color: '#EF4444' },
+  tablero: { label: 'Falla en Tablero', Icon: Gauge, color: '#F59E0B' },
+  limpiaparabrisas: { label: 'Limpiaparabrisas', Icon: Droplet, color: '#3B82F6' },
+  refrigerante: { label: 'Nivel Refrigerante', Icon: Droplet, color: '#EF4444' },
 };
 
-// Tipos de estado del turno
-type TurnoEstado = 'pending' | 'scheduled' | 'in_progress' | 'completed';
+type TurnoEstado = 'pending' | 'scheduled' | 'in_progress' | 'completed' | 'pending_triage' | 'en_viaje';
 
 interface TurnoDetailModalProps {
   visible: boolean;
   turno: any;
   onClose: () => void;
-  onAction?: () => void;
   readOnly?: boolean;
-  // Contexto del Admin: permite acciones contextuales según estado
   adminContext?: boolean;
 }
 
-const TurnoDetailModal = ({ visible, turno, onClose, onAction, readOnly = false, adminContext = false }: TurnoDetailModalProps) => {
+const TurnoDetailModal = ({ visible, turno, onClose, readOnly = false, adminContext = false }: TurnoDetailModalProps) => {
   const router = useRouter();
-  const evidenceUrl = turno?.fotoTablero
-    || turno?.evidenceUrl
-    || turno?.photoUrl
-    || turno?.dashboardPhoto
-    || turno?.imageUrl
-    || turno?.checklistPhotoURL
-    || turno?.foto?.url
-    || null;
-
-  useEffect(() => {
-    if (visible) {
-      console.log('Foto recibida:', turno);
-    }
-  }, [visible, turno]);
 
   if (!turno) return null;
-  const isAlert = turno.estadoGeneral === 'alert';
-  
-  // Determinar el estado actual del turno
+
+  // --- HELPER DE FECHAS ROBUSTO ---
+  const parseDate = (dateInput: any): Date | null => {
+    if (!dateInput) return null;
+    // Caso 1: Es un objeto Timestamp de Firestore (tiene toDate)
+    if (typeof dateInput.toDate === 'function') {
+      return dateInput.toDate();
+    }
+    // Caso 2: Es un objeto con seconds (Timestamp serializado)
+    if (dateInput.seconds) {
+      return new Date(dateInput.seconds * 1000);
+    }
+    // Caso 3: Es un string o número
+    const d = new Date(dateInput);
+    if (!isNaN(d.getTime())) return d;
+
+    return null;
+  };
+
+  const formatDate = (d: Date | null) => d ? d.toLocaleDateString('es-AR', { day: '2-digit', month: 'short' }) : '--/--';
+  const formatTime = (d: Date | null) => d ? d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) : '--:--';
+
+  // --- DATOS DEL VIAJE ---
+
+  // Salida
+  const fechaSalida = parseDate(turno.fechaSalida || turno.fechaCreacion); // Fallback a creación si no hay salida explícita
+  const kmSalida = Number(turno.kilometrajeSalida || 0);
+  const naftaSalida = Number(turno.nivelNaftaSalida || 0);
+  const fotoSalida = turno.fotoTableroSalida;
+
+  // Llegada (Ingreso)
+  const fechaIngreso = parseDate(turno.fechaIngreso);
+  const kmIngreso = Number(turno.kilometrajeIngreso || 0);
+  const naftaIngreso = Number(turno.nivelNaftaIngreso || 0);
+  const fotoIngreso = turno.fotoTableroIngreso;
+
+  // Deltas (Solo si el viaje está cerrado o tiene datos de ingreso)
+  const isViajeCerrado = !!fechaIngreso;
+  const kmRecorridos = isViajeCerrado ? (kmIngreso - kmSalida) : 0;
+
+  // Estado y Alertas
+  const isAlert = turno.estadoGeneral === 'alert' || (turno.sintomas && turno.sintomas.length > 0);
   const turnoEstado: TurnoEstado = turno.estado || 'pending';
-  const isPending = turnoEstado === 'pending' || turnoEstado === 'scheduled';
+
+  // Helpers de estado para botones
+  const isPending = turnoEstado === 'pending' || turnoEstado === 'pending_triage';
+  const isScheduled = turnoEstado === 'scheduled';
   const isInProgress = turnoEstado === 'in_progress';
   const isCompleted = turnoEstado === 'completed';
 
-  // utility para capitalizar palabras
-  const capitalize = (s: string) => s?.toString().split(/[_\s-]+/).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+  // --- RENDER ACCIONES ---
+  const renderFooterActions = () => {
+    if (readOnly) {
+      return (
+        <TouchableOpacity onPress={onClose} className="bg-zinc-800 py-4 rounded-xl items-center border border-zinc-700 w-full">
+          <Text className="text-white font-bold uppercase">Cerrar</Text>
+        </TouchableOpacity>
+      );
+    }
 
-  // Renderizar botones de acción según el contexto y estado
-  const renderActionButtons = () => {
-    // Si es contexto Admin, mostrar botones contextuales según estado
     if (adminContext) {
       return (
-        <View className="flex-row gap-3">
-          {/* Botón Cerrar siempre visible */}
-          <TouchableOpacity 
-            onPress={onClose} 
-            className="flex-1 bg-zinc-800 py-4 rounded-2xl items-center border border-zinc-700"
-          >
-            <Text className="text-gray-400 font-bold uppercase text-xs">Cerrar</Text>
+        <View className="flex-col md:flex-row gap-3 w-full">
+          <TouchableOpacity onPress={onClose} className="flex-1 bg-zinc-800 py-4 rounded-xl items-center border border-zinc-700">
+            <Text className="text-gray-400 font-bold uppercase text-xs">Volver</Text>
           </TouchableOpacity>
-          
-          {/* Botón Principal Contextual */}
-          {isPending && (
-            <TouchableOpacity 
+
+          {(isPending || isScheduled) && (
+            <TouchableOpacity
               onPress={() => {
+                onClose();
                 router.push({ pathname: '/solicitud', params: { prefillData: JSON.stringify(turno) } });
-                onClose();
               }}
-              className="flex-[2] bg-red-600 py-4 rounded-2xl items-center flex-row justify-center"
-              style={{ shadowColor: '#ef4444', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 12 }}
+              className="flex-[2] bg-red-600 py-4 rounded-xl flex-row items-center justify-center shadow-lg shadow-red-900/40"
             >
-              <Wrench size={18} color="#FFF" strokeWidth={2.5} />
-              <Text className="text-white font-black text-xs uppercase ml-2">Derivar a Mecánico</Text>
-              <ArrowRight size={16} color="#FFF" strokeWidth={2.5} style={{ marginLeft: 8 }} />
-            </TouchableOpacity>
-          )}
-          
-          {isInProgress && (
-            <TouchableOpacity 
-              onPress={() => {
-                // Ver orden de trabajo actual
-                router.push({ pathname: '/solicitud', params: { turnoId: turno.id, viewMode: 'true' } });
-                onClose();
-              }}
-              className="flex-[2] bg-yellow-500 py-4 rounded-2xl items-center flex-row justify-center"
-            >
-              <FileCheck size={18} color="#000" strokeWidth={2.5} />
-              <Text className="text-black font-black text-xs uppercase ml-2">Ver Orden de Trabajo</Text>
-            </TouchableOpacity>
-          )}
-          
-          {isCompleted && (
-            <TouchableOpacity 
-              onPress={() => {
-                // Ver historial o cerrar
-                onClose();
-              }}
-              className="flex-[2] bg-emerald-600 py-4 rounded-2xl items-center flex-row justify-center"
-            >
-              <FileCheck size={18} color="#FFF" strokeWidth={2.5} />
-              <Text className="text-white font-black text-xs uppercase ml-2">Ver Historial</Text>
+              <Wrench size={18} color="#FFF" />
+              <Text className="text-white font-black text-xs uppercase ml-2">Gestionar Mantenimiento</Text>
             </TouchableOpacity>
           )}
         </View>
       );
     }
-    
-    // Comportamiento por defecto (no Admin)
+
     return (
-      <View className="flex-row gap-4">
-        <TouchableOpacity onPress={onClose} className="flex-1 bg-white/5 py-5 rounded-2xl items-center">
-          <Text className="text-gray-500 font-bold uppercase text-[10px]">Cerrar</Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          onPress={() => {
-            router.push({ pathname: '/solicitud', params: { prefillData: JSON.stringify(turno) } });
-            onClose();
-          }}
-          className="flex-[2] bg-danger py-5 rounded-2xl items-center shadow-lg shadow-danger/40"
-        >
-          <Text className="text-white font-black text-xs uppercase italic">Derivar a Reparación</Text>
-        </TouchableOpacity>
-      </View>
+      <TouchableOpacity onPress={onClose} className="bg-white/10 py-4 rounded-xl items-center w-full border border-white/10">
+        <Text className="text-white font-bold uppercase">Cerrar Detalle</Text>
+      </TouchableOpacity>
     );
   };
 
   return (
     <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
-      <View className="flex-1 bg-black/95 justify-center items-center">
-        <Animated.View 
-          entering={FadeIn.duration(300)}
-          className="w-full h-full monitor:w-[950px] monitor:h-[90%] bg-surface monitor:rounded-[40px] border border-white/10 overflow-hidden"
+      <View className="flex-1 bg-black/85 justify-center items-center p-2 md:p-6">
+        {Platform.OS === 'ios' && <BlurView intensity={30} tint="dark" style={{ position: 'absolute', width: '100%', height: '100%' }} />}
+
+        <Animated.View
+          entering={FadeInUp.springify().damping(20)}
+          className="w-full h-full md:w-[900px] md:h-[90%] bg-[#09090b] md:rounded-[32px] border border-white/10 overflow-hidden shadow-2xl flex-1"
         >
           <SafeAreaView className="flex-1">
-            
+
             {/* HEADER */}
-                <View className="px-6 py-4 flex-row justify-between items-center border-b border-white/5 bg-black/40">
+            <View className={`px-6 py-5 border-b border-white/5 flex-row justify-between items-start ${isAlert ? 'bg-red-500/5' : 'bg-emerald-500/5'}`}>
               <View>
-                <View className="flex-row items-center">
-                  <Text className="text-gray-500 text-[10px] font-black uppercase tracking-[3px]">Expediente de Unidad</Text>
-                  <View className={`ml-3 px-3 py-1 rounded-full ${isAlert ? 'bg-danger' : 'bg-success/20'}`}>
-                    <Text className="text-[9px] font-black text-white">
-                      {isAlert ? 'UNIDAD EN ALERTA' : 'UNIDAD OPERATIVA'}
-                    </Text>
-                  </View>
+                <View className="flex-row items-center space-x-2 mb-1.5">
+                  {isAlert ? <AlertTriangle size={16} color="#EF4444" /> : <CheckCircle size={16} color="#10B981" />}
+                  <Text className={`text-[10px] font-black uppercase tracking-[2px] ${isAlert ? 'text-red-500' : 'text-emerald-500'}`}>
+                    {isAlert ? 'REPORTE CON NOVEDADES' : 'OPERATIVO NORMAL'}
+                  </Text>
                 </View>
-                <Text className="text-white text-3xl font-black italic mt-1">
-                  {turno.numeroPatente === "S/D" ? "PENDIENTE DE PATENTE" : turno.numeroPatente}
-                </Text>
-                <Text className="text-zinc-400 text-base mt-1">Chofer: {turno.chofer || 'No registrado'}</Text>
+                <Text className="text-white text-4xl font-black italic tracking-tighter">{turno.numeroPatente}</Text>
+                <Text className="text-zinc-500 text-xs mt-1 font-bold uppercase tracking-widest">CHOFER: {turno.chofer || 'S/D'}</Text>
               </View>
-                <TouchableOpacity onPress={onClose} className="bg-white/5 w-10 h-10 rounded-2xl items-center justify-center border border-white/10">
-                  <X color="#FF4C4C" width={18} height={18} />
+
+              <View className="items-end">
+                <TouchableOpacity onPress={onClose} className="bg-white/5 p-2 rounded-full mb-3 hover:bg-white/10">
+                  <X color="white" size={20} />
                 </TouchableOpacity>
+                <View className="flex-row items-center bg-zinc-900 px-3 py-1.5 rounded-full border border-white/5">
+                  <Hash size={12} color="#666" />
+                  <Text className="text-zinc-500 text-[10px] ml-1 font-mono">ID: {turno.id?.slice(0, 6).toUpperCase()}</Text>
+                </View>
+              </View>
             </View>
 
-            <ScrollView showsVerticalScrollIndicator={false} className="flex-1 px-6 pt-6" contentContainerStyle={{ paddingBottom: 40 }}>
-              
-              {/* LAYOUT DE COLUMNAS CON GAP (ESPACIADO) */}
-              <View className="flex-col monitor:flex-row monitor:space-x-12">
-                
-                {/* COLUMNA IZQUIERDA: FOTO Y SÍNTOMAS */}
-                <View className="flex-1 mb-6 monitor:mb-0">
-                  <Text className="text-primary text-[10px] font-black uppercase tracking-[2px] mb-2">Evidencia de Tablero</Text>
-                  <View className="w-full h-56 rounded-xl overflow-hidden border border-white/10 bg-zinc-800 mb-3">
-                    {evidenceUrl ? (
-                      <UniversalImage uri={evidenceUrl} style={{ width: '100%', height: '100%', borderRadius: 12 }} resizeMode="cover" />
-                    ) : (
-                      <View className="flex-1 items-center justify-center bg-white/5">
-                        <LucideImage color="#222" width={40} height={40} />
-                      </View>
-                    )}
-                  </View>
+            {/* BODY SCROLLABLE */}
+            <ScrollView className="flex-1" contentContainerStyle={{ padding: 24 }}>
 
-                  <Text className="text-gray-500 text-[10px] font-black uppercase tracking-[2px] mb-2">Síntomas Reportados</Text>
-                  <View className="flex-row flex-wrap gap-2">
-                    {turno.sintomas?.length > 0 ? turno.sintomas.map((sId: string) => {
-                      const sInfo = SINTOMAS_MAP[sId] || { label: sId, Icon: Info, color: '#888' };
-                      const chipBg = isAlert ? 'bg-red-900/40' : 'bg-zinc-800';
-                      return (
-                        <View key={sId} className={`${chipBg} border border-zinc-700 px-3 py-1 rounded-full flex-row items-center`}>
-                          {sInfo.Icon ? <sInfo.Icon color={sInfo.color} width={14} height={14} /> : <Info color={sInfo.color} width={14} height={14} />}
-                          <Text className="text-white text-xs font-bold ml-2">{capitalize(sInfo.label)}</Text>
-                        </View>
-                      );
-                    }) : (
-                      <Text className="text-gray-700 italic text-xs">No se reportaron síntomas visuales.</Text>
-                    )}
+              {/* BLOQUE 1: COMPARATIVA DE VIAJE (SALIDA vs LLEGADA) */}
+              <Text className="text-zinc-500 text-[10px] font-black uppercase tracking-[3px] mb-4">Resumen del Viaje</Text>
+
+              <View className="flex-row gap-2 mb-8 h-auto min-h-[140px]">
+
+                {/* CARD SALIDA */}
+                <View className="flex-1 bg-zinc-900/50 rounded-2xl border border-white/5 p-4 justify-between relative overflow-hidden">
+                  <View className="absolute top-0 right-0 p-3 opacity-10">
+                    <ArrowRight size={80} color="white" />
+                  </View>
+                  <View>
+                    <Text className="text-emerald-500 text-[10px] font-bold uppercase mb-1">SALIDA</Text>
+                    <Text className="text-white text-lg font-bold">{formatDate(fechaSalida)}</Text>
+                    <Text className="text-zinc-500 text-xs">{formatTime(fechaSalida)} hs</Text>
+                  </View>
+                  <View>
+                    <Text className="text-zinc-400 text-[9px] uppercase font-bold mb-0.5">ODÓMETRO</Text>
+                    <Text className="text-white text-xl font-mono">{kmSalida.toLocaleString()} km</Text>
+                  </View>
+                  <View className="mt-2">
+                    <Text className="text-zinc-400 text-[9px] uppercase font-bold mb-0.5">TANQUE</Text>
+                    <Text className="text-white text-sm font-mono">{naftaSalida}%</Text>
                   </View>
                 </View>
 
-                {/* COLUMNA DERECHA: DATOS DUROS */}
-                <View className="flex-1">
-                  <Text className="text-gray-500 text-[10px] font-black uppercase tracking-[2px] mb-2">Telemetría de Ingreso</Text>
-                  <View className="flex-row gap-3 mb-4">
-                    <View className="flex-1 bg-card h-20 p-3 rounded-2xl border border-white/5 flex-row items-center">
-                      <Gauge color="#60A5FA" width={20} height={20} />
-                      <View className="ml-3">
-                        <Text className="text-white text-2xl font-black">{Number(turno.kilometraje || 0).toLocaleString('es-ES')}</Text>
-                        <Text className="text-gray-600 text-[10px] font-bold">KM TOTALES</Text>
-                      </View>
+                {/* CARD LLEGADA */}
+                <View className="flex-1 bg-zinc-900/50 rounded-2xl border border-white/5 p-4 justify-between relative overflow-hidden">
+                  {/* Si no llegó, mostramos estado */}
+                  {!isViajeCerrado ? (
+                    <View className="flex-1 items-center justify-center">
+                      <Clock size={32} color="#F59E0B" />
+                      <Text className="text-yellow-500 text-xs font-bold mt-2 uppercase">EN VIAJE</Text>
                     </View>
-                    <View className="flex-1 bg-card h-20 p-3 rounded-2xl border border-white/5 flex-row items-center">
-                      <Droplet color="#4ADE80" width={18} height={18} />
-                      <View className="ml-3">
-                        <Text className="text-white text-2xl font-black">{turno.nivelNafta}%</Text>
-                        <Text className="text-gray-600 text-[10px] font-bold">COMBUSTIBLE</Text>
+                  ) : (
+                    <>
+                      <View className="absolute top-0 right-0 p-3 opacity-10">
+                        <CheckCircle size={80} color="white" />
                       </View>
-                    </View>
-                  </View>
+                      <View>
+                        <Text className="text-blue-500 text-[10px] font-bold uppercase mb-1">INGRESO</Text>
+                        <Text className="text-white text-lg font-bold">{formatDate(fechaIngreso)}</Text>
+                        <Text className="text-zinc-500 text-xs">{formatTime(fechaIngreso)} hs</Text>
+                      </View>
+                      <View>
+                        <Text className="text-zinc-400 text-[9px] uppercase font-bold mb-0.5">ODÓMETRO</Text>
+                        <Text className="text-white text-xl font-mono">{kmIngreso.toLocaleString()} km</Text>
+                      </View>
+                      <View className="mt-2">
+                        <Text className="text-zinc-400 text-[9px] uppercase font-bold mb-0.5">TANQUE</Text>
+                        <Text className="text-white text-sm font-mono">{naftaIngreso}%</Text>
+                      </View>
+                    </>
+                  )}
+                </View>
 
-                  <Text className="text-gray-500 text-[10px] font-black uppercase tracking-[2px] mb-2">Notas del Chofer</Text>
-                  <View className="min-h-[80px] p-4 bg-zinc-800/50 rounded-xl border border-zinc-700/50 mb-6">
-                    <Text className="text-gray-300 text-sm leading-6 italic">
-                      "{turno.comentariosChofer || turno.descripcion || 'Sin comentarios.'}"
-                    </Text>
+              </View>
+
+              {/* BLOQUE 2: EVIDENCIA FOTOGRÁFICA (COMPARATIVA) */}
+              <Text className="text-zinc-500 text-[10px] font-black uppercase tracking-[3px] mb-4">Evidencia de Tablero</Text>
+
+              <View className="flex-row gap-4 mb-8">
+                {/* FOTO SALIDA */}
+                <View className="flex-1 aspect-video bg-black rounded-xl overflow-hidden border border-white/10 relative">
+                  {fotoSalida ? (
+                    <Image source={{ uri: fotoSalida }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                  ) : (
+                    <View className="flex-1 items-center justify-center"><LucideImage size={24} color="#333" /><Text className="text-zinc-700 text-[9px] mt-1">SIN FOTO</Text></View>
+                  )}
+                  <View className="absolute bottom-2 left-2 bg-black/70 px-2 py-1 rounded border border-white/10">
+                    <Text className="text-white text-[8px] font-bold">SALIDA</Text>
+                  </View>
+                </View>
+
+                {/* FOTO LLEGADA */}
+                <View className="flex-1 aspect-video bg-black rounded-xl overflow-hidden border border-white/10 relative">
+                  {fotoIngreso ? (
+                    <Image source={{ uri: fotoIngreso }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                  ) : (
+                    <View className="flex-1 items-center justify-center"><LucideImage size={24} color="#333" /><Text className="text-zinc-700 text-[9px] mt-1">PENDIENTE</Text></View>
+                  )}
+                  <View className="absolute bottom-2 left-2 bg-black/70 px-2 py-1 rounded border border-white/10">
+                    <Text className="text-white text-[8px] font-bold">LLEGADA</Text>
                   </View>
                 </View>
               </View>
 
-              <View className="h-40" />
+              {/* BLOQUE 3: OBSERVACIONES Y SÍNTOMAS */}
+              {isAlert && (
+                <>
+                  <Text className="text-red-500 text-[10px] font-black uppercase tracking-[3px] mb-4">Novedades Reportadas</Text>
+                  <View className="flex-row flex-wrap gap-2 mb-6">
+                    {turno.sintomas?.map((sId: string) => {
+                      const sData = SINTOMAS_MAP[sId] || { label: sId, Icon: AlertTriangle, color: '#fff' };
+                      return (
+                        <View key={sId} className="bg-red-500/10 border border-red-500/30 pl-2 pr-3 py-1.5 rounded-lg flex-row items-center">
+                          <sData.Icon size={14} color={sData.color} />
+                          <Text className="text-red-200 text-xs font-bold ml-2">{sData.label}</Text>
+                        </View>
+                      );
+                    })}
+                  </View>
+                </>
+              )}
+
+              <Text className="text-zinc-500 text-[10px] font-black uppercase tracking-[3px] mb-4">Comentarios del Chofer</Text>
+              <View className="bg-zinc-900/50 p-4 rounded-2xl border border-white/5 min-h-[80px]">
+                <Text className="text-zinc-300 text-sm leading-6 italic">
+                  "{turno.comentariosChofer || turno.descripcion || 'Sin comentarios adicionales.'}"
+                </Text>
+              </View>
+
             </ScrollView>
 
-            {/* BOTONES DE ACCIÓN CONTEXTUALES */}
-            {!readOnly && (
-              <BlurView intensity={40} tint="dark" className="p-6 border-t border-white/10">
-                {renderActionButtons()}
-              </BlurView>
-            )}
+            {/* FOOTER */}
+            <View className="p-6 border-t border-white/5 bg-[#09090b]">
+              {renderFooterActions()}
+            </View>
+
           </SafeAreaView>
         </Animated.View>
       </View>
     </Modal>
   );
 };
+
 export default TurnoDetailModal;
