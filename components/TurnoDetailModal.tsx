@@ -1,14 +1,18 @@
-import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Modal, SafeAreaView, Platform, Image } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, Modal, SafeAreaView, Platform, Image, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
+// AGREGAMOS FontAwesome5 AQUÍ
 import {
   Droplet, Disc, Battery, Lightbulb, CircleDot, Image as LucideImage,
-  Info, X, Gauge, Wrench, FileCheck, Calendar, Clock, Hash, AlertTriangle, CheckCircle, ArrowRight
+  Info, X, Gauge, Wrench, FileCheck, Calendar, Clock, Hash, AlertTriangle, CheckCircle, ArrowRight, User
 } from 'lucide-react-native';
+import { FontAwesome5 } from '@expo/vector-icons'; // <--- IMPORTANTE
 import { BlurView } from 'expo-blur';
 import Animated, { FadeInUp } from 'react-native-reanimated';
+import { collection, query, where, orderBy, limit, getDocs } from 'firebase/firestore';
+import { db } from '@/firebase/firebaseConfig';
 
-// --- CONFIGURACIÓN Y MAPAS ---
+// ... (SINTOMAS_MAP se mantiene igual, no lo repito para ahorrar espacio) ...
 const SINTOMAS_MAP: Record<string, { label: string, Icon: any, color: string }> = {
   aceite: { label: 'Nivel/Presión Aceite', Icon: Droplet, color: '#EF4444' },
   fuga: { label: 'Fuga Detectada', Icon: Droplet, color: '#EF4444' },
@@ -45,50 +49,35 @@ const TurnoDetailModal = ({ visible, turno, onClose, readOnly = false, adminCont
 
   if (!turno) return null;
 
-  // --- HELPER DE FECHAS ROBUSTO ---
+  // --- PARSEO DE FECHAS ---
   const parseDate = (dateInput: any): Date | null => {
     if (!dateInput) return null;
-    // Caso 1: Es un objeto Timestamp de Firestore (tiene toDate)
-    if (typeof dateInput.toDate === 'function') {
-      return dateInput.toDate();
-    }
-    // Caso 2: Es un objeto con seconds (Timestamp serializado)
-    if (dateInput.seconds) {
-      return new Date(dateInput.seconds * 1000);
-    }
-    // Caso 3: Es un string o número
+    if (typeof dateInput.toDate === 'function') return dateInput.toDate();
+    if (dateInput.seconds) return new Date(dateInput.seconds * 1000);
     const d = new Date(dateInput);
     if (!isNaN(d.getTime())) return d;
-
     return null;
   };
 
-  const formatDate = (d: Date | null) => d ? d.toLocaleDateString('es-AR', { day: '2-digit', month: 'short' }) : '--/--';
+  const formatDate = (d: Date | null) => d ? d.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' }) : '--/--';
   const formatTime = (d: Date | null) => d ? d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) : '--:--';
 
-  // --- DATOS DEL VIAJE ---
-
-  // Salida
-  const fechaSalida = parseDate(turno.fechaSalida || turno.fechaCreacion); // Fallback a creación si no hay salida explícita
+  // --- DATOS DEL VIAJE ACTUAL ---
+  const fechaSalida = parseDate(turno.fechaSalida || turno.fechaCreacion);
   const kmSalida = Number(turno.kilometrajeSalida || 0);
   const naftaSalida = Number(turno.nivelNaftaSalida || 0);
   const fotoSalida = turno.fotoTableroSalida;
 
-  // Llegada (Ingreso)
   const fechaIngreso = parseDate(turno.fechaIngreso);
   const kmIngreso = Number(turno.kilometrajeIngreso || 0);
   const naftaIngreso = Number(turno.nivelNaftaIngreso || 0);
   const fotoIngreso = turno.fotoTableroIngreso;
 
-  // Deltas (Solo si el viaje está cerrado o tiene datos de ingreso)
   const isViajeCerrado = !!fechaIngreso;
-  const kmRecorridos = isViajeCerrado ? (kmIngreso - kmSalida) : 0;
-
-  // Estado y Alertas
   const isAlert = turno.estadoGeneral === 'alert' || (turno.sintomas && turno.sintomas.length > 0);
   const turnoEstado: TurnoEstado = turno.estado || 'pending';
 
-  // Helpers de estado para botones
+  // Helpers visuales
   const isPending = turnoEstado === 'pending' || turnoEstado === 'pending_triage';
   const isScheduled = turnoEstado === 'scheduled';
   const isInProgress = turnoEstado === 'in_progress';
@@ -106,30 +95,48 @@ const TurnoDetailModal = ({ visible, turno, onClose, readOnly = false, adminCont
 
     if (adminContext) {
       return (
-        <View className="flex-col md:flex-row gap-3 w-full">
-          <TouchableOpacity onPress={onClose} className="flex-1 bg-zinc-800 py-4 rounded-xl items-center border border-zinc-700">
-            <Text className="text-gray-400 font-bold uppercase text-xs">Volver</Text>
+        <View className="w-full">
+          {/* BOTÓN NUEVO: VER FICHA TÉCNICA */}
+          <TouchableOpacity
+            onPress={() => {
+              onClose();
+              // Navegamos a la nueva pantalla pasando la patente
+              router.push({
+                pathname: '/historial-unidad',
+                params: { patente: turno.numeroPatente }
+              });
+            }}
+            className="w-full bg-zinc-800 py-3 rounded-xl flex-row items-center justify-center mb-3 border border-white/10"
+          >
+            <FontAwesome5 name="chart-line" size={14} color="#A1A1AA" style={{ marginRight: 8 }} />
+            <Text className="text-zinc-300 font-bold text-xs uppercase">Ver Hoja de Vida Completa</Text>
           </TouchableOpacity>
 
-          {(isPending || isScheduled) && (
-            <TouchableOpacity
-              onPress={() => {
-                onClose();
-                router.push({ pathname: '/solicitud', params: { prefillData: JSON.stringify(turno) } });
-              }}
-              className="flex-[2] bg-red-600 py-4 rounded-xl flex-row items-center justify-center shadow-lg shadow-red-900/40"
-            >
-              <Wrench size={18} color="#FFF" />
-              <Text className="text-white font-black text-xs uppercase ml-2">Gestionar Mantenimiento</Text>
+          <View className="flex-col md:flex-row gap-3 w-full">
+            <TouchableOpacity onPress={onClose} className="flex-1 bg-zinc-900 py-4 rounded-xl items-center border border-zinc-800">
+              <Text className="text-gray-400 font-bold uppercase text-xs">Cerrar</Text>
             </TouchableOpacity>
-          )}
+
+            {(isPending || isScheduled) && (
+              <TouchableOpacity
+                onPress={() => {
+                  onClose();
+                  router.push({ pathname: '/solicitud', params: { prefillData: JSON.stringify(turno) } });
+                }}
+                className="flex-[2] bg-red-600 py-4 rounded-xl flex-row items-center justify-center shadow-lg shadow-red-900/40"
+              >
+                <Wrench size={18} color="#FFF" />
+                <Text className="text-white font-black text-xs uppercase ml-2">Gestionar Mantenimiento</Text>
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
       );
     }
 
     return (
       <TouchableOpacity onPress={onClose} className="bg-white/10 py-4 rounded-xl items-center w-full border border-white/10">
-        <Text className="text-white font-bold uppercase">Cerrar Detalle</Text>
+        <Text className="text-white font-bold uppercase">Entendido</Text>
       </TouchableOpacity>
     );
   };
@@ -155,7 +162,7 @@ const TurnoDetailModal = ({ visible, turno, onClose, readOnly = false, adminCont
                   </Text>
                 </View>
                 <Text className="text-white text-4xl font-black italic tracking-tighter">{turno.numeroPatente}</Text>
-                <Text className="text-zinc-500 text-xs mt-1 font-bold uppercase tracking-widest">CHOFER: {turno.chofer || 'S/D'}</Text>
+                <Text className="text-zinc-500 text-xs mt-1 font-bold uppercase tracking-widest">CHOFER ACTUAL: {turno.chofer || 'S/D'}</Text>
               </View>
 
               <View className="items-end">
@@ -179,9 +186,7 @@ const TurnoDetailModal = ({ visible, turno, onClose, readOnly = false, adminCont
 
                 {/* CARD SALIDA */}
                 <View className="flex-1 bg-zinc-900/50 rounded-2xl border border-white/5 p-4 justify-between relative overflow-hidden">
-                  <View className="absolute top-0 right-0 p-3 opacity-10">
-                    <ArrowRight size={80} color="white" />
-                  </View>
+                  <View className="absolute top-0 right-0 p-3 opacity-10"><ArrowRight size={80} color="white" /></View>
                   <View>
                     <Text className="text-emerald-500 text-[10px] font-bold uppercase mb-1">SALIDA</Text>
                     <Text className="text-white text-lg font-bold">{formatDate(fechaSalida)}</Text>
@@ -199,7 +204,6 @@ const TurnoDetailModal = ({ visible, turno, onClose, readOnly = false, adminCont
 
                 {/* CARD LLEGADA */}
                 <View className="flex-1 bg-zinc-900/50 rounded-2xl border border-white/5 p-4 justify-between relative overflow-hidden">
-                  {/* Si no llegó, mostramos estado */}
                   {!isViajeCerrado ? (
                     <View className="flex-1 items-center justify-center">
                       <Clock size={32} color="#F59E0B" />
@@ -207,9 +211,7 @@ const TurnoDetailModal = ({ visible, turno, onClose, readOnly = false, adminCont
                     </View>
                   ) : (
                     <>
-                      <View className="absolute top-0 right-0 p-3 opacity-10">
-                        <CheckCircle size={80} color="white" />
-                      </View>
+                      <View className="absolute top-0 right-0 p-3 opacity-10"><CheckCircle size={80} color="white" /></View>
                       <View>
                         <Text className="text-blue-500 text-[10px] font-bold uppercase mb-1">INGRESO</Text>
                         <Text className="text-white text-lg font-bold">{formatDate(fechaIngreso)}</Text>
@@ -226,7 +228,6 @@ const TurnoDetailModal = ({ visible, turno, onClose, readOnly = false, adminCont
                     </>
                   )}
                 </View>
-
               </View>
 
               {/* BLOQUE 2: EVIDENCIA FOTOGRÁFICA (COMPARATIVA) */}

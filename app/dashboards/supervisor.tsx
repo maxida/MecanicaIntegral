@@ -1,296 +1,322 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, SafeAreaView, Image, TextInput } from 'react-native';
-import { MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
-import { BlurView } from 'expo-blur';
+import { View, Text, ScrollView, TouchableOpacity, SafeAreaView, TextInput, ActivityIndicator, Alert } from 'react-native';
+import { MaterialIcons, FontAwesome5, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useDispatch, useSelector } from 'react-redux';
 import { useRouter } from 'expo-router';
-import { RootState } from '@/redux/store';
-import { setTurnos, actualizarTurno } from '@/redux/slices/turnosSlice';
-import { suscribirseAPendingTriage, actualizarTurnoService, suscribirseATurnos } from '@/services/turnosService';
-import TurnoDetailModal from '@/components/TurnoDetailModal'; // El que armamos antes
+import Animated, { FadeInUp } from 'react-native-reanimated';
+import { collection, query, orderBy, limit, onSnapshot, getDocs } from 'firebase/firestore';
+import { db } from '@/firebase/firebaseConfig';
+import TurnoDetailModal from '@/components/TurnoDetailModal';
+import ComplianceWidget from '@/components/ComplianceWidget';
+import { getExpirationStatus } from '@/utils/complianceHelper';
+
+type TabType = 'alerta' | 'viaje' | 'taller' | 'todos' | 'vencimientos';
 
 const SuperadminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
-  const dispatch = useDispatch();
-  const turnos = useSelector((state: RootState) => state.turnos.turnos);
-  const [selectedTurno, setSelectedTurno] = useState<any>(null);
-  const [modalVisible, setModalVisible] = useState(false);
   const router = useRouter();
 
-  const [pendings, setPendings] = useState<any[]>([]);
-  const [allTurnos, setAllTurnos] = useState<any[]>([]);
+  // --- ESTADOS ---
+  const [turnos, setTurnos] = useState<any[]>([]);
+  const [vehiclesData, setVehiclesData] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [filterText, setFilterText] = useState('');
-  // Nuevo: pestañas claras: 'alerta' | 'entaller' | 'operativo' | 'todos'
-  const [activeTab, setActiveTab] = useState<'alerta' | 'entaller' | 'operativo' | 'todos'>('alerta');
-  const [page, setPage] = useState(0);
-  const pageSize = 2;
+  const [activeTab, setActiveTab] = useState<TabType>('alerta');
 
+  const [selectedTurno, setSelectedTurno] = useState<any>(null);
+  const [modalVisible, setModalVisible] = useState(false);
+
+  // 1. Cargar Vehículos
   useEffect(() => {
-    // Suscribimos a todos los turnos y también a los ingresos pendientes de triage.
-    const unsubAll = suscribirseATurnos((data) => {
-      // recibimos todos los documentos de la colección 'turnos'
-      setAllTurnos(data);
-      // mantener redux en sincronía (opcional)
-      dispatch(setTurnos(data));
-    });
-
-    const unsubPendings = suscribirseAPendingTriage((data) => {
-      // ingresos muy recientes que todavía pueden tener estado 'pending_triage'
-      setPendings(data);
-    });
-
-    return () => {
-      unsubAll && unsubAll();
-      unsubPendings && unsubPendings();
+    const fetchVehicles = async () => {
+      try {
+        const col = collection(db, 'vehiculo');
+        const snap = await getDocs(col);
+        const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        setVehiclesData(list);
+      } catch (e) { console.error("Error cargando vehiculos", e); }
     };
-  }, [dispatch]);
+    fetchVehicles();
+  }, []);
 
-  // Construir la lista "Torre de Control" mezclada: combinamos turnos registrados y los ingresos pendientes.
-  const combinedMap: Record<string, any> = {};
-  // Agregar todos los documentos de la colección principal
-  allTurnos.forEach(t => { combinedMap[t.id] = { ...t }; });
-  // Los pendientes de triage pueden ser documentos nuevos; los fusionamos (sobrescriben si mismo id)
-  pendings.forEach(t => { combinedMap[t.id] = { ...combinedMap[t.id], ...t }; });
+  // 2. Suscripción a Turnos
+  useEffect(() => {
+    const q = query(collection(db, 'turnos'), orderBy('fechaCreacion', 'desc'), limit(50));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setTurnos(data);
+      setLoading(false);
+    }, (error) => { setLoading(false); });
+    return () => unsubscribe();
+  }, []);
 
-  const combinedList = Object.values(combinedMap).map((t: any) => ({
-    ...t,
-    // normalizar campo de fecha para orden
-    _fechaOrden: t.fechaCreacion || t.fechaReparacion || new Date().toISOString(),
-  }));
+  // 3. KPIs Turnos (CORREGIDO PARA INCLUIR taller_pendiente)
+  const kpis = useMemo(() => {
+    let alerta = 0; let viaje = 0; let taller = 0; let disponible = 0;
+    turnos.forEach((t) => {
+      const est = t.estado || 'pending';
+      const general = t.estadoGeneral || 'ok';
 
-  // Orden descendente: el más reciente arriba
-  combinedList.sort((a: any, b: any) => new Date(b._fechaOrden).getTime() - new Date(a._fechaOrden).getTime());
+      if (est === 'en_viaje') {
+        viaje++;
+      }
+      // Si es taller_pendiente, cuenta como TALLER, no como alerta
+      else if (est === 'scheduled' || est === 'in_progress' || est === 'taller_pendiente') {
+        taller++;
+      }
+      else if (est === 'pending_triage' || (general === 'alert' && est !== 'completed')) {
+        alerta++;
+      }
+      else if (est === 'completed') {
+        disponible++;
+      }
+    });
+    return { alerta, viaje, taller, disponible };
+  }, [turnos]);
 
-  // Helpers de estado
-  const isDerived = (t: any) => {
-    return !!(t.derivadoATaller || t.estado === 'scheduled' || t.estado === 'in_progress' || t.origen === 'derivacion' || t.origenTurnoId);
+  // 4. LÓGICA DE FILTRADO (CORREGIDA)
+  const isVehicleMode = activeTab === 'vencimientos';
+
+  const listToRender = isVehicleMode
+    ? vehiclesData.filter(v => {
+      const vtv = getExpirationStatus(v.vtvVencimiento);
+      const seguro = getExpirationStatus(v.seguroVencimiento);
+      const ruta = getExpirationStatus(v.rutaVencimiento);
+      const hasIssue = vtv.status !== 'ok' || seguro.status !== 'ok' || ruta.status !== 'ok';
+      const matchText = v.numeroPatente.toLowerCase().includes(filterText.toLowerCase());
+      return hasIssue && matchText;
+    })
+    : turnos.filter((t) => {
+      const searchStr = `${t.numeroPatente} ${t.chofer}`.toLowerCase();
+      if (filterText && !searchStr.includes(filterText.toLowerCase())) return false;
+
+      const est = t.estado || 'pending';
+      switch (activeTab) {
+        case 'alerta':
+          // Excluir lo que ya está derivado al taller
+          return est === 'pending_triage' || (t.estadoGeneral === 'alert' && est !== 'scheduled' && est !== 'in_progress' && est !== 'completed' && est !== 'taller_pendiente');
+        case 'viaje':
+          return est === 'en_viaje';
+        case 'taller':
+          // INCLUIR EL NUEVO ESTADO AQUÍ
+          return est === 'scheduled' || est === 'in_progress' || est === 'taller_pendiente';
+        case 'todos':
+          return true;
+        default:
+          return true;
+      }
+    });
+
+  const formatTime = (isoString: string) => {
+    if (!isoString) return '';
+    const d = new Date(isoString);
+    return d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
   };
 
-  // KPIs en tiempo real (alineados exactamente a las tabs)
-  const { countAlerta, countTaller, countOperativo } = useMemo(() => {
-    let alerta = 0;
-    let taller = 0;
-    let operativo = 0;
-
-    for (const t of combinedList) {
-      // “estadoTaller” puede venir como string o boolean; además soportamos flags legacy.
-      const hasEstadoTaller = !!(
-        t.estadoTaller ||
-        t.derivadoATaller ||
-        t.estado === 'scheduled' ||
-        t.estado === 'in_progress' ||
-        t.origen === 'derivacion' ||
-        t.origenTurnoId
-      );
-
-      if (t.estadoGeneral === 'alert' && !hasEstadoTaller) alerta += 1;
-      if (hasEstadoTaller) taller += 1;
-      if (t.estadoGeneral === 'ok' && !hasEstadoTaller) operativo += 1;
-    }
-
-    return { countAlerta: alerta, countTaller: taller, countOperativo: operativo };
-  }, [combinedList]);
-
-  // Filtros por UI (hacerlos explícitos por pestañas)
-  const ingresosFiltrados = combinedList.filter((t: any) => {
-    const matchText = !filterText || (t.numeroPatente || '').toLowerCase().includes(filterText.toLowerCase());
-
-    if (!matchText) return false;
-
-    switch (activeTab) {
-      case 'alerta':
-        // Alertas que NO fueron derivadas aún
-        return t.estadoGeneral === 'alert' && !isDerived(t);
-      case 'entaller':
-        // Exclusivamente los ya derivados / en taller
-        return isDerived(t);
-      case 'operativo':
-        return t.estadoGeneral === 'ok' || t.estado === 'completed';
-      case 'todos':
-      default:
-        return true;
-    }
-  });
-
-  const totalPages = Math.max(1, Math.ceil(ingresosFiltrados.length / pageSize));
-  const ingresosPendientes = ingresosFiltrados.slice(page * pageSize, (page + 1) * pageSize);
-
-  const enTaller = combinedList.filter((t: any) => t.derivadoATaller || t.estado === 'scheduled' || t.estado === 'in_progress');
-
-  const handleDecision = async (id: string, decision: string) => {
-    // Accepts either modal values ('scheduled'/'rejected') or earlier ('taller'/'liberar')
-    const isTaller = decision === 'taller' || decision === 'scheduled';
-    const isLiberar = decision === 'liberar' || decision === 'rejected';
-
-    const metadata = isTaller
-      ? { estado: 'scheduled' as const, derivadoATaller: true, fechaDerivacion: new Date().toISOString() }
-      : { estado: 'completed' as const, fechaLiberacion: new Date().toISOString(), notas: 'Unidad liberada sin reparaciones' };
-
-    try {
-      await actualizarTurnoService(id, metadata);
-      const currentTurno = turnos.find(t => t.id === id);
-      if (currentTurno) {
-        dispatch(actualizarTurno({ ...currentTurno, ...metadata }));
-      }
-      setModalVisible(false);
-      // reset page to first to show newest
-      setPage(0);
-    } catch (e) {
-      console.error('Error en triage:', e);
-    }
+  const handleOpenDetail = (turno: any) => {
+    setSelectedTurno(turno);
+    setModalVisible(true);
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-surface">
-      <LinearGradient colors={['#0b0b0b', '#000']} className="flex-1 px-6">
-        <ScrollView showsVerticalScrollIndicator={false} className="pt-11">
-          
-          {/* HEADER PREMIUM */}
-          <View className="mb-10">
-            <Text className="text-gray-500 text-[10px] font-black uppercase tracking-[4px]">Logistics Management</Text>
-            <Text className="text-white text-3xl font-black italic">CENTRO DE CONTROL</Text>
-          </View>
-          {onLogout && (
-            <View style={{ position: 'absolute', right: 24, top: 24 }}>
-              <TouchableOpacity onPress={onLogout} className="rounded-xl p-3" style={{ backgroundColor: '#FF4C4C12', borderWidth: 1, borderColor: '#FF4C4C22' }}>
-                <MaterialIcons name="logout" size={20} color="#FF4C4C" />
-              </TouchableOpacity>
-            </View>
-          )}
+    <SafeAreaView className="flex-1 bg-[#050505]">
+      <LinearGradient colors={['#1a1a1a', '#000000']} className="flex-1 px-4 md:px-8">
+        <ScrollView showsVerticalScrollIndicator={false} className="pt-6">
 
-          {/* KPIs (alineados con filtros) */}
-          <View className="flex-row mb-6" style={{ gap: 10 }}>
-            <View className="flex-1 bg-card/40 rounded-3xl p-4 border border-red-600/70">
-              <Text className="text-red-500 text-3xl font-bold">{countAlerta}</Text>
-              <Text className="text-gray-400 text-[9px] font-black uppercase tracking-widest mt-1">EN ALERTA</Text>
+          {/* HEADER */}
+          <View className="flex-row justify-between items-start mb-6">
+            <View>
+              <Text className="text-gray-500 text-[10px] font-black uppercase tracking-[4px]">Fleet Command Center</Text>
+              <Text className="text-white text-3xl font-black italic">TORRE DE CONTROL</Text>
             </View>
-
-            <View className="flex-1 bg-card/40 rounded-3xl p-4 border border-yellow-500/70">
-              <Text className="text-yellow-500 text-3xl font-bold">{countTaller}</Text>
-              <Text className="text-gray-400 text-[9px] font-black uppercase tracking-widest mt-1">TALLER MIT</Text>
-            </View>
-
-            <View className="flex-1 bg-card/40 rounded-3xl p-4 border border-emerald-500/70">
-              <Text className="text-emerald-500 text-3xl font-bold">{countOperativo}</Text>
-              <Text className="text-gray-400 text-[9px] font-black uppercase tracking-widest mt-1">OPERATIVO</Text>
-            </View>
+            <TouchableOpacity onPress={onLogout} className="p-2 bg-white/5 rounded-xl border border-white/10 hover:bg-white/10">
+              <MaterialIcons name="logout" size={20} color="#FF4C4C" />
+            </TouchableOpacity>
           </View>
 
-          {/* LISTA DE INGRESOS (FICHA DE CHOFERES) */}
-          <Text className="text-gray-500 text-[10px] font-black uppercase tracking-[3px] mb-3 ml-2">Nuevos Ingresos al Galpón</Text>
-          <View className="mb-4">
-            <TextInput
-              value={filterText}
-              onChangeText={(t) => { setFilterText(t); setPage(0); }}
-              placeholder="Buscar por patente..."
-              placeholderTextColor="#9CA3AF"
-              className="bg-card/30 text-white px-4 py-3 rounded-2xl mb-3"
-            />
+          {/* WIDGET */}
+          <ComplianceWidget
+            vehicles={vehiclesData}
+            onPress={() => { setActiveTab('vencimientos'); setFilterText(''); }}
+          />
 
-            <View className="flex-row space-x-2">
-              <TouchableOpacity onPress={() => { setActiveTab('alerta'); setPage(0); }} className={`px-3 py-2 rounded-2xl ${activeTab === 'alerta' ? 'bg-danger/20' : 'bg-white/5'}`}>
-                <Text className="text-white text-[12px]">Alerta</Text>
+          {/* PESTAÑAS */}
+          {activeTab === 'vencimientos' ? (
+            <View className="flex-row items-center mb-6">
+              <TouchableOpacity onPress={() => setActiveTab('alerta')} className="bg-white/10 px-4 py-3 rounded-2xl flex-row items-center border border-white/10">
+                <MaterialIcons name="arrow-back" size={18} color="white" />
+                <Text className="text-white ml-2 font-bold text-xs uppercase">Volver a Operaciones</Text>
               </TouchableOpacity>
-              <TouchableOpacity onPress={() => { setActiveTab('entaller'); setPage(0); }} className={`px-3 py-2 rounded-2xl ${activeTab === 'entaller' ? 'bg-primary/20' : 'bg-white/5'}`}>
-                <Text className="text-white text-[12px]">En Taller</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => { setActiveTab('operativo'); setPage(0); }} className={`px-3 py-2 rounded-2xl ${activeTab === 'operativo' ? 'bg-success/20' : 'bg-white/5'}`}>
-                <Text className="text-white text-[12px]">Operativo</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => { setActiveTab('todos'); setPage(0); }} className={`px-3 py-2 rounded-2xl ${activeTab === 'todos' ? 'bg-primary/20' : 'bg-white/5'}`}>
-                <Text className="text-white text-[12px]">Todos</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {ingresosPendientes.length === 0 ? (
-            <View className="items-center py-20 opacity-20">
-              <MaterialIcons name="fact-check" size={60} color="white" />
-              <Text className="text-white mt-4 font-bold tracking-widest">SIN RESULTADOS</Text>
+              <View className="ml-4">
+                <Text className="text-red-500 font-black uppercase tracking-widest text-xs">MODO VENCIMIENTOS</Text>
+                <Text className="text-gray-500 text-[10px]">Vehículos con documentación crítica</Text>
+              </View>
             </View>
           ) : (
-            ingresosPendientes.map((turno: any) => {
-              const isEnTaller = !!(turno.estadoTaller || turno.derivadoATaller || turno.estado === 'scheduled' || turno.estado === 'in_progress' || turno.origen === 'derivacion' || turno.origenTurnoId);
-              const isAlert = turno.estadoGeneral === 'alert' && !isEnTaller;
-              const isOperativo = turno.estadoGeneral === 'ok' && !isEnTaller;
-              const isCompleted = turno.estado === 'completed' || turno.estadoGeneral === 'ok';
-
-              const borderClass = isAlert
-                ? 'border-red-600'
-                : isEnTaller
-                  ? 'border-yellow-500'
-                  : isOperativo || isCompleted
-                    ? 'border-emerald-500'
-                    : 'border-white/5';
-
-              return (
-                <BlurView key={turno.id} intensity={6} className={`mb-4 rounded-3xl border-2 ${borderClass} overflow-hidden`}>
-                  <TouchableOpacity activeOpacity={0.9} onPress={() => { setSelectedTurno(turno); setModalVisible(true); }} className="p-4 bg-card/60">
-                    <View className="flex-row justify-between items-start mb-3">
-                      <View>
-                        <Text className="text-white font-bold text-base leading-tight">{turno.chofer || 'Chofer no identificado'}</Text>
-                        <Text className="text-primary font-mono text-xs mt-1 tracking-tighter">{turno.numeroPatente === 'S/D' ? '⚠️ SIN PATENTE' : turno.numeroPatente}</Text>
-                      </View>
-
-                      <View className="items-end space-y-1">
-                        {isEnTaller && <View className="px-2 py-1 rounded-md bg-yellow-500"><Text className="text-black text-[10px] font-bold">EN TALLER</Text></View>}
-                        {isAlert && !isEnTaller && <View className="px-2 py-1 rounded-md bg-danger"><Text className="text-white text-[10px] font-bold">ALERTA</Text></View>}
-                        {(!isAlert && !isEnTaller && (isOperativo || isCompleted)) && <View className="px-2 py-1 rounded-md bg-emerald-600"><Text className="text-white text-[10px] font-bold">OPERATIVO</Text></View>}
-                        {(!isAlert && !isEnTaller && !isCompleted) && <View className="px-2 py-1 rounded-md bg-gray-700"><Text className="text-white text-[10px] font-bold">PENDIENTE</Text></View>}
-                      </View>
-                    </View>
-
-                    <Text className="text-gray-400 text-xs mb-4" numberOfLines={2}>{turno.comentariosChofer || turno.descripcion || 'Sin descripción'}</Text>
-
-                    <View className="flex-row justify-between items-center border-t border-white/5 pt-3">
-                      <View className="flex-row items-center">
-                        <MaterialIcons name="history" size={12} color="#444" />
-                        <Text className="text-[9px] text-gray-600 font-mono ml-1">{new Date(turno.fechaCreacion).toLocaleDateString()}</Text>
-                      </View>
-                      <Text className="text-[9px] text-gray-600 font-mono italic">ID: {turno.id?.slice(-5)}</Text>
-                    </View>
-
-                    <View className="flex-row space-x-2 mt-3">
-                      <TouchableOpacity onPress={() => { setSelectedTurno(turno); setModalVisible(true); }} className="flex-1 bg-white/5 py-2 rounded-lg items-center">
-                        <Text className="text-white text-[12px]">Ver Detalle</Text>
-                      </TouchableOpacity>
-                    </View>
-                  </TouchableOpacity>
-                </BlurView>
-              );
-            })
-          )}
-
-          {/* PAGINACIÓN */}
-          {ingresosFiltrados.length > pageSize && (
-            <View className="flex-row justify-center items-center space-x-4 my-6">
-              <TouchableOpacity
-                onPress={() => setPage(p => Math.max(0, p - 1))}
-                className={`px-4 py-2 rounded-2xl ${page === 0 ? 'bg-white/5' : 'bg-primary/20'}`}
-              >
-                <Text className="text-white">Anterior</Text>
+            <View className="flex-row flex-wrap gap-3 mb-6">
+              <TouchableOpacity onPress={() => setActiveTab('alerta')} className={`flex-1 min-w-[45%] p-4 rounded-2xl border ${activeTab === 'alerta' ? 'bg-red-900/20 border-red-500' : 'bg-zinc-900/50 border-white/5'}`}>
+                <Text className={`text-3xl font-black ${activeTab === 'alerta' ? 'text-red-500' : 'text-gray-400'}`}>{kpis.alerta}</Text>
+                <Text className="text-gray-500 text-[9px] font-bold uppercase mt-1">ALERTAS</Text>
               </TouchableOpacity>
-
-              <Text className="text-white">{`${page + 1} / ${totalPages}`}</Text>
-
-              <TouchableOpacity
-                onPress={() => setPage(p => Math.min(totalPages - 1, p + 1))}
-                className={`px-4 py-2 rounded-2xl ${page >= totalPages - 1 ? 'bg-white/5' : 'bg-primary/20'}`}
-              >
-                <Text className="text-white">Siguiente</Text>
+              <TouchableOpacity onPress={() => setActiveTab('viaje')} className={`flex-1 min-w-[45%] p-4 rounded-2xl border ${activeTab === 'viaje' ? 'bg-blue-900/20 border-blue-500' : 'bg-zinc-900/50 border-white/5'}`}>
+                <Text className={`text-3xl font-black ${activeTab === 'viaje' ? 'text-blue-500' : 'text-gray-400'}`}>{kpis.viaje}</Text>
+                <Text className="text-gray-500 text-[9px] font-bold uppercase mt-1">EN RUTA</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setActiveTab('taller')} className={`flex-1 min-w-[45%] p-4 rounded-2xl border ${activeTab === 'taller' ? 'bg-yellow-900/20 border-yellow-500' : 'bg-zinc-900/50 border-white/5'}`}>
+                <Text className={`text-3xl font-black ${activeTab === 'taller' ? 'text-yellow-500' : 'text-gray-400'}`}>{kpis.taller}</Text>
+                <Text className="text-gray-500 text-[9px] font-bold uppercase mt-1">TALLER</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setActiveTab('todos')} className={`flex-1 min-w-[45%] p-4 rounded-2xl border ${activeTab === 'todos' ? 'bg-emerald-900/20 border-emerald-500' : 'bg-zinc-900/50 border-white/5'}`}>
+                <Text className={`text-3xl font-black ${activeTab === 'todos' ? 'text-emerald-500' : 'text-gray-400'}`}>{turnos.length}</Text>
+                <Text className="text-gray-500 text-[9px] font-bold uppercase mt-1">TOTAL</Text>
               </TouchableOpacity>
             </View>
           )}
+
+          {/* BARRA DE BÚSQUEDA */}
+          <View className="flex-row items-center bg-zinc-900/80 border border-white/10 rounded-2xl px-4 py-3 mb-6">
+            <MaterialIcons name="search" size={20} color="#666" />
+            <TextInput
+              value={filterText}
+              onChangeText={setFilterText}
+              placeholder="Buscar por Patente o Chofer..."
+              placeholderTextColor="#666"
+              className="flex-1 ml-3 text-white font-medium"
+            />
+            {filterText.length > 0 && (
+              <TouchableOpacity onPress={() => setFilterText('')}>
+                <MaterialIcons name="close" size={18} color="#666" />
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {/* LISTA */}
+          {loading ? (
+            <ActivityIndicator size="large" color="#60A5FA" className="mt-10" />
+          ) : (
+            <View className="pb-20">
+              {listToRender.length === 0 ? (
+                <View className="items-center py-20 opacity-30">
+                  <MaterialCommunityIcons name="clipboard-text-off-outline" size={64} color="white" />
+                  <Text className="text-gray-500 mt-4 font-bold uppercase">Sin registros en esta vista</Text>
+                </View>
+              ) : (
+                listToRender.map((item, index) => {
+                  // MODO VENCIMIENTOS
+                  if (isVehicleMode) {
+                    const vtv = getExpirationStatus(item.vtvVencimiento);
+                    return (
+                      <Animated.View key={item.id} entering={FadeInUp.delay(index * 50).springify()}>
+                        <TouchableOpacity
+                          onPress={() => router.push({ pathname: '/historial-unidad', params: { patente: item.numeroPatente } })}
+                          className="bg-[#111] mb-4 rounded-2xl border border-red-500/30 overflow-hidden flex-row"
+                        >
+                          <View className="w-1.5 bg-red-500" />
+                          <View className="p-4 flex-1">
+                            <View className="flex-row justify-between items-center mb-2">
+                              <Text className="text-white font-black text-xl">{item.numeroPatente}</Text>
+                              <MaterialIcons name="error" size={20} color="#EF4444" />
+                            </View>
+                            <Text className="text-red-400 text-xs font-bold uppercase">Documentación Crítica</Text>
+                            <Text className="text-zinc-500 text-[10px] mt-2">Toca para ver hoja de vida.</Text>
+                          </View>
+                        </TouchableOpacity>
+                      </Animated.View>
+                    );
+                  }
+
+                  // MODO OPERATIVO (CORREGIDO)
+                  else {
+                    const t = item;
+                    // Detectar Estado
+                    const isAlert = t.estadoGeneral === 'alert' || t.estado === 'pending_triage';
+                    const isViaje = t.estado === 'en_viaje';
+
+                    // AQUI ESTÁ EL FIX: Incluimos taller_pendiente
+                    const isTaller = t.estado === 'scheduled' || t.estado === 'in_progress' || t.estado === 'taller_pendiente';
+
+                    // Variables Visuales por defecto (Finalizado)
+                    let borderColor = 'border-white/5';
+                    let statusText = 'FINALIZADO';
+                    let statusColor = 'text-gray-500';
+                    let iconName = 'check-circle';
+
+                    if (isTaller) {
+                      borderColor = 'border-yellow-500/50';
+                      statusColor = 'text-yellow-500';
+                      iconName = 'build';
+
+                      if (t.estado === 'taller_pendiente') {
+                        statusText = 'EN COLA DE TALLER'; // ESTADO NUEVO
+                        statusColor = 'text-orange-400'; // Naranja para diferenciar
+                        borderColor = 'border-orange-500/50';
+                      } else {
+                        statusText = 'MANTENIMIENTO';
+                      }
+                    } else if (isAlert) {
+                      borderColor = 'border-red-500/50';
+                      statusText = 'REVISIÓN REQUERIDA';
+                      statusColor = 'text-red-500';
+                      iconName = 'error';
+                    } else if (isViaje) {
+                      borderColor = 'border-blue-500/50';
+                      statusText = 'EN TRÁNSITO';
+                      statusColor = 'text-blue-500';
+                      iconName = 'local-shipping';
+                    }
+
+                    return (
+                      <Animated.View key={t.id || index} entering={FadeInUp.delay(index * 50).springify()}>
+                        <TouchableOpacity
+                          activeOpacity={0.95}
+                          onPress={() => handleOpenDetail(t)}
+                          className={`bg-[#111] mb-4 rounded-2xl border ${borderColor} overflow-hidden`}
+                        >
+                          <View className="p-4 flex-row justify-between items-start bg-white/5">
+                            <View>
+                              <Text className="text-white font-black text-lg">{t.numeroPatente}</Text>
+                              <Text className="text-zinc-400 text-xs font-bold uppercase">{t.chofer || 'SIN CHOFER'}</Text>
+                            </View>
+                            <View className="items-end">
+                              <View className="flex-row items-center gap-1">
+                                <Text className={`text-[10px] font-black uppercase ${statusColor}`}>{statusText}</Text>
+                                <MaterialIcons name={iconName as any} size={14} color={statusColor.includes('red') ? '#EF4444' : statusColor.includes('blue') ? '#3B82F6' : statusColor.includes('yellow') || statusColor.includes('orange') ? '#EAB308' : '#666'} />
+                              </View>
+                              <Text className="text-zinc-600 text-[10px] mt-1 font-mono">
+                                {formatTime(t.fechaCreacion)} hs
+                              </Text>
+                            </View>
+                          </View>
+
+                          <View className="p-4 flex-row justify-between items-center">
+                            <View>
+                              <Text className="text-zinc-500 text-[10px] font-bold uppercase mb-1">Último Evento</Text>
+                              <Text className="text-zinc-300 text-xs font-medium">
+                                {t.tipo === 'salida' ? '📤 Salida Registrada' : t.tipo === 'ingreso' ? '📥 Ingreso a Galpón' : '📝 Reporte'}
+                              </Text>
+                            </View>
+                            <View className="bg-white/10 px-3 py-2 rounded-lg">
+                              <Text className="text-white text-[10px] font-bold">VER FICHA</Text>
+                            </View>
+                          </View>
+                        </TouchableOpacity>
+                      </Animated.View>
+                    );
+                  }
+                })
+              )}
+            </View>
+          )}
+
         </ScrollView>
       </LinearGradient>
 
-      {/* MODAL DETALLE PARA REVISAR ANTES DE DECIDIR */}
-      <TurnoDetailModal 
+      <TurnoDetailModal
         visible={modalVisible}
         turno={selectedTurno}
         onClose={() => setModalVisible(false)}
-        onAction={handleDecision}
+        adminContext={true}
       />
+
     </SafeAreaView>
   );
 };
