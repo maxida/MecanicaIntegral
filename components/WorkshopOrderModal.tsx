@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Modal, TextInput, Image, ActivityIndicator, Platform } from 'react-native';
 import { BlurView } from 'expo-blur';
 import {
-	X, Wrench, UserCog, Clock, ClipboardList, CheckCircle2,
-	Receipt, FileText, ChevronDown, Ambulance, Hash, Save
+	X, Wrench, UserCog, Clock, CheckCircle2,
+	Receipt, FileText, ChevronDown, Ambulance, Hash, Save, AlertTriangle
 } from 'lucide-react-native';
+import { useRouter } from 'expo-router';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import { collection, getDocs, doc, updateDoc } from 'firebase/firestore';
 import { db } from '@/firebase/firebaseConfig';
@@ -16,6 +17,7 @@ interface WorkshopOrderModalProps {
 }
 
 const WorkshopOrderModal = ({ visible, turno, onClose }: WorkshopOrderModalProps) => {
+	const router = useRouter();
 	if (!turno) return null;
 
 	const [loading, setLoading] = useState(false);
@@ -24,7 +26,7 @@ const WorkshopOrderModal = ({ visible, turno, onClose }: WorkshopOrderModalProps
 	const [mecanicoNombre, setMecanicoNombre] = useState(turno.mecanicoNombre || '');
 	const [horasEstimadas, setHorasEstimadas] = useState(turno.horasEstimadas || '');
 	const [instrucciones, setInstrucciones] = useState(turno.instruccionesAdmin || '');
-	const [numeroOT, setNumeroOT] = useState(turno.numeroOT || ''); // Novedad: N° de Orden
+	const [numeroOT, setNumeroOT] = useState(turno.numeroOT || '');
 	const [showMecanicoPicker, setShowMecanicoPicker] = useState(false);
 
 	// Estados para Documentos (PDF)
@@ -32,18 +34,24 @@ const WorkshopOrderModal = ({ visible, turno, onClose }: WorkshopOrderModalProps
 	const [docType, setDocType] = useState<'asistencia' | 'reparacion' | 'presupuesto' | null>(null);
 	const [DocGen, setDocGen] = useState<any>(null);
 
-	// 1. Cargar lista de mecánicos (Colección 'mecanico')
+	const isEditable = turno.estado === 'taller_pendiente' || turno.estado === 'scheduled';
+	const isFinished = turno.estado === 'completed';
+	const isInProgress = turno.estado === 'in_progress';
+
+	// 1. Cargar lista de mecánicos
 	useEffect(() => {
 		if (visible) {
 			const fetchMecanicos = async () => {
-				const snap = await getDocs(collection(db, 'mecanico'));
-				setMecanicos(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+				try {
+					const snap = await getDocs(collection(db, 'usuarios'));
+					setMecanicos(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+				} catch (error) { console.error("Error cargando mecánicos", error); }
 			};
 			fetchMecanicos();
 		}
 	}, [visible]);
 
-	// 2. Cargar Generador de PDF dinámicamente
+	// 2. Cargar Generador de PDF
 	const openDoc = async (type: 'asistencia' | 'reparacion' | 'presupuesto') => {
 		setDocType(type);
 		setDocModalVisible(true);
@@ -64,7 +72,8 @@ const WorkshopOrderModal = ({ visible, turno, onClose }: WorkshopOrderModalProps
 				mecanicoNombre,
 				horasEstimadas,
 				instruccionesAdmin: instrucciones,
-				numeroOT: numeroOT, // Guardamos el número de orden
+				numeroOT: numeroOT,
+				// Si estaba pendiente y ahora tiene mecánico, pasa a scheduled
 				estado: (turno.estado === 'taller_pendiente' && mecanicoId) ? 'scheduled' : turno.estado
 			});
 			onClose();
@@ -78,9 +87,13 @@ const WorkshopOrderModal = ({ visible, turno, onClose }: WorkshopOrderModalProps
 	return (
 		<Modal visible={visible} transparent animationType="slide">
 			<View className="flex-1 bg-black/90 justify-end md:justify-center items-center">
-				<Animated.View entering={FadeInUp} className="w-full h-[95%] md:w-[850px] bg-[#0c0c0e] rounded-t-[40px] md:rounded-[32px] border-t border-white/10 overflow-hidden">
+				{Platform.OS === 'ios' && <BlurView intensity={20} tint="dark" className="absolute fill-none" />}
 
-					{/* HEADER PREMIUM */}
+				<Animated.View
+					entering={FadeInUp}
+					className="w-full h-[95%] md:w-[850px] bg-[#0c0c0e] rounded-t-[40px] md:rounded-[32px] border-t border-white/10 overflow-hidden"
+				>
+					{/* HEADER */}
 					<View className="px-6 py-6 border-b border-white/5 flex-row justify-between items-center bg-zinc-900/50">
 						<View>
 							<View className="flex-row items-center bg-orange-500/10 self-start px-2 py-0.5 rounded mb-1">
@@ -96,27 +109,40 @@ const WorkshopOrderModal = ({ visible, turno, onClose }: WorkshopOrderModalProps
 
 					<ScrollView className="flex-1 px-6 pt-6" showsVerticalScrollIndicator={false}>
 
-						{/* SECCIÓN 0: NÚMERO DE ORDEN (NUEVO) */}
+						{/* SECCIÓN 0: NÚMERO DE ORDEN */}
 						<View className="mb-8">
-							<Text className="text-zinc-500 text-[10px] font-black uppercase tracking-[3px] mb-3">Identificación de Orden</Text>
+							<Text className="text-zinc-500 text-[10px] font-black uppercase tracking-[3px] mb-3">Identificación</Text>
 							<View className="bg-zinc-900 rounded-2xl border border-white/10 flex-row items-center px-4">
 								<FileText size={18} color="#F97316" />
 								<TextInput
 									value={numeroOT}
 									onChangeText={setNumeroOT}
-									placeholder="Ingrese N° de Orden (Ej: OT-2024-001)"
+									placeholder="N° de Orden (Ej: OT-001)"
 									placeholderTextColor="#444"
 									className="flex-1 p-4 text-white font-black text-lg"
 								/>
 							</View>
 						</View>
 
-						{/* SECCIÓN 1: REPORTE DE ENTRADA */}
+						{/* SECCIÓN 1: REPORTE INICIAL */}
 						<View className="flex-row gap-4 mb-8">
 							<View className="flex-1 bg-zinc-900/40 p-4 rounded-2xl border border-white/5">
 								<Text className="text-zinc-500 text-[10px] font-bold uppercase mb-2">Falla Reportada</Text>
 								<Text className="text-zinc-300 text-sm italic">"{turno.reporteSupervisor || turno.comentariosChofer || 'Sin comentarios'}"</Text>
+
+								{/* Síntomas Tags */}
+								{(turno.sintomasReportados || turno.sintomas)?.length > 0 && (
+									<View className="flex-row flex-wrap gap-2 mt-3">
+										{(turno.sintomasReportados || turno.sintomas).map((s: string, i: number) => (
+											<View key={i} className="bg-red-500/10 px-2 py-1 rounded border border-red-500/20">
+												<Text className="text-red-400 text-[9px] font-bold uppercase">{s}</Text>
+											</View>
+										))}
+									</View>
+								)}
 							</View>
+
+							{/* Foto Evidencia */}
 							<View className="w-32 h-32 bg-zinc-900 rounded-2xl overflow-hidden border border-white/10">
 								{(turno.fotoTableroIngreso || turno.fotoTablero) ? (
 									<Image source={{ uri: turno.fotoTableroIngreso || turno.fotoTablero }} className="w-full h-full" resizeMode="cover" />
@@ -126,9 +152,11 @@ const WorkshopOrderModal = ({ visible, turno, onClose }: WorkshopOrderModalProps
 							</View>
 						</View>
 
-						{/* SECCIÓN 2: ASIGNACIÓN Y GESTIÓN */}
+						{/* SECCIÓN 2: PLANIFICACIÓN */}
 						<Text className="text-zinc-500 text-[10px] font-black uppercase tracking-[3px] mb-4">Planificación Técnica</Text>
+
 						<View className="space-y-4 mb-8">
+							{/* Selector Mecánico */}
 							<TouchableOpacity
 								onPress={() => setShowMecanicoPicker(!showMecanicoPicker)}
 								className="bg-zinc-900 p-4 rounded-xl border border-white/10 flex-row justify-between items-center"
@@ -143,7 +171,7 @@ const WorkshopOrderModal = ({ visible, turno, onClose }: WorkshopOrderModalProps
 							</TouchableOpacity>
 
 							{showMecanicoPicker && (
-								<View className="bg-zinc-800 rounded-xl border border-white/10 mt-1">
+								<View className="bg-zinc-800 rounded-xl border border-white/10 mt-1 mb-2">
 									{mecanicos.map(m => (
 										<TouchableOpacity key={m.id} className="p-4 border-b border-white/5" onPress={() => { setMecanicoId(m.id); setMecanicoNombre(m.name || m.nombre); setShowMecanicoPicker(false); }}>
 											<Text className="text-white font-medium">{m.name || m.nombre}</Text>
@@ -152,6 +180,7 @@ const WorkshopOrderModal = ({ visible, turno, onClose }: WorkshopOrderModalProps
 								</View>
 							)}
 
+							{/* Horas Estimadas */}
 							<View className="bg-zinc-900 rounded-xl border border-white/10 flex-row items-center px-4">
 								<Clock size={18} color="#666" />
 								<TextInput
@@ -164,6 +193,7 @@ const WorkshopOrderModal = ({ visible, turno, onClose }: WorkshopOrderModalProps
 								/>
 							</View>
 
+							{/* Instrucciones */}
 							<TextInput
 								multiline numberOfLines={4}
 								value={instrucciones}
@@ -175,9 +205,9 @@ const WorkshopOrderModal = ({ visible, turno, onClose }: WorkshopOrderModalProps
 							/>
 						</View>
 
-						{/* SECCIÓN 3: DOCUMENTACIÓN TÉCNICA (RESTORED) */}
+						{/* SECCIÓN 3: DOCUMENTACIÓN TÉCNICA (PDFs) */}
 						<Text className="text-zinc-500 text-[10px] font-black uppercase tracking-[3px] mb-4">Documentación y Certificados</Text>
-						<View className="flex-row gap-3 mb-8">
+						<View className="flex-row gap-3 mb-10">
 							<TouchableOpacity onPress={() => openDoc('asistencia')} className="flex-1 bg-orange-500/10 p-4 rounded-2xl border border-orange-500/20 items-center">
 								<Ambulance size={24} color="#F97316" />
 								<Text className="text-orange-200 text-[10px] font-bold mt-2 uppercase">Asistencia</Text>
@@ -186,34 +216,86 @@ const WorkshopOrderModal = ({ visible, turno, onClose }: WorkshopOrderModalProps
 								<FileText size={24} color="#3B82F6" />
 								<Text className="text-blue-200 text-[10px] font-bold mt-2 uppercase">Informe</Text>
 							</TouchableOpacity>
-							<TouchableOpacity onPress={() => router.push({ pathname: '/presupuesto', params: { turnoId: turno.id } })} className="flex-1 bg-emerald-500/10 p-4 rounded-2xl border border-emerald-500/20 items-center">
-								<Receipt size={24} color="#10B981" />
-								<Text className="text-emerald-200 text-[10px] font-bold mt-2 uppercase">Cotizar</Text>
-							</TouchableOpacity>
+							{/* Nota: Para el presupuesto usamos navegación porque es una pantalla compleja */}
+							{/* Botón Cotizar / Ver Presupuesto */}
+							{turno.presupuestoUrl ? (
+								// SI YA EXISTE UN PDF: Botón para VERLO
+								<TouchableOpacity
+									onPress={() => {
+										onClose();
+										// Aquí idealmente abrirías un visor web o navegarías a una pantalla que use WebView
+										// Por ahora, para probar rápido, podrías usar Linking.openURL(turno.presupuestoUrl)
+										// Pero lo mejor es una pantalla dedicada.
+										router.push({ pathname: '/ver-pdf', params: { url: turno.presupuestoUrl, title: 'Presupuesto' } });
+									}}
+									className="flex-1 bg-emerald-500/20 p-4 rounded-2xl border border-emerald-500/30 items-center"
+								>
+									<CheckCircle2 size={24} color="#10B981" />
+									<Text className="text-emerald-300 text-[10px] font-bold mt-2 uppercase text-center">Ver Presupuesto</Text>
+								</TouchableOpacity>
+							) : (
+								// SI NO EXISTE: Botón para CREARLO (navega a la pantalla de cotizador)
+								<TouchableOpacity
+									onPress={() => {
+										onClose();
+										router.push({ pathname: '/presupuesto', params: { turnoId: turno.id } });
+									}}
+									className="flex-1 bg-zinc-800 p-4 rounded-2xl border border-zinc-700 items-center hover:bg-zinc-700"
+								>
+									<Receipt size={24} color="#ccc" />
+									<Text className="text-zinc-400 text-[10px] font-bold mt-2 uppercase">Cotizar</Text>
+								</TouchableOpacity>
+							)}
 						</View>
 
 					</ScrollView>
 
-					{/* FOOTER */}
+					{/* FOOTER ACCIONES */}
 					<View className="p-6 border-t border-white/5 bg-[#0c0c0e] flex-row gap-3">
-						<TouchableOpacity onPress={onClose} className="flex-1 py-4 rounded-2xl bg-zinc-800 items-center">
+						<TouchableOpacity
+							onPress={onClose}
+							className="flex-1 py-4 rounded-2xl bg-zinc-800 items-center"
+						>
 							<Text className="text-zinc-400 font-black uppercase text-xs">Cerrar</Text>
 						</TouchableOpacity>
-						<TouchableOpacity onPress={handleUpdateOrder} disabled={loading} className="flex-[2] py-4 rounded-2xl bg-blue-600 items-center flex-row justify-center">
-							{loading ? <ActivityIndicator color="white" /> : (
-								<>
-									<Save size={16} color="white" className="mr-2" />
-									<Text className="text-white font-black uppercase text-xs ml-2">Guardar Orden</Text>
-								</>
-							)}
-						</TouchableOpacity>
+
+						{/* LÓGICA DEL BOTÓN DE ACCIÓN */}
+						{isFinished ? (
+							<View className="flex-[2] py-4 rounded-2xl bg-emerald-900/50 border border-emerald-500/30 items-center flex-row justify-center">
+								<CheckCircle2 size={16} color="#10B981" style={{ marginRight: 8 }} />
+								<Text className="text-emerald-500 font-black uppercase text-xs">Trabajo Finalizado</Text>
+							</View>
+						) : isInProgress ? (
+							<View className="flex-[2] py-4 rounded-2xl bg-yellow-900/50 border border-yellow-500/30 items-center flex-row justify-center">
+								<Clock size={16} color="#EAB308" style={{ marginRight: 8 }} />
+								<Text className="text-yellow-500 font-black uppercase text-xs">En Progreso...</Text>
+							</View>
+						) : (
+							<TouchableOpacity
+								onPress={handleUpdateOrder}
+								disabled={loading}
+								className="flex-[2] py-4 rounded-2xl bg-blue-600 items-center flex-row justify-center shadow-lg shadow-blue-900/40"
+							>
+								{loading ? <ActivityIndicator color="white" /> : (
+									<>
+										<Save size={16} color="white" style={{ marginRight: 8 }} />
+										<Text className="text-white font-black uppercase text-xs">Asignar y Guardar</Text>
+									</>
+								)}
+							</TouchableOpacity>
+						)}
 					</View>
 				</Animated.View>
 			</View>
 
-			{/* RENDERIZADO DEL GENERADOR DE PDF */}
+			{/* COMPONENTE GENERADOR DE PDF */}
 			{docType && DocGen && (
-				<DocGen visible={docModalVisible} onClose={() => { setDocModalVisible(false); setDocType(null); }} docType={docType} turno={turno} />
+				<DocGen
+					visible={docModalVisible}
+					onClose={() => { setDocModalVisible(false); setDocType(null); }}
+					docType={docType}
+					turno={turno}
+				/>
 			)}
 		</Modal>
 	);

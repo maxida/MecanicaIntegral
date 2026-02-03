@@ -33,11 +33,22 @@ const SolicitudScreen = () => {
   const [tipoServicio, setTipoServicio] = useState<ServiceType>('correctivo');
   const [prioridad, setPrioridad] = useState<1 | 2 | 3>(2); // 1: Alta (Parada), 2: Media, 3: Baja (Programable)
   const [operativo, setOperativo] = useState(true); // ¿El camión anda o necesita grúa?
-  const [descripcion, setDescripcion] = useState('');
 
   // Modal Feedback
   const [modalState, setModalState] = useState<{ visible: boolean; type: ActionModalType; title: string; desc: string; action?: () => void }>({
     visible: false, type: 'success', title: '', desc: ''
+  });
+
+  const [descripcion, setDescripcion] = useState(() => {
+    if (!prefill) return '';
+    const partes = [];
+    if (prefill.sintomas && prefill.sintomas.length > 0) {
+      partes.push(`Síntomas reportados: ${prefill.sintomas.join(', ')}.`);
+    }
+    if (prefill.comentariosChofer) {
+      partes.push(`Chofer dice: "${prefill.comentariosChofer}"`);
+    }
+    return partes.join('\n\n');
   });
 
   // --- LÓGICA DE ENVÍO AL TALLER ---
@@ -159,7 +170,7 @@ const SolicitudScreen = () => {
           </View>
 
           {/* SINTOMAS REPORTADOS (Lo que dijo el chofer) */}
-          {prefill?.sintomas && prefill.sintomas.length > 0 && (
+          {/* {prefill?.sintomas && prefill.sintomas.length > 0 && (
             <View className="mb-6">
               <Text className="text-red-400 text-[10px] font-black uppercase tracking-widest mb-2">Reporte del Chofer</Text>
               <View className="flex-row flex-wrap gap-2">
@@ -171,7 +182,7 @@ const SolicitudScreen = () => {
                 ))}
               </View>
             </View>
-          )}
+          )} */}
 
           {/* --- FORMULARIO DE DECISIÓN --- */}
 
@@ -223,18 +234,23 @@ const SolicitudScreen = () => {
             ))}
           </View>
 
-          {/* 4. Descripción / Observaciones */}
-          <Text className="text-white font-bold mb-3">Observaciones para Taller</Text>
-          <TextInput
-            multiline
-            numberOfLines={6}
-            textAlignVertical="top"
-            value={descripcion}
-            onChangeText={setDescripcion}
-            placeholder="Ej: Revisar frenos traseros, ruido en motor a 80km/h..."
-            placeholderTextColor="#555"
-            className="bg-zinc-900 p-4 rounded-xl border border-zinc-700 text-white min-h-[120px] mb-8 text-sm"
-          />
+          {/* 4. Descripción / Observaciones (EDITABLE) */}
+          <View>
+            <View className="flex-row justify-between mb-2">
+              <Text className="text-white font-bold">Reporte Técnico para Taller</Text>
+              <Text className="text-xs text-gray-500">Editable</Text>
+            </View>
+            <TextInput
+              multiline
+              numberOfLines={8} // Un poco más alto para que sea cómodo editar
+              textAlignVertical="top"
+              value={descripcion}
+              onChangeText={setDescripcion} // Permitimos editar libremente
+              placeholder="Describe el problema o ajusta el reporte del chofer..."
+              placeholderTextColor="#555"
+              className="bg-zinc-900 p-4 rounded-xl border border-zinc-700 text-white min-h-[150px] mb-8 text-sm leading-5"
+            />
+          </View>
 
           {/* BOTÓN ENVIAR */}
           <TouchableOpacity
