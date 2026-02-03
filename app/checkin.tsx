@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ScrollView, SafeAreaView, Image, ActivityIndicator } from 'react-native';
-import { MaterialIcons, FontAwesome5, Ionicons } from '@expo/vector-icons';
+import { MaterialIcons, FontAwesome5, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSelector } from 'react-redux';
@@ -8,12 +8,12 @@ import { RootState } from '@/redux/store';
 import * as ImagePicker from 'expo-image-picker';
 import LoadingOverlay from '@/components/LoadingOverlay';
 import NumberInput from '@/components/NumberInput';
-import ActionModal, { ActionModalType } from '@/components/ActionModal'; // <--- IMPORTAR
+import ActionModal, { ActionModalType } from '@/components/ActionModal';
 import { collection, query, where, getDocs, updateDoc, doc, serverTimestamp, orderBy, limit, addDoc } from 'firebase/firestore';
-import { db } from '@/firebase/firebaseConfig';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { db, storage } from '@/firebase/firebaseConfig';
 
 const VEHICLE_CHECKLIST_ITEMS = [
-  // ... (Mismo array de items, no lo cambio)
   {
     category: 'Motor y Fluidos',
     items: [
@@ -56,17 +56,26 @@ const VEHICLE_CHECKLIST_ITEMS = [
   },
 ];
 
+const ITEMS_CISTERNA = [
+  { id: 'valvulas', label: 'Válvulas Cerradas', icon: 'valve', library: MaterialCommunityIcons },
+  { id: 'tapas_domo', label: 'Tapas Domo', icon: 'lid_cover', library: MaterialCommunityIcons }, // Icono simulado
+  { id: 'precintos', label: 'Precintos Seguridad', icon: 'lock', library: FontAwesome5 },
+  { id: 'mangueras', label: 'Mangueras/Acoples', icon: 'pipe', library: MaterialCommunityIcons },
+  { id: 'limpieza', label: 'Limpieza Exterior', icon: 'sparkles', library: MaterialCommunityIcons },
+  { id: 'descarga', label: 'Bocas Descarga', icon: 'arrow-down-bold-circle-outline', library: MaterialCommunityIcons },
+];
+
 const NovedadesChoferForm = () => {
   const router = useRouter();
   const user = useSelector((state: RootState) => state.login.user);
   const params = useLocalSearchParams();
   const { numeroPatente, choferName } = params;
 
-  // ESTADOS
   const [km, setKm] = useState<string | number>('');
   const [fuel, setFuel] = useState(50);
   const [selectedIssues, setSelectedIssues] = useState<string[]>([]);
-  const [photo, setPhoto] = useState<string | null>(null);
+  const [photo, setPhoto] = useState<string | null>(null); // Visualización local
+  const [photoUri, setPhotoUri] = useState<string | null>(null); // URI real para subir
   const [notas, setNotas] = useState('');
   const [saving, setSaving] = useState(false);
   const [loadingTrip, setLoadingTrip] = useState(true);
@@ -74,38 +83,22 @@ const NovedadesChoferForm = () => {
   const [activeTripId, setActiveTripId] = useState<string | null>(null);
   const [startKm, setStartKm] = useState<number | null>(null);
 
-  // MODAL STATE
-  const [modal, setModal] = useState<{
-    visible: boolean;
-    type: ActionModalType;
-    title: string;
-    desc: string;
-    action: () => void;
-  }>({
-    visible: false,
-    type: 'success',
-    title: '',
-    desc: '',
-    action: () => { },
+  const [checksCisterna, setChecksCisterna] = useState<Record<string, boolean>>({});
+
+  const [modal, setModal] = useState<{ visible: boolean; type: ActionModalType; title: string; desc: string; action: () => void }>({
+    visible: false, type: 'success', title: '', desc: '', action: () => { },
   });
 
   const showModal = (type: ActionModalType, title: string, desc: string, action: () => void = () => setModal(prev => ({ ...prev, visible: false }))) => {
     setModal({ visible: true, type, title, desc, action });
   };
 
-  // Buscar viaje activo
   useEffect(() => {
     const findActiveTrip = async () => {
       if (!numeroPatente) return;
       try {
         const col = collection(db, 'turnos');
-        const q = query(
-          col,
-          where('numeroPatente', '==', numeroPatente),
-          where('estado', '==', 'en_viaje'),
-          orderBy('fechaCreacion', 'desc'),
-          limit(1)
-        );
+        const q = query(col, where('numeroPatente', '==', numeroPatente), where('estado', '==', 'en_viaje'), orderBy('fechaCreacion', 'desc'), limit(1));
         const snap = await getDocs(q);
         if (!snap.empty) {
           const tripDoc = snap.docs[0];
@@ -113,11 +106,7 @@ const NovedadesChoferForm = () => {
           setActiveTripId(tripDoc.id);
           setStartKm(Number(tripData.kilometrajeSalida) || 0);
         }
-      } catch (error) {
-        console.error("Error buscando viaje activo:", error);
-      } finally {
-        setLoadingTrip(false);
-      }
+      } catch (error) { console.error(error); } finally { setLoadingTrip(false); }
     };
     findActiveTrip();
   }, [numeroPatente]);
@@ -125,17 +114,14 @@ const NovedadesChoferForm = () => {
   const kmNum = Number(km);
   const distanceTraveled = (startKm && kmNum > startKm) ? kmNum - startKm : 0;
 
-  const toggleIssue = (id: string) => {
-    setSelectedIssues(prev => prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id]);
-  };
+  const toggleIssue = (id: string) => setSelectedIssues(prev => prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id]);
+  const toggleCheckCisterna = (id: string) => setChecksCisterna(prev => ({ ...prev, [id]: !prev[id] }));
 
   const takePhoto = async () => {
     try {
       const permission = await ImagePicker.requestCameraPermissionsAsync();
-      if (permission.status !== 'granted') {
-        showModal('warning', 'Permiso', 'Se requiere acceso a la cámara.');
-        return;
-      }
+      if (permission.status !== 'granted') return showModal('warning', 'Permiso', 'Se requiere cámara.');
+
       const result = await ImagePicker.launchCameraAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         quality: 0.5,
@@ -143,8 +129,23 @@ const NovedadesChoferForm = () => {
       });
       if (!result.canceled && result.assets.length) {
         setPhoto(result.assets[0].uri);
+        setPhotoUri(result.assets[0].uri);
       }
     } catch (e) { console.error(e); }
+  };
+
+  const uploadImageToStorage = async (uri: string) => {
+    try {
+      const response = await fetch(uri);
+      const blob = await response.blob();
+      const filename = `tableros/${numeroPatente}_ingreso_${Date.now()}.jpg`;
+      const storageRef = ref(storage, filename);
+      await uploadBytes(storageRef, blob);
+      return await getDownloadURL(storageRef);
+    } catch (error) {
+      console.error("Upload error:", error);
+      throw new Error("Fallo al subir imagen");
+    }
   };
 
   const handleFinalizarIngreso = async () => {
@@ -152,24 +153,29 @@ const NovedadesChoferForm = () => {
     if (!numeroPatente) return showModal('error', 'Error', 'No se identificó la patente.');
     if (!km || isNaN(kmValue) || kmValue <= 0) return showModal('warning', 'Kilometraje', 'Ingresa el KM de llegada.');
     if (startKm && kmValue < startKm) return showModal('warning', 'Error KM', `El KM (${kmValue}) no puede ser menor a la salida (${startKm}).`);
-    if (!photo) return showModal('warning', 'Foto', 'Debes tomar una foto del tablero.');
+    if (!photoUri) return showModal('warning', 'Foto', 'Debes tomar una foto del tablero.');
+
+    // Validar Cisterna
+    const cisternaOk = ITEMS_CISTERNA.every(item => checksCisterna[item.id] === true);
+    if (!cisternaOk) return showModal('warning', 'Cisterna', 'Verifica todos los puntos de control de la cisterna.');
 
     setSaving(true);
     try {
+      const photoUrl = await uploadImageToStorage(photoUri);
       const issuesFound = selectedIssues.length > 0;
 
       const closureData = {
         tipo: 'ingreso',
         estado: issuesFound ? 'pending_triage' : 'completed',
-
         kilometrajeIngreso: kmValue,
         nivelNaftaIngreso: fuel,
-        fotoTableroIngreso: photo,
-        fotoTablero: photo,
+        fotoTableroIngreso: photoUrl,
+        fotoTablero: photoUrl, // Legacy support
+
+        checklistCisternaIngreso: checksCisterna, // Nuevo Checklist
 
         sintomas: selectedIssues,
         comentariosChofer: notas || null,
-
         fechaIngreso: serverTimestamp(),
         distanciaRecorrida: distanceTraveled,
       };
@@ -188,19 +194,12 @@ const NovedadesChoferForm = () => {
         await addDoc(collection(db, 'turnos'), newPayload);
       }
 
-      // --- ÉXITO ---
-      showModal(
-        'success',
-        'Viaje Finalizado',
-        `Se registraron ${distanceTraveled > 0 ? distanceTraveled + ' km recorridos.' : 'los datos correctamente.'}`,
-        () => {
-          if (router.canDismiss()) router.dismissAll();
-          router.replace('/home');
-        }
-      );
+      showModal('success', 'Viaje Finalizado', `Se registraron ${distanceTraveled > 0 ? distanceTraveled + ' km recorridos.' : 'los datos correctamente.'}`, () => {
+        if (router.canDismiss()) router.dismissAll();
+        router.replace('/home');
+      });
 
     } catch (err) {
-      console.error('Error cerrando viaje:', err);
       showModal('error', 'Error', 'No se pudo guardar el ingreso.');
     } finally {
       setSaving(false);
@@ -212,9 +211,8 @@ const NovedadesChoferForm = () => {
   return (
     <SafeAreaView className="flex-1 bg-surface">
       <LinearGradient colors={['#0b0b0b', '#000']} className="flex-1 px-6">
-        <ScrollView showsVerticalScrollIndicator={false} className="pt-6" contentContainerStyle={{ paddingBottom: 80 }}>
+        <ScrollView showsVerticalScrollIndicator={false} className="pt-6" contentContainerStyle={{ paddingBottom: 100 }}>
 
-          {/* HEADER */}
           <View className="mb-6 flex-row justify-between items-start">
             <View>
               <Text className="text-white text-3xl font-black italic uppercase">Finalizar Viaje</Text>
@@ -232,22 +230,16 @@ const NovedadesChoferForm = () => {
             </View>
           </View>
 
-          {/* INPUT KILOMETRAJE */}
           <View className="flex-row space-x-4 mb-4">
             <View className="flex-1 bg-card border border-white/10 rounded-[30px] p-4 items-center relative overflow-hidden">
               <Text className="text-gray-500 text-[8px] font-bold uppercase mb-2">Kilometraje Llegada</Text>
-
               <NumberInput
                 className="text-white text-2xl font-black text-center z-10"
                 value={km}
-                onChangeText={(val: any) => {
-                  if (val === '' || val === null) setKm('');
-                  else setKm(Number(val));
-                }}
+                onChangeText={(val: any) => { if (val === '' || val === null) setKm(''); else setKm(Number(val)); }}
                 decimalPlaces={0}
                 placeholder={startKm ? String(startKm + 50) : "0"}
               />
-
               {distanceTraveled > 0 && (
                 <View className="absolute bottom-2 bg-blue-500/10 px-3 py-1 rounded-full">
                   <Text className="text-blue-400 text-[10px] font-bold">+{distanceTraveled} km</Text>
@@ -269,7 +261,6 @@ const NovedadesChoferForm = () => {
             </View>
           </View>
 
-          {/* CHECKLIST */}
           <Text className="text-gray-500 text-[10px] font-black uppercase tracking-[3px] mb-3 ml-2 mt-4">Reporte de Novedades</Text>
           <View className="mb-4">
             {VEHICLE_CHECKLIST_ITEMS.map((group) => (
@@ -295,7 +286,6 @@ const NovedadesChoferForm = () => {
             ))}
           </View>
 
-          {/* EVIDENCIA Y NOTAS */}
           <View className="flex-row space-x-4 mt-2 mb-6">
             <TouchableOpacity onPress={takePhoto} className="flex-1 h-32 bg-card rounded-[20px] border border-dashed border-white/10 items-center justify-center overflow-hidden">
               {photo ? (
@@ -321,7 +311,32 @@ const NovedadesChoferForm = () => {
             </View>
           </View>
 
-          {/* CONFIRM BUTTON */}
+          {/* CHECKLIST CISTERNA */}
+          <View className="mb-6 mt-4">
+            <Text className="text-blue-400 text-[10px] font-black uppercase tracking-[3px] mb-3 ml-1">Control Cisterna (Ingreso)</Text>
+            <View className="bg-blue-900/10 p-4 rounded-3xl border border-blue-500/30">
+              <View className="flex-row flex-wrap justify-between">
+                {ITEMS_CISTERNA.map((item) => {
+                  const isChecked = checksCisterna[item.id];
+                  const IconLib = item.library;
+                  const iconName = item.icon === 'valve' ? 'valve' : item.icon;
+                  return (
+                    <TouchableOpacity key={item.id} activeOpacity={0.7} onPress={() => toggleCheckCisterna(item.id)} className={`w-[48%] mb-3 p-3 rounded-2xl border flex-row items-center ${isChecked ? 'bg-blue-600/30 border-blue-400' : 'bg-black border-zinc-800'}`}>
+                      <View className={`w-8 h-8 rounded-full items-center justify-center mr-3 ${isChecked ? 'bg-blue-500' : 'bg-zinc-800 border border-zinc-600'}`}>
+                        {isChecked ? <MaterialIcons name="check" size={16} color="white" /> : <IconLib name={iconName as any} size={16} color="#666" />}
+                      </View>
+                      <Text className={`text-xs font-bold ${isChecked ? 'text-white' : 'text-gray-500'}`}>{item.label}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+          </View>
+
+        </ScrollView>
+
+        {/* BOTÓN CONFIRMAR */}
+        <View className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black via-black to-transparent">
           <TouchableOpacity
             activeOpacity={0.8}
             onPress={handleFinalizarIngreso}
@@ -333,18 +348,11 @@ const NovedadesChoferForm = () => {
               {activeTripId && <Text className="text-blue-200 text-[10px] font-bold mt-1">ACTUALIZANDO ORDEN #{activeTripId.slice(0, 5)}</Text>}
             </LinearGradient>
           </TouchableOpacity>
+        </View>
 
-          {saving && <LoadingOverlay message="Cerrando viaje..." />}
+        {saving && <LoadingOverlay message="Cerrando viaje..." />}
 
-        </ScrollView>
-
-        <ActionModal
-          visible={modal.visible}
-          type={modal.type}
-          title={modal.title}
-          description={modal.desc}
-          onConfirm={modal.action}
-        />
+        <ActionModal visible={modal.visible} type={modal.type} title={modal.title} description={modal.desc} onConfirm={modal.action} />
 
       </LinearGradient>
     </SafeAreaView>

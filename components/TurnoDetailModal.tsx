@@ -1,18 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Modal, SafeAreaView, Platform, Image, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
-// AGREGAMOS FontAwesome5 AQUÍ
 import {
   Droplet, Disc, Battery, Lightbulb, CircleDot, Image as LucideImage,
   Info, X, Gauge, Wrench, FileCheck, Calendar, Clock, Hash, AlertTriangle, CheckCircle, ArrowRight, User
 } from 'lucide-react-native';
-import { FontAwesome5 } from '@expo/vector-icons'; // <--- IMPORTANTE
+import { FontAwesome5, MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import Animated, { FadeInUp } from 'react-native-reanimated';
-import { collection, query, where, orderBy, limit, getDocs } from 'firebase/firestore';
-import { db } from '@/firebase/firebaseConfig';
 
-// ... (SINTOMAS_MAP se mantiene igual, no lo repito para ahorrar espacio) ...
 const SINTOMAS_MAP: Record<string, { label: string, Icon: any, color: string }> = {
   aceite: { label: 'Nivel/Presión Aceite', Icon: Droplet, color: '#EF4444' },
   fuga: { label: 'Fuga Detectada', Icon: Droplet, color: '#EF4444' },
@@ -49,7 +45,6 @@ const TurnoDetailModal = ({ visible, turno, onClose, readOnly = false, adminCont
 
   if (!turno) return null;
 
-  // --- PARSEO DE FECHAS ---
   const parseDate = (dateInput: any): Date | null => {
     if (!dateInput) return null;
     if (typeof dateInput.toDate === 'function') return dateInput.toDate();
@@ -62,7 +57,6 @@ const TurnoDetailModal = ({ visible, turno, onClose, readOnly = false, adminCont
   const formatDate = (d: Date | null) => d ? d.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' }) : '--/--';
   const formatTime = (d: Date | null) => d ? d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) : '--:--';
 
-  // --- DATOS DEL VIAJE ACTUAL ---
   const fechaSalida = parseDate(turno.fechaSalida || turno.fechaCreacion);
   const kmSalida = Number(turno.kilometrajeSalida || 0);
   const naftaSalida = Number(turno.nivelNaftaSalida || 0);
@@ -77,13 +71,13 @@ const TurnoDetailModal = ({ visible, turno, onClose, readOnly = false, adminCont
   const isAlert = turno.estadoGeneral === 'alert' || (turno.sintomas && turno.sintomas.length > 0);
   const turnoEstado: TurnoEstado = turno.estado || 'pending';
 
-  // Helpers visuales
   const isPending = turnoEstado === 'pending' || turnoEstado === 'pending_triage';
   const isScheduled = turnoEstado === 'scheduled';
-  const isInProgress = turnoEstado === 'in_progress';
-  const isCompleted = turnoEstado === 'completed';
 
-  // --- RENDER ACCIONES ---
+  // Checklist Cisterna
+  const checksCisternaSalida = turno.checklistCisternaSalida;
+  const checksCisternaIngreso = turno.checklistCisternaIngreso;
+
   const renderFooterActions = () => {
     if (readOnly) {
       return (
@@ -96,15 +90,10 @@ const TurnoDetailModal = ({ visible, turno, onClose, readOnly = false, adminCont
     if (adminContext) {
       return (
         <View className="w-full">
-          {/* BOTÓN NUEVO: VER FICHA TÉCNICA */}
           <TouchableOpacity
             onPress={() => {
               onClose();
-              // Navegamos a la nueva pantalla pasando la patente
-              router.push({
-                pathname: '/historial-unidad',
-                params: { patente: turno.numeroPatente }
-              });
+              router.push({ pathname: '/historial-unidad', params: { patente: turno.numeroPatente } });
             }}
             className="w-full bg-zinc-800 py-3 rounded-xl flex-row items-center justify-center mb-3 border border-white/10"
           >
@@ -179,11 +168,9 @@ const TurnoDetailModal = ({ visible, turno, onClose, readOnly = false, adminCont
             {/* BODY SCROLLABLE */}
             <ScrollView className="flex-1" contentContainerStyle={{ padding: 24 }}>
 
-              {/* BLOQUE 1: COMPARATIVA DE VIAJE (SALIDA vs LLEGADA) */}
               <Text className="text-zinc-500 text-[10px] font-black uppercase tracking-[3px] mb-4">Resumen del Viaje</Text>
 
               <View className="flex-row gap-2 mb-8 h-auto min-h-[140px]">
-
                 {/* CARD SALIDA */}
                 <View className="flex-1 bg-zinc-900/50 rounded-2xl border border-white/5 p-4 justify-between relative overflow-hidden">
                   <View className="absolute top-0 right-0 p-3 opacity-10"><ArrowRight size={80} color="white" /></View>
@@ -230,9 +217,7 @@ const TurnoDetailModal = ({ visible, turno, onClose, readOnly = false, adminCont
                 </View>
               </View>
 
-              {/* BLOQUE 2: EVIDENCIA FOTOGRÁFICA (COMPARATIVA) */}
               <Text className="text-zinc-500 text-[10px] font-black uppercase tracking-[3px] mb-4">Evidencia de Tablero</Text>
-
               <View className="flex-row gap-4 mb-8">
                 {/* FOTO SALIDA */}
                 <View className="flex-1 aspect-video bg-black rounded-xl overflow-hidden border border-white/10 relative">
@@ -259,7 +244,34 @@ const TurnoDetailModal = ({ visible, turno, onClose, readOnly = false, adminCont
                 </View>
               </View>
 
-              {/* BLOQUE 3: OBSERVACIONES Y SÍNTOMAS */}
+              {/* BLOQUE CONTROL CISTERNA (NUEVO) */}
+              {(checksCisternaSalida || checksCisternaIngreso) && (
+                <View className="mb-8">
+                  <Text className="text-blue-500 text-[10px] font-black uppercase tracking-[3px] mb-4">Control Cisterna</Text>
+                  <View className="flex-row gap-4">
+                    <View className="flex-1 bg-zinc-900/50 p-3 rounded-xl border border-white/5">
+                      <Text className="text-zinc-500 text-[9px] font-bold uppercase mb-2">SALIDA</Text>
+                      {checksCisternaSalida ? (
+                        <View className="flex-row items-center">
+                          <MaterialIcons name="check-circle" size={16} color="#10B981" />
+                          <Text className="text-emerald-500 text-xs font-bold ml-2">Verificado OK</Text>
+                        </View>
+                      ) : <Text className="text-zinc-600 text-xs italic">No registrado</Text>}
+                    </View>
+
+                    <View className="flex-1 bg-zinc-900/50 p-3 rounded-xl border border-white/5">
+                      <Text className="text-zinc-500 text-[9px] font-bold uppercase mb-2">INGRESO</Text>
+                      {checksCisternaIngreso ? (
+                        <View className="flex-row items-center">
+                          <MaterialIcons name="check-circle" size={16} color="#10B981" />
+                          <Text className="text-emerald-500 text-xs font-bold ml-2">Verificado OK</Text>
+                        </View>
+                      ) : <Text className="text-zinc-600 text-xs italic">Pendiente</Text>}
+                    </View>
+                  </View>
+                </View>
+              )}
+
               {isAlert && (
                 <>
                   <Text className="text-red-500 text-[10px] font-black uppercase tracking-[3px] mb-4">Novedades Reportadas</Text>
@@ -286,7 +298,6 @@ const TurnoDetailModal = ({ visible, turno, onClose, readOnly = false, adminCont
 
             </ScrollView>
 
-            {/* FOOTER */}
             <View className="p-6 border-t border-white/5 bg-[#09090b]">
               {renderFooterActions()}
             </View>
