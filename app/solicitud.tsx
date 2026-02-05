@@ -101,7 +101,8 @@ const SolicitudScreen = () => {
         desc: `La unidad ${prefill?.numeroPatente || ''} está en cola de taller. El Jefe de Taller recibirá la notificación.`,
         action: () => {
           if (router.canDismiss()) router.dismissAll();
-          router.replace('/dashboards/superadmin');
+          // Redirect supervisor back to their dashboard
+          router.replace('/dashboards/supervisor');
         }
       });
 
