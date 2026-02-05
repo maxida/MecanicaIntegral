@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { View, Text, ScrollView, SafeAreaView, TouchableOpacity, useWindowDimensions, ActivityIndicator } from 'react-native';
-import { Wrench, CheckCircle2, LogOut, AlertTriangle, UserCog, Clock, Hash, Activity, Users, TrendingUp } from 'lucide-react-native';
+import { Wrench, LogOut, AlertTriangle, UserCog, Clock, Hash, Activity, Users, TrendingUp } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useDispatch, useSelector } from 'react-redux';
 import { useRouter } from 'expo-router';
@@ -9,6 +9,7 @@ import { setTurnos } from '@/redux/slices/turnosSlice';
 import { suscribirseATurnos } from '@/services/turnosService';
 import LoadingOverlay from '@/components/LoadingOverlay';
 import WorkshopOrderModal from '@/components/WorkshopOrderModal';
+import PresupuestoModal from '@/components/PresupuestoModal';
 
 const COLUMN_COLORS = {
   solicitudes: '#F97316',
@@ -28,6 +29,7 @@ const AdminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
 
   const [selectedTurno, setSelectedTurno] = useState<any>(null);
   const [orderModalVisible, setOrderModalVisible] = useState(false);
+  const [showPresupuestoModal, setShowPresupuestoModal] = useState(false);
   const [activeTab, setActiveTab] = useState<'solicitudes' | 'asignados' | 'en_proceso' | 'finalizados'>('solicitudes');
 
   // 1. Suscripción
@@ -113,6 +115,8 @@ const AdminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
             </View>
           )}
         </View>
+
+        {/* per-card quick actions removed (handled inside modal) */}
       </View>
     </TouchableOpacity>
   );
@@ -171,6 +175,8 @@ const AdminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
           </View>
         </View>
 
+        {/* Quick actions removed per design — actions are available per-card */}
+
         {/* TABS (MÓVIL) */}
         {!isMonitor && (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-6 max-h-14">
@@ -226,6 +232,11 @@ const AdminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
         turno={selectedTurno}
         onClose={() => { setOrderModalVisible(false); setSelectedTurno(null); }}
       />
+
+      {/* MODAL PRESUPUESTO */}
+      {showPresupuestoModal && (
+        <PresupuestoModal visible={showPresupuestoModal} onClose={() => setShowPresupuestoModal(false)} prefill={selectedTurno || undefined} />
+      )}
     </SafeAreaView>
   );
 };

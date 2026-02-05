@@ -2,13 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Modal, TextInput, Image, ActivityIndicator, Platform } from 'react-native';
 import { BlurView } from 'expo-blur';
 import {
-	X, Wrench, UserCog, Clock, CheckCircle2,
-	Receipt, FileText, ChevronDown, Ambulance, Hash, Save, AlertTriangle
+	X, UserCog, Clock,
+ 	FileText, ChevronDown, Ambulance, Hash, Save, CheckCircle, Receipt
 } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import { collection, getDocs, doc, updateDoc } from 'firebase/firestore';
 import { db } from '@/firebase/firebaseConfig';
+import PresupuestoModal from '@/components/PresupuestoModal';
 
 interface WorkshopOrderModalProps {
 	visible: boolean;
@@ -31,8 +32,11 @@ const WorkshopOrderModal = ({ visible, turno, onClose }: WorkshopOrderModalProps
 
 	// Estados para Documentos (PDF)
 	const [docModalVisible, setDocModalVisible] = useState(false);
-	const [docType, setDocType] = useState<'asistencia' | 'reparacion' | 'presupuesto' | null>(null);
+	const [docType, setDocType] = useState<'asistencia' | 'reparacion' | null>(null);
 	const [DocGen, setDocGen] = useState<any>(null);
+
+	// Presupuesto modal
+	const [presupuestoModalVisible, setPresupuestoModalVisible] = useState(false);
 
 	const isEditable = turno.estado === 'taller_pendiente' || turno.estado === 'scheduled';
 	const isFinished = turno.estado === 'completed';
@@ -52,7 +56,7 @@ const WorkshopOrderModal = ({ visible, turno, onClose }: WorkshopOrderModalProps
 	}, [visible]);
 
 	// 2. Cargar Generador de PDF
-	const openDoc = async (type: 'asistencia' | 'reparacion' | 'presupuesto') => {
+	const openDoc = async (type: 'asistencia' | 'reparacion') => {
 		setDocType(type);
 		setDocModalVisible(true);
 		if (!DocGen) {
@@ -216,36 +220,10 @@ const WorkshopOrderModal = ({ visible, turno, onClose }: WorkshopOrderModalProps
 								<FileText size={24} color="#3B82F6" />
 								<Text className="text-blue-200 text-[10px] font-bold mt-2 uppercase">Informe</Text>
 							</TouchableOpacity>
-							{/* Nota: Para el presupuesto usamos navegación porque es una pantalla compleja */}
-							{/* Botón Cotizar / Ver Presupuesto */}
-							{turno.presupuestoUrl ? (
-								// SI YA EXISTE UN PDF: Botón para VERLO
-								<TouchableOpacity
-									onPress={() => {
-										onClose();
-										// Aquí idealmente abrirías un visor web o navegarías a una pantalla que use WebView
-										// Por ahora, para probar rápido, podrías usar Linking.openURL(turno.presupuestoUrl)
-										// Pero lo mejor es una pantalla dedicada.
-										router.push({ pathname: '/ver-pdf', params: { url: turno.presupuestoUrl, title: 'Presupuesto' } });
-									}}
-									className="flex-1 bg-emerald-500/20 p-4 rounded-2xl border border-emerald-500/30 items-center"
-								>
-									<CheckCircle2 size={24} color="#10B981" />
-									<Text className="text-emerald-300 text-[10px] font-bold mt-2 uppercase text-center">Ver Presupuesto</Text>
-								</TouchableOpacity>
-							) : (
-								// SI NO EXISTE: Botón para CREARLO (navega a la pantalla de cotizador)
-								<TouchableOpacity
-									onPress={() => {
-										onClose();
-										router.push({ pathname: '/presupuesto', params: { turnoId: turno.id } });
-									}}
-									className="flex-1 bg-zinc-800 p-4 rounded-2xl border border-zinc-700 items-center hover:bg-zinc-700"
-								>
-									<Receipt size={24} color="#ccc" />
-									<Text className="text-zinc-400 text-[10px] font-bold mt-2 uppercase">Cotizar</Text>
-								</TouchableOpacity>
-							)}
+							<TouchableOpacity onPress={() => setPresupuestoModalVisible(true)} className="flex-1 bg-emerald-500/10 p-4 rounded-2xl border border-emerald-500/20 items-center">
+								<Receipt size={24} color="#10B981" />
+								<Text className="text-emerald-200 text-[10px] font-bold mt-2 uppercase">Presupuesto</Text>
+							</TouchableOpacity>
 						</View>
 
 					</ScrollView>
@@ -262,7 +240,7 @@ const WorkshopOrderModal = ({ visible, turno, onClose }: WorkshopOrderModalProps
 						{/* LÓGICA DEL BOTÓN DE ACCIÓN */}
 						{isFinished ? (
 							<View className="flex-[2] py-4 rounded-2xl bg-emerald-900/50 border border-emerald-500/30 items-center flex-row justify-center">
-								<CheckCircle2 size={16} color="#10B981" style={{ marginRight: 8 }} />
+								<CheckCircle size={16} color="#10B981" style={{ marginRight: 8 }} />
 								<Text className="text-emerald-500 font-black uppercase text-xs">Trabajo Finalizado</Text>
 							</View>
 						) : isInProgress ? (
@@ -297,6 +275,11 @@ const WorkshopOrderModal = ({ visible, turno, onClose }: WorkshopOrderModalProps
 					turno={turno}
 				/>
 			)}
+
+				{/* MODAL PRESUPUESTO */}
+				{presupuestoModalVisible && (
+					<PresupuestoModal visible={presupuestoModalVisible} onClose={() => setPresupuestoModalVisible(false)} prefill={turno} />
+				)}
 		</Modal>
 	);
 };
