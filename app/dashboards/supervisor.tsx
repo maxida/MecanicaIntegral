@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, SafeAreaView, TextInput, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, SafeAreaView, TextInput, ActivityIndicator, Alert, useWindowDimensions } from 'react-native';
 import { MaterialIcons, FontAwesome5, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
@@ -24,6 +24,11 @@ const SuperadminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
 
   const [selectedTurno, setSelectedTurno] = useState<any>(null);
   const [modalVisible, setModalVisible] = useState(false);
+
+  // Responsive helper for KPI tiles
+  const { width } = useWindowDimensions();
+  const isWideScreen = width >= 2900;
+  const tileStyle = isWideScreen ? { flex: 1, minWidth: 0 } : { width: 260 } as any;
 
   // 1. Cargar Vehículos
   useEffect(() => {
@@ -152,25 +157,31 @@ const SuperadminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
               </View>
             </View>
           ) : (
-            <View className="flex-row flex-wrap gap-3 mb-6">
-              <TouchableOpacity onPress={() => setActiveTab('alerta')} className={`flex-1 min-w-[45%] p-4 rounded-2xl border ${activeTab === 'alerta' ? 'bg-red-900/20 border-red-500' : 'bg-zinc-900/50 border-white/5'}`}>
-                <Text className={`text-3xl font-black ${activeTab === 'alerta' ? 'text-red-500' : 'text-gray-400'}`}>{kpis.alerta}</Text>
-                <Text className="text-gray-500 text-[9px] font-bold uppercase mt-1">ALERTAS</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => setActiveTab('viaje')} className={`flex-1 min-w-[45%] p-4 rounded-2xl border ${activeTab === 'viaje' ? 'bg-blue-900/20 border-blue-500' : 'bg-zinc-900/50 border-white/5'}`}>
-                <Text className={`text-3xl font-black ${activeTab === 'viaje' ? 'text-blue-500' : 'text-gray-400'}`}>{kpis.viaje}</Text>
-                <Text className="text-gray-500 text-[9px] font-bold uppercase mt-1">EN RUTA</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => setActiveTab('taller')} className={`flex-1 min-w-[45%] p-4 rounded-2xl border ${activeTab === 'taller' ? 'bg-yellow-900/20 border-yellow-500' : 'bg-zinc-900/50 border-white/5'}`}>
-                <Text className={`text-3xl font-black ${activeTab === 'taller' ? 'text-yellow-500' : 'text-gray-400'}`}>{kpis.taller}</Text>
-                <Text className="text-gray-500 text-[9px] font-bold uppercase mt-1">TALLER</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => setActiveTab('todos')} className={`flex-1 min-w-[45%] p-4 rounded-2xl border ${activeTab === 'todos' ? 'bg-emerald-900/20 border-emerald-500' : 'bg-zinc-900/50 border-white/5'}`}>
-                <Text className={`text-3xl font-black ${activeTab === 'todos' ? 'text-emerald-500' : 'text-gray-400'}`}>{turnos.length}</Text>
-                <Text className="text-gray-500 text-[9px] font-bold uppercase mt-1">TOTAL</Text>
-              </TouchableOpacity>
+            <View className="mb-6">
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12 }}>
+                <TouchableOpacity onPress={() => setActiveTab('alerta')} style={tileStyle} className={`p-4 rounded-2xl border ${activeTab === 'alerta' ? 'bg-red-900/20 border-red-500' : 'bg-zinc-900/50 border-white/5'}`}>
+                  <Text className={`text-3xl font-black ${activeTab === 'alerta' ? 'text-red-500' : 'text-gray-400'}`}>{kpis.alerta}</Text>
+                  <Text className="text-gray-500 text-[9px] font-bold uppercase mt-1">ALERTAS</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity onPress={() => setActiveTab('viaje')} style={tileStyle} className={`p-4 rounded-2xl border ${activeTab === 'viaje' ? 'bg-blue-900/20 border-blue-500' : 'bg-zinc-900/50 border-white/5'}`}>
+                  <Text className={`text-3xl font-black ${activeTab === 'viaje' ? 'text-blue-500' : 'text-gray-400'}`}>{kpis.viaje}</Text>
+                  <Text className="text-gray-500 text-[9px] font-bold uppercase mt-1">EN RUTA</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity onPress={() => setActiveTab('taller')} style={tileStyle} className={`p-4 rounded-2xl border ${activeTab === 'taller' ? 'bg-yellow-900/20 border-yellow-500' : 'bg-zinc-900/50 border-white/5'}`}>
+                  <Text className={`text-3xl font-black ${activeTab === 'taller' ? 'text-yellow-500' : 'text-gray-400'}`}>{kpis.taller}</Text>
+                  <Text className="text-gray-500 text-[9px] font-bold uppercase mt-1">TALLER</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity onPress={() => setActiveTab('todos')} style={tileStyle} className={`p-4 rounded-2xl border ${activeTab === 'todos' ? 'bg-emerald-900/20 border-emerald-500' : 'bg-zinc-900/50 border-white/5'}`}>
+                  <Text className={`text-3xl font-black ${activeTab === 'todos' ? 'text-emerald-500' : 'text-gray-400'}`}>{turnos.length}</Text>
+                  <Text className="text-gray-500 text-[9px] font-bold uppercase mt-1">TOTAL</Text>
+                </TouchableOpacity>
+              </ScrollView>
             </View>
           )}
+          
 
           {/* BARRA DE BÚSQUEDA */}
           <View className="flex-row items-center bg-zinc-900/80 border border-white/10 rounded-2xl px-4 py-3 mb-6">

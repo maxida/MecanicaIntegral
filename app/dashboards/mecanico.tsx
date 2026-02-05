@@ -235,6 +235,66 @@ const MecanicoDashboard = ({ onLogout }: { onLogout?: () => void }) => {
     );
   };
 
+  const { width, height } = useWindowDimensions();
+  const isWide = width >= 900;
+
+  // Filter state for completed items
+  const [filterPatente, setFilterPatente] = useState('');
+  const filteredFinalizadas = finalizadas.filter((t: any) => {
+    if (!filterPatente.trim()) return true;
+    return (t.numeroPatente || '').toLowerCase().includes(filterPatente.trim().toLowerCase());
+  });
+
+  // Section renderers so we can show them either stacked or in columns
+  const renderEnProceso = () => (
+    <View className="mb-4">
+      <View className="flex-row items-center mb-3">
+        <View className="w-2 h-2 rounded-full bg-yellow-500 mr-2 animate-pulse" />
+        <Text className="text-white font-bold text-sm uppercase tracking-wider">Trabajando Ahora</Text>
+      </View>
+      {enProceso.map(t => <TaskCard key={t.id} t={t} />)}
+    </View>
+  );
+
+  const renderPendientes = () => (
+    <View className="mb-4">
+      <View className="flex-row items-center mb-3">
+        <View className="w-2 h-2 rounded-full bg-blue-500 mr-2" />
+        <Text className="text-zinc-400 font-bold text-sm uppercase tracking-wider">Pendientes ({asignadas.length})</Text>
+      </View>
+      {asignadas.length === 0 && enProceso.length === 0 ? (
+        <View className="items-center py-10 opacity-30">
+          <CheckCircle2 size={48} color="#FFF" />
+          <Text className="text-white mt-4 font-bold">¡Todo listo! Sin tareas pendientes.</Text>
+        </View>
+      ) : (
+        asignadas.map(t => <TaskCard key={t.id} t={t} />)
+      )}
+    </View>
+  );
+
+  const renderFinalizadas = () => (
+    finalizadas.length > 0 ? (
+      <View className="opacity-50">
+        <View className="mb-3">
+          <Text className="text-zinc-600 font-bold text-xs uppercase tracking-wider mb-2">Completadas Recientemente</Text>
+          <TextInput
+            value={filterPatente}
+            onChangeText={setFilterPatente}
+            placeholder="Filtrar por patente (ej: NIG069)"
+            placeholderTextColor="#666"
+            className="bg-zinc-900 p-2 rounded-md border border-zinc-800 text-white text-sm mb-2"
+          />
+        </View>
+        {filteredFinalizadas.length === 0 ? (
+          <Text className="text-zinc-500">No hay coincidencias.</Text>
+        ) : (
+          filteredFinalizadas.map(t => <TaskCard key={t.id} t={t} />)
+        )}
+      </View>
+    ) : null
+  );
+
   return (
     <SafeAreaView className="flex-1 bg-black">
       <LinearGradient colors={['#111', '#000']} className="flex-1 px-4">
@@ -277,44 +337,29 @@ const MecanicoDashboard = ({ onLogout }: { onLogout?: () => void }) => {
           </View>
         </View>
 
-        <ScrollView className="flex-1" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
-
-          {/* EN PROCESO */}
-          {enProceso.length > 0 && (
-            <View className="mb-8">
-              <View className="flex-row items-center mb-3">
-                <View className="w-2 h-2 rounded-full bg-yellow-500 mr-2 animate-pulse" />
-                <Text className="text-white font-bold text-sm uppercase tracking-wider">Trabajando Ahora</Text>
+        {isWide ? (
+          <ScrollView className="flex-1" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
+            <View className="flex-row gap-4">
+              <View style={{ flex: 1, maxWidth: '33%' }}>
+                {renderPendientes()}
               </View>
-              {enProceso.map(t => <TaskCard key={t.id} t={t} />)}
-            </View>
-          )}
 
-          {/* PENDIENTES */}
-          <View className="mb-8">
-            <View className="flex-row items-center mb-3">
-              <View className="w-2 h-2 rounded-full bg-blue-500 mr-2" />
-              <Text className="text-zinc-400 font-bold text-sm uppercase tracking-wider">Pendientes ({asignadas.length})</Text>
-            </View>
-            {asignadas.length === 0 && enProceso.length === 0 ? (
-              <View className="items-center py-10 opacity-30">
-                <CheckCircle2 size={48} color="#FFF" />
-                <Text className="text-white mt-4 font-bold">¡Todo listo! Sin tareas pendientes.</Text>
+              <View style={{ flex: 1, maxWidth: '33%' }}>
+                {enProceso.length > 0 ? renderEnProceso() : <Text className="text-zinc-500">No hay tareas en curso</Text>}
               </View>
-            ) : (
-              asignadas.map(t => <TaskCard key={t.id} t={t} />)
-            )}
-          </View>
 
-          {/* FINALIZADAS */}
-          {finalizadas.length > 0 && (
-            <View className="opacity-50">
-              <Text className="text-zinc-600 font-bold text-xs uppercase tracking-wider mb-3">Completadas Recientemente</Text>
-              {finalizadas.map(t => <TaskCard key={t.id} t={t} />)}
+              <View style={{ flex: 1, maxWidth: '33%' }}>
+                {renderFinalizadas()}
+              </View>
             </View>
-          )}
-
-        </ScrollView>
+          </ScrollView>
+        ) : (
+          <ScrollView className="flex-1" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
+            {renderPendientes()}
+            {renderEnProceso()}
+            {renderFinalizadas()}
+          </ScrollView>
+        )}
       </LinearGradient>
 
       {/* MODAL FINISH */}
