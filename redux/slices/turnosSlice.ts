@@ -9,14 +9,28 @@ export interface Turno {
   estado: 'pending' | 'scheduled' | 'in_progress' | 'completed';
   fechaCreacion: string;
   mecanico?: string | null;
+  mecanicoId?: string | null;
+  mecanicoNombre?: string | null;
   prioridad?: number;
   clienteId?: string;
   chofer?: string;
+  comentariosChofer?: string | null;
+  reporteSupervisor?: string | null;
   tipo?: string;
+  tipoIngreso?: string | null;
+  instruccionesAdmin?: string | null;
+  numeroOT?: string | null;
+  horasEstimadas?: number | null;
+  sintomas?: string[] | null;
+  fotoTablero?: string | null;
+  fotoTableroIngreso?: string | null;
   fechaInicioTrabajo?: string | null;
   fechaFinTrabajo?: string | null;
+  fechaInicioReal?: string | null;
+  fechaFinReal?: string | null;
   tiempoTrabajado?: number; // en minutos
   notasMecanico?: string;
+  diagnosticoMecanico?: string | null;
 }
 
 interface TurnosState {
