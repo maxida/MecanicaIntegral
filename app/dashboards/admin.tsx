@@ -64,7 +64,7 @@ const AdminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
     { id: 'solicitudes', title: 'Nuevas', color: COLUMN_COLORS.solicitudes, data: workshopTurnos.filter(t => t.estado === 'taller_pendiente') },
     { id: 'asignados', title: 'Asignadas', color: COLUMN_COLORS.asignados, data: workshopTurnos.filter(t => t.estado === 'scheduled') },
     { id: 'en_proceso', title: 'En Taller', color: COLUMN_COLORS.en_proceso, data: workshopTurnos.filter(t => t.estado === 'in_progress') },
-    { id: 'finalizados', title: 'Listos', color: COLUMN_COLORS.finalizados, data: workshopTurnos.filter(t => t.estado === 'completed') },
+    { id: 'finalizados', title: 'Completadas', color: COLUMN_COLORS.finalizados, data: workshopTurnos.filter(t => t.estado === 'completed') },
   ], [workshopTurnos]);
 
   // 4. Render Card

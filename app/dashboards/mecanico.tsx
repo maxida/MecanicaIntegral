@@ -365,56 +365,62 @@ const MecanicoDashboard = ({ onLogout }: { onLogout?: () => void }) => {
     </TouchableOpacity>
   );
 
-  const FinalizadaCard = ({ t }: { t: any }) => (
-    <TouchableOpacity
-      key={t.id}
-      activeOpacity={0.9}
-      onPress={() => { setSelectedTurno(t); setOrderModalVisible(true); }}
-      className="mb-4 bg-zinc-900 rounded-2xl border border-zinc-800 shadow-sm overflow-hidden"
-    >
-      <View style={{ backgroundColor: FINALIZADAS_COLOR }} className="absolute left-0 top-0 bottom-0 w-1.5" />
+  const FinalizadaCard = ({ t }: { t: any }) => {
+    return (
+      <TouchableOpacity
+        key={t.id}
+        activeOpacity={0.9}
+        onPress={() => { setSelectedTurno(t); setOrderModalVisible(true); }}
+        className="mb-4 bg-zinc-900 rounded-2xl border border-zinc-800 shadow-sm overflow-hidden"
+      >
+        <View style={{ backgroundColor: FINALIZADAS_COLOR }} className="absolute left-0 top-0 bottom-0 w-1.5" />
 
-      <View className="p-4 pl-5">
-        <View className="flex-row justify-between items-start mb-2">
-          <View>
-            <Text className="text-white font-black text-lg italic tracking-tight">{t.numeroPatente}</Text>
-            {t.numeroOT && (
-              <View className="flex-row items-center mt-1 bg-zinc-800 self-start px-2 py-0.5 rounded">
-                <Hash size={10} color="#888" />
-                <Text className="text-zinc-400 text-[10px] font-bold ml-1">{t.numeroOT}</Text>
+        <View className="p-4 pl-5">
+          <View className="flex-row justify-between items-start mb-2">
+            <View>
+              <Text className="text-white font-black text-lg italic tracking-tight">{t.numeroPatente}</Text>
+              {t.numeroOT && (
+                <View className="flex-row items-center mt-1 bg-zinc-800 self-start px-2 py-0.5 rounded">
+                  <Hash size={10} color="#888" />
+                  <Text className="text-zinc-400 text-[10px] font-bold ml-1">{t.numeroOT}</Text>
+                </View>
+              )}
+            </View>
+
+            {t.prioridad === 1 && (
+              <View className="bg-red-500/20 px-2 py-1 rounded border border-red-500/30">
+                <Text className="text-red-500 text-[9px] font-black uppercase">URGENTE</Text>
               </View>
             )}
           </View>
 
-          {t.prioridad === 1 && (
-            <View className="bg-red-500/20 px-2 py-1 rounded border border-red-500/30">
-              <Text className="text-red-500 text-[9px] font-black uppercase">URGENTE</Text>
+          <Text className="text-zinc-400 text-xs mb-4 leading-5" numberOfLines={2}>
+            {t.reporteSupervisor || t.comentariosChofer || 'Sin descripción detallada.'}
+          </Text>
+
+          {/* Diagnóstico del mecánico: ahora se muestra solamente en el modal al pulsar el botón */}
+
+          <View className="flex-row justify-between items-center border-t border-zinc-800 pt-3">
+            <View className="flex-row items-center">
+              <UserCog size={14} color={t.mecanicoNombre ? FINALIZADAS_COLOR : "#555"} />
+              <Text className={`text-[10px] ml-1.5 font-bold ${t.mecanicoNombre ? 'text-zinc-300' : 'text-zinc-600'}`}>
+                {t.mecanicoNombre || 'SIN ASIGNAR'}
+              </Text>
             </View>
-          )}
-        </View>
 
-        <Text className="text-zinc-400 text-xs mb-4 leading-5" numberOfLines={2}>
-          {t.reporteSupervisor || t.comentariosChofer || 'Sin descripción detallada.'}
-        </Text>
-
-        <View className="flex-row justify-between items-center border-t border-zinc-800 pt-3">
-          <View className="flex-row items-center">
-            <UserCog size={14} color={t.mecanicoNombre ? FINALIZADAS_COLOR : "#555"} />
-            <Text className={`text-[10px] ml-1.5 font-bold ${t.mecanicoNombre ? 'text-zinc-300' : 'text-zinc-600'}`}>
-              {t.mecanicoNombre || 'SIN ASIGNAR'}
-            </Text>
+            {t.horasEstimadas && (
+              <View className="flex-row items-center bg-black/40 px-2 py-1 rounded-lg border border-zinc-800">
+                <Clock size={10} color="#666" />
+                <Text className="text-zinc-500 text-[10px] ml-1 font-mono">{t.horasEstimadas}h</Text>
+              </View>
+            )}
           </View>
 
-          {t.horasEstimadas && (
-            <View className="flex-row items-center bg-black/40 px-2 py-1 rounded-lg border border-zinc-800">
-              <Clock size={10} color="#666" />
-              <Text className="text-zinc-500 text-[10px] ml-1 font-mono">{t.horasEstimadas}h</Text>
-            </View>
-          )}
+          {/* Removed external 'VER TRABAJO / DIAGNÓSTICO' button per UX: use modal inside card only */}
         </View>
-      </View>
-    </TouchableOpacity>
-  );
+      </TouchableOpacity>
+    );
+  };
 
   const { width, height } = useWindowDimensions();
   const isWide = width >= 900;
@@ -454,8 +460,21 @@ const MecanicoDashboard = ({ onLogout }: { onLogout?: () => void }) => {
     </View>
   );
 
-  const renderFinalizadas = () => (
-    finalizadas.length > 0 ? (
+  const renderFinalizadas = () => {
+    if (finalizadas.length === 0) return null;
+
+    const filtered = finalizadas.filter((t: any) => {
+      if (!filterPatente.trim()) return true;
+      return (t.numeroPatente || '').toLowerCase().includes(filterPatente.trim().toLowerCase());
+    });
+
+    const sorted = [...filtered].sort((a: any, b: any) => {
+      const ta = new Date(a.fechaFinReal || a.fechaCreacion || 0).getTime();
+      const tb = new Date(b.fechaFinReal || b.fechaCreacion || 0).getTime();
+      return tb - ta;
+    });
+
+    return (
       <View className="opacity-50">
         <View className="mb-3">
           <Text className="text-zinc-600 font-bold text-xs uppercase tracking-wider mb-2">Completadas Recientemente</Text>
@@ -467,14 +486,15 @@ const MecanicoDashboard = ({ onLogout }: { onLogout?: () => void }) => {
             className="bg-zinc-900 p-2 rounded-md border border-zinc-800 text-white text-sm mb-2"
           />
         </View>
-        {filteredFinalizadas.length === 0 ? (
+
+        {sorted.length === 0 ? (
           <Text className="text-zinc-500">No hay coincidencias.</Text>
         ) : (
-          filteredFinalizadas.map(t => <FinalizadaCard key={t.id} t={t} />)
+          sorted.map(t => <FinalizadaCard key={t.id} t={t} />)
         )}
       </View>
-    ) : null
-  );
+    );
+  };
 
   return (
     <SafeAreaView className="flex-1 bg-black">
@@ -550,13 +570,13 @@ const MecanicoDashboard = ({ onLogout }: { onLogout?: () => void }) => {
             <Text className="text-white text-xl font-bold mb-1">Finalizar Reparación</Text>
             <Text className="text-zinc-500 text-xs mb-4 uppercase tracking-widest">{selectedTurno?.numeroPatente}</Text>
 
-            <Text className="text-zinc-300 text-sm font-bold mb-2">Informe Técnico del Trabajo Realizado *</Text>
+            <Text className="text-zinc-300 text-sm font-bold mb-2">Informe Técnico del Trabajo Realizado y Diagnostico</Text>
             <TextInput
               multiline
               numberOfLines={5}
               value={diagnosticoFinal}
               onChangeText={setDiagnosticoFinal}
-              placeholder="Describe qué reparaste, qué repuestos usaste..."
+              placeholder="Describe qué reparaste, qué repuestos usaste y el Diagnostico del vehiculo...  "
               placeholderTextColor="#555"
               textAlignVertical="top"
               className="bg-black p-4 rounded-xl border border-zinc-700 text-white min-h-[120px] mb-6"

@@ -45,6 +45,8 @@ const TurnoDetailModal = ({ visible, turno, onClose, readOnly = false, adminCont
 
   if (!turno) return null;
 
+  const [informeModalVisible, setInformeModalVisible] = useState(false);
+
   const parseDate = (dateInput: any): Date | null => {
     if (!dateInput) return null;
     if (typeof dateInput.toDate === 'function') return dateInput.toDate();
@@ -296,11 +298,60 @@ const TurnoDetailModal = ({ visible, turno, onClose, readOnly = false, adminCont
                 </Text>
               </View>
 
+              {/* BOTÓN AMARILLO: VER TRABAJO / DIAGNÓSTICO */}
+              <View className="mt-6 mb-6">
+                <TouchableOpacity onPress={() => setInformeModalVisible(true)} className="w-full bg-yellow-500 rounded-2xl py-3 items-center border border-yellow-600">
+                  <Text className="text-black font-black uppercase">VER TRABAJO / DIAGNÓSTICO</Text>
+                </TouchableOpacity>
+              </View>
+
             </ScrollView>
 
             <View className="p-6 border-t border-white/5 bg-[#09090b]">
               {renderFooterActions()}
             </View>
+
+            {/* MODAL: INFORME TÉCNICO / DIAGNÓSTICO (Supervisor) */}
+            {informeModalVisible && (
+              <Modal visible={informeModalVisible} transparent animationType="slide">
+                <View className="flex-1 bg-black/80 justify-center items-center px-6">
+                  <Animated.View entering={FadeInUp} className="w-full max-h-[85%] bg-[#0c0c0e] rounded-2xl border border-yellow-600 overflow-hidden">
+                    <View className="flex-row justify-between items-center px-4 py-3 bg-yellow-500">
+                      <Text className="text-black font-black uppercase">Informe Técnico del Trabajo Realizado y Diagnóstico</Text>
+                      <TouchableOpacity onPress={() => setInformeModalVisible(false)} className="p-2">
+                        <X color="#111" size={18} />
+                      </TouchableOpacity>
+                    </View>
+                    <ScrollView className="p-4">
+                      {(turno.diagnosticoMecanico || turno.informeTecnico || turno.informeTrabajo) ? (
+                        <>
+                          {turno.informeTrabajo && (
+                            <View className="mb-4">
+                              <Text className="text-zinc-400 text-sm font-bold mb-2">Informe de Trabajo</Text>
+                              <Text className="text-zinc-200 text-sm">{turno.informeTrabajo}</Text>
+                            </View>
+                          )}
+                          {turno.informeTecnico && (
+                            <View className="mb-4">
+                              <Text className="text-zinc-400 text-sm font-bold mb-2">Informe Técnico</Text>
+                              <Text className="text-zinc-200 text-sm">{turno.informeTecnico}</Text>
+                            </View>
+                          )}
+                          {turno.diagnosticoMecanico && (
+                            <View className="mb-4">
+                              <Text className="text-zinc-400 text-sm font-bold mb-2">Diagnóstico del Mecánico</Text>
+                              <Text className="text-zinc-200 text-sm">{turno.diagnosticoMecanico}</Text>
+                            </View>
+                          )}
+                        </>
+                      ) : (
+                        <Text className="text-zinc-500">No hay informe técnico o diagnóstico registrado.</Text>
+                      )}
+                    </ScrollView>
+                  </Animated.View>
+                </View>
+              </Modal>
+            )}
 
           </SafeAreaView>
         </Animated.View>
