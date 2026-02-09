@@ -75,14 +75,15 @@ export default function CheckoutScreen() {
   const toggleCheckCisterna = (id: string) => setChecksCisterna(prev => ({ ...prev, [id]: !prev[id] }));
 
   // CÁMARA
+  // Cambiado: adjuntar imagen desde galería en lugar de abrir cámara
   const takePhoto = async () => {
-    const permission = await ImagePicker.requestCameraPermissionsAsync();
-    if (permission.status !== 'granted') return showModal('warning', 'Permiso', 'Se requiere cámara.');
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (permission.status !== 'granted') return showModal('warning', 'Permiso', 'Se requiere acceso a la galería.');
 
-    const result = await ImagePicker.launchCameraAsync({
+    const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      quality: 0.5,
-      allowsEditing: false,
+      quality: 0.6,
+      allowsEditing: true,
     });
 
     if (!result.canceled && result.assets.length > 0) {
@@ -230,7 +231,7 @@ export default function CheckoutScreen() {
               ) : (
                 <>
                   <Ionicons name="camera" size={32} color="#34D399" />
-                  <Text className="text-emerald-500 text-xs font-bold mt-2 uppercase">Tomar Foto Tablero</Text>
+                  <Text className="text-emerald-500 text-xs font-bold mt-2 uppercase">ADJUNTAR FOTO TABLERO</Text>
                 </>
               )}
             </TouchableOpacity>

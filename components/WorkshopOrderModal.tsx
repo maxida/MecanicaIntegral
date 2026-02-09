@@ -29,6 +29,16 @@ const WorkshopOrderModal = ({ visible, turno, onClose, readOnly = false }: Works
 	const [horasEstimadas, setHorasEstimadas] = useState(turno.horasEstimadas || '');
 	const [instrucciones, setInstrucciones] = useState(turno.instruccionesAdmin || '');
 	const [numeroOT, setNumeroOT] = useState(turno.numeroOT || '');
+
+	// Mantener el estado sincronizado cuando cambia el turno que se pasa como prop
+	useEffect(() => {
+		if (!turno) return;
+		setMecanicoId(turno.mecanicoId || '');
+		setMecanicoNombre(turno.mecanicoNombre || '');
+		setHorasEstimadas(turno.horasEstimadas || '');
+		setInstrucciones(turno.instruccionesAdmin || '');
+		setNumeroOT(turno.numeroOT || '');
+	}, [turno]);
 	const [showMecanicoPicker, setShowMecanicoPicker] = useState(false);
 
 	// Estados para Documentos (PDF)

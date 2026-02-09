@@ -117,15 +117,16 @@ const NovedadesChoferForm = () => {
   const toggleIssue = (id: string) => setSelectedIssues(prev => prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id]);
   const toggleCheckCisterna = (id: string) => setChecksCisterna(prev => ({ ...prev, [id]: !prev[id] }));
 
+  // Cambiado: ahora adjuntar desde GALERÍA en lugar de abrir la cámara
   const takePhoto = async () => {
     try {
-      const permission = await ImagePicker.requestCameraPermissionsAsync();
-      if (permission.status !== 'granted') return showModal('warning', 'Permiso', 'Se requiere cámara.');
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (permission.status !== 'granted') return showModal('warning', 'Permiso', 'Se requiere acceso a la galería.');
 
-      const result = await ImagePicker.launchCameraAsync({
+      const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        quality: 0.5,
-        allowsEditing: false,
+        quality: 0.6,
+        allowsEditing: true,
       });
       if (!result.canceled && result.assets.length) {
         setPhoto(result.assets[0].uri);
@@ -293,7 +294,7 @@ const NovedadesChoferForm = () => {
               ) : (
                 <>
                   <Ionicons name="camera" size={28} color="#60A5FA" />
-                  <Text className="text-gray-600 text-[9px] font-bold mt-2 uppercase">FOTO KILOMETRAJE</Text>
+                  <Text className="text-gray-600 text-[9px] font-bold mt-2 uppercase">ADJUNTAR FOTO TABLERO</Text>
                 </>
               )}
             </TouchableOpacity>
