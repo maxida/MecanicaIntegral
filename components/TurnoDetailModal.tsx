@@ -1,11 +1,10 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Modal, SafeAreaView, Platform, Image, ActivityIndicator } from 'react-native';
+import React from 'react';
+import { View, Text, ScrollView, TouchableOpacity, Modal, SafeAreaView, Platform, Image } from 'react-native';
 import { useRouter } from 'expo-router';
 import {
   Droplet, Disc, Battery, Lightbulb, CircleDot, Image as LucideImage,
-  Info, X, Gauge, Wrench, FileCheck, Calendar, Clock, Hash, AlertTriangle, CheckCircle, ArrowRight, User
+  Info, X, Gauge, Wrench, Clock, Hash, AlertTriangle, CheckCircle, ArrowRight, LineChart
 } from 'lucide-react-native';
-import { FontAwesome5, MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 
@@ -74,9 +73,18 @@ const TurnoDetailModal = ({ visible, turno, onClose, readOnly = false, adminCont
   const isPending = turnoEstado === 'pending' || turnoEstado === 'pending_triage';
   const isScheduled = turnoEstado === 'scheduled';
 
-  // Checklist Cisterna
+  // Tipo de Carga
+  const tipoCarga: 'cisterna' | 'semiremolque' | undefined = turno.tipoCarga;
+  const tipoCargaLabel = tipoCarga === 'semiremolque' ? 'Semiremolque' : tipoCarga === 'cisterna' ? 'Cisterna' : null;
+
+  // Checklists por tipo de carga
   const checksCisternaSalida = turno.checklistCisternaSalida;
   const checksCisternaIngreso = turno.checklistCisternaIngreso;
+  const checksSemiremolqueSalida = turno.checklistSemiremolqueSalida;
+  const checksSemiremolqueIngreso = turno.checklistSemiremolqueIngreso;
+
+  const checksSalida = tipoCarga === 'semiremolque' ? checksSemiremolqueSalida : checksCisternaSalida;
+  const checksIngreso = tipoCarga === 'semiremolque' ? checksSemiremolqueIngreso : checksCisternaIngreso;
 
   const renderFooterActions = () => {
     if (readOnly) {
@@ -97,7 +105,7 @@ const TurnoDetailModal = ({ visible, turno, onClose, readOnly = false, adminCont
             }}
             className="w-full bg-zinc-800 py-3 rounded-xl flex-row items-center justify-center mb-3 border border-white/10"
           >
-            <FontAwesome5 name="chart-line" size={14} color="#A1A1AA" style={{ marginRight: 8 }} />
+            <LineChart size={14} color="#A1A1AA" style={{ marginRight: 8 }} />
             <Text className="text-zinc-300 font-bold text-xs uppercase">Ver Hoja de Vida Completa</Text>
           </TouchableOpacity>
 
@@ -152,6 +160,11 @@ const TurnoDetailModal = ({ visible, turno, onClose, readOnly = false, adminCont
                 </View>
                 <Text className="text-white text-4xl font-black italic tracking-tighter">{turno.numeroPatente}</Text>
                 <Text className="text-zinc-500 text-xs mt-1 font-bold uppercase tracking-widest">CHOFER ACTUAL: {turno.chofer || 'S/D'}</Text>
+                {tipoCargaLabel && (
+                  <View className="self-start mt-2 bg-white/5 border border-white/10 px-2 py-1 rounded-full">
+                    <Text className="text-[9px] uppercase font-black tracking-[2px] text-blue-400">{tipoCargaLabel}</Text>
+                  </View>
+                )}
               </View>
 
               <View className="items-end">
@@ -244,16 +257,16 @@ const TurnoDetailModal = ({ visible, turno, onClose, readOnly = false, adminCont
                 </View>
               </View>
 
-              {/* BLOQUE CONTROL CISTERNA (NUEVO) */}
-              {(checksCisternaSalida || checksCisternaIngreso) && (
+              {/* BLOQUE CONTROL CARGA (DINÁMICO) */}
+              {(checksSalida || checksIngreso || checksCisternaSalida || checksCisternaIngreso || checksSemiremolqueSalida || checksSemiremolqueIngreso) && (
                 <View className="mb-8">
-                  <Text className="text-blue-500 text-[10px] font-black uppercase tracking-[3px] mb-4">Control Cisterna</Text>
+                  <Text className="text-blue-500 text-[10px] font-black uppercase tracking-[3px] mb-4">Control {tipoCargaLabel || 'Cisterna'}</Text>
                   <View className="flex-row gap-4">
                     <View className="flex-1 bg-zinc-900/50 p-3 rounded-xl border border-white/5">
                       <Text className="text-zinc-500 text-[9px] font-bold uppercase mb-2">SALIDA</Text>
-                      {checksCisternaSalida ? (
+                      {checksSalida ? (
                         <View className="flex-row items-center">
-                          <MaterialIcons name="check-circle" size={16} color="#10B981" />
+                          <CheckCircle size={16} color="#10B981" />
                           <Text className="text-emerald-500 text-xs font-bold ml-2">Verificado OK</Text>
                         </View>
                       ) : <Text className="text-zinc-600 text-xs italic">No registrado</Text>}
@@ -261,9 +274,9 @@ const TurnoDetailModal = ({ visible, turno, onClose, readOnly = false, adminCont
 
                     <View className="flex-1 bg-zinc-900/50 p-3 rounded-xl border border-white/5">
                       <Text className="text-zinc-500 text-[9px] font-bold uppercase mb-2">INGRESO</Text>
-                      {checksCisternaIngreso ? (
+                      {checksIngreso ? (
                         <View className="flex-row items-center">
-                          <MaterialIcons name="check-circle" size={16} color="#10B981" />
+                          <CheckCircle size={16} color="#10B981" />
                           <Text className="text-emerald-500 text-xs font-bold ml-2">Verificado OK</Text>
                         </View>
                       ) : <Text className="text-zinc-600 text-xs italic">Pendiente</Text>}
