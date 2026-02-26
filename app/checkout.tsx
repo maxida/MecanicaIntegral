@@ -92,14 +92,15 @@ export default function CheckoutScreen() {
   const toggleCheckSemiremolque = (id: string) => setChecksSemiremolque(prev => ({ ...prev, [id]: !prev[id] }));
 
   // CÁMARA
+  // Cambiado: adjuntar imagen desde galería en lugar de abrir cámara
   const takePhoto = async () => {
-    const permission = await ImagePicker.requestCameraPermissionsAsync();
-    if (permission.status !== 'granted') return showModal('warning', 'Permiso', 'Se requiere cámara.');
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (permission.status !== 'granted') return showModal('warning', 'Permiso', 'Se requiere acceso a la galería.');
 
-    const result = await ImagePicker.launchCameraAsync({
+    const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      quality: 0.5,
-      allowsEditing: false,
+      quality: 0.6,
+      allowsEditing: true,
     });
 
     if (!result.canceled && result.assets.length > 0) {

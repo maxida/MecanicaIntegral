@@ -158,7 +158,7 @@ const ClienteDashboard = ({ onLogout }: { onLogout?: () => void }) => {
   });
 
   const isEnViaje = camionEstado === 'en_viaje';
-  const isEnTaller = ['pending_triage', 'scheduled', 'in_progress'].includes(camionEstado);
+  const isEnTaller = ['pending_triage', 'taller_pendiente', 'scheduled', 'in_progress'].includes(camionEstado);
   const canCheckout = !isEnViaje && !isEnTaller;
   const canCheckin = isEnViaje;
 

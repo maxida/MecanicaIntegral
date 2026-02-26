@@ -32,8 +32,8 @@ export const CustomAlertProvider = ({ children }: { children: React.ReactNode })
 	return (
 		<>
 			{children}
-			<Modal visible={visible} transparent animationType="fade" onRequestClose={close}>
-				<View className="flex-1 justify-center items-center">
+			<Modal visible={visible} transparent animationType="fade" presentationStyle="overFullScreen" statusBarTranslucent onRequestClose={close}>
+				<View className="flex-1 justify-center items-center" style={{ zIndex: 9999, elevation: 9999 }}>
 					<BlurView intensity={60} tint="dark" className="absolute inset-0" />
 					<View className="w-[90%] bg-[#0b0b0b] rounded-2xl p-6 border border-white/10">
 						<Text className="text-white text-lg font-bold mb-2">{payload?.title}</Text>

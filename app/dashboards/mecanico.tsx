@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { View, Text, ScrollView, SafeAreaView, TouchableOpacity, useWindowDimensions, Platform, TextInput, Modal, ActivityIndicator, Image } from 'react-native';
 import {
-  Wrench, Clock, CheckCircle2, LogOut, Play, Pause, AlertTriangle, Truck, Timer, Check, X, FileText, User, Award, ListTodo
+  Wrench, Clock, CheckCircle2, LogOut, Play, Pause, AlertTriangle, Truck, Timer, Check, X, FileText, User, Award, ListTodo, UserCog, Hash
 } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useDispatch, useSelector } from 'react-redux';
@@ -9,7 +9,7 @@ import { RootState } from '@/redux/store';
 import { setTurnos } from '@/redux/slices/turnosSlice';
 import { suscribirseATurnos, actualizarTurnoService } from '@/services/turnosService';
 import LoadingOverlay from '@/components/LoadingOverlay';
-import TurnoDetailModal from '@/components/TurnoDetailModal';
+import WorkshopOrderModal from '@/components/WorkshopOrderModal';
 
 const MecanicoDashboard = ({ onLogout }: { onLogout?: () => void }) => {
   const dispatch = useDispatch();
@@ -21,7 +21,7 @@ const MecanicoDashboard = ({ onLogout }: { onLogout?: () => void }) => {
 
   // Modales
   const [selectedTurno, setSelectedTurno] = useState<any>(null);
-  const [detailVisible, setDetailVisible] = useState(false);
+  const [orderModalVisible, setOrderModalVisible] = useState(false);
   const [finishModalVisible, setFinishModalVisible] = useState(false);
 
   // Input Diagnóstico Final
@@ -38,12 +38,7 @@ const MecanicoDashboard = ({ onLogout }: { onLogout?: () => void }) => {
         const estadoValido = ['scheduled', 'in_progress', 'completed'].includes(t.estado);
         if (!estadoValido) return false;
 
-        // Filtro por ID o Nombre (Robustez)
-        const idMatch = t.mecanicoId === user.id;
-        const nombreMatch = t.mecanicoNombre && user.nombre &&
-          t.mecanicoNombre.toLowerCase().trim() === user.nombre.toLowerCase().trim();
-
-        return idMatch || nombreMatch;
+        return t.mecanicoId === user.id;
       });
 
       dispatch(setTurnos(misTareas));
@@ -182,7 +177,7 @@ const MecanicoDashboard = ({ onLogout }: { onLogout?: () => void }) => {
 
           {/* Foto Evidencia */}
           {(t.fotoTableroIngreso || t.fotoTablero) && (
-            <TouchableOpacity onPress={() => { setSelectedTurno(t); setDetailVisible(true); }} className="mb-4 flex-row items-center">
+            <TouchableOpacity onPress={() => { setSelectedTurno(t); setOrderModalVisible(true); }} className="mb-4 flex-row items-center">
               <Image source={{ uri: t.fotoTableroIngreso || t.fotoTablero }} className="w-8 h-8 rounded bg-zinc-800 mr-2" />
               <Text className="text-zinc-500 text-[10px] underline">Ver foto</Text>
             </TouchableOpacity>
@@ -192,7 +187,7 @@ const MecanicoDashboard = ({ onLogout }: { onLogout?: () => void }) => {
           {!isDone && (
             <View className="flex-row gap-3 pt-2 border-t border-zinc-800/50">
               <TouchableOpacity
-                onPress={() => { setSelectedTurno(t); setDetailVisible(true); }}
+                onPress={() => { setSelectedTurno(t); setOrderModalVisible(true); }}
                 className="flex-1 bg-zinc-800 py-3 rounded-xl items-center border border-zinc-700"
               >
                 <Text className="text-zinc-400 text-xs font-bold uppercase">Ver Ficha</Text>
@@ -231,6 +226,272 @@ const MecanicoDashboard = ({ onLogout }: { onLogout?: () => void }) => {
             </View>
           )}
         </View>
+      </View>
+    );
+  };
+
+  const ASIGNADAS_COLOR = '#3B82F6';
+  const EN_TALLER_COLOR = '#EAB308';
+  const FINALIZADAS_COLOR = '#10B981';
+
+  const PendingCard = ({ t }: { t: any }) => (
+    <TouchableOpacity
+      key={t.id}
+      activeOpacity={0.9}
+      onPress={() => { setSelectedTurno(t); setOrderModalVisible(true); }}
+      className="mb-4 bg-zinc-900 rounded-2xl border border-zinc-800 shadow-sm overflow-hidden"
+    >
+      <View style={{ backgroundColor: ASIGNADAS_COLOR }} className="absolute left-0 top-0 bottom-0 w-1.5" />
+
+      <View className="p-4 pl-5">
+        <View className="flex-row justify-between items-start mb-2">
+          <View>
+            <Text className="text-white font-black text-lg italic tracking-tight">{t.numeroPatente}</Text>
+            {t.numeroOT && (
+              <View className="flex-row items-center mt-1 bg-zinc-800 self-start px-2 py-0.5 rounded">
+                <Hash size={10} color="#888" />
+                <Text className="text-zinc-400 text-[10px] font-bold ml-1">{t.numeroOT}</Text>
+              </View>
+            )}
+          </View>
+
+          {t.prioridad === 1 && (
+            <View className="bg-red-500/20 px-2 py-1 rounded border border-red-500/30">
+              <Text className="text-red-500 text-[9px] font-black uppercase">URGENTE</Text>
+            </View>
+          )}
+        </View>
+
+        <Text className="text-zinc-400 text-xs mb-4 leading-5" numberOfLines={2}>
+          {t.reporteSupervisor || t.comentariosChofer || 'Sin descripción detallada.'}
+        </Text>
+
+        <View className="flex-row justify-between items-center border-t border-zinc-800 pt-3">
+          <View className="flex-row items-center">
+            <UserCog size={14} color={t.mecanicoNombre ? ASIGNADAS_COLOR : "#555"} />
+            <Text className={`text-[10px] ml-1.5 font-bold ${t.mecanicoNombre ? 'text-zinc-300' : 'text-zinc-600'}`}>
+              {t.mecanicoNombre || 'SIN ASIGNAR'}
+            </Text>
+          </View>
+
+          {t.horasEstimadas && (
+            <View className="flex-row items-center bg-black/40 px-2 py-1 rounded-lg border border-zinc-800">
+              <Clock size={10} color="#666" />
+              <Text className="text-zinc-500 text-[10px] ml-1 font-mono">{t.horasEstimadas}h</Text>
+            </View>
+          )}
+        </View>
+
+        {/* Acciones rápidas */}
+        <View className="mt-3">
+          <TouchableOpacity
+            onPress={() => handleStart(t)}
+            disabled={actionLoading}
+            className="w-full bg-emerald-600 py-2.5 rounded-xl flex-row items-center justify-center shadow-lg shadow-emerald-500/20"
+          >
+            {actionLoading ? (
+              <ActivityIndicator color="white" />
+            ) : (
+              <>
+                <Play size={14} color="white" fill="white" />
+                <Text className="text-white text-[10px] font-black uppercase ml-2">Iniciar</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+
+  const EnTallerCard = ({ t }: { t: any }) => (
+    <TouchableOpacity
+      key={t.id}
+      activeOpacity={0.9}
+      onPress={() => { setSelectedTurno(t); setOrderModalVisible(true); }}
+      className="mb-4 bg-zinc-900 rounded-2xl border border-zinc-800 shadow-sm overflow-hidden"
+    >
+      <View style={{ backgroundColor: EN_TALLER_COLOR }} className="absolute left-0 top-0 bottom-0 w-1.5" />
+
+      <View className="p-4 pl-5">
+        <View className="flex-row justify-between items-start mb-2">
+          <View>
+            <Text className="text-white font-black text-lg italic tracking-tight">{t.numeroPatente}</Text>
+            {t.numeroOT && (
+              <View className="flex-row items-center mt-1 bg-zinc-800 self-start px-2 py-0.5 rounded">
+                <Hash size={10} color="#888" />
+                <Text className="text-zinc-400 text-[10px] font-bold ml-1">{t.numeroOT}</Text>
+              </View>
+            )}
+          </View>
+
+          {t.prioridad === 1 && (
+            <View className="bg-red-500/20 px-2 py-1 rounded border border-red-500/30">
+              <Text className="text-red-500 text-[9px] font-black uppercase">URGENTE</Text>
+            </View>
+          )}
+        </View>
+
+        <Text className="text-zinc-400 text-xs mb-4 leading-5" numberOfLines={2}>
+          {t.reporteSupervisor || t.comentariosChofer || 'Sin descripción detallada.'}
+        </Text>
+
+        <View className="flex-row justify-between items-center border-t border-zinc-800 pt-3">
+          <View className="flex-row items-center">
+            <UserCog size={14} color={t.mecanicoNombre ? EN_TALLER_COLOR : "#555"} />
+            <Text className={`text-[10px] ml-1.5 font-bold ${t.mecanicoNombre ? 'text-zinc-300' : 'text-zinc-600'}`}>
+              {t.mecanicoNombre || 'SIN ASIGNAR'}
+            </Text>
+          </View>
+
+          {t.horasEstimadas && (
+            <View className="flex-row items-center bg-black/40 px-2 py-1 rounded-lg border border-zinc-800">
+              <Clock size={10} color="#666" />
+              <Text className="text-zinc-500 text-[10px] ml-1 font-mono">{t.horasEstimadas}h</Text>
+            </View>
+          )}
+        </View>
+
+        {/* Acciones rápidas */}
+        <View className="mt-3">
+          <TouchableOpacity
+            onPress={() => { setSelectedTurno(t); setFinishModalVisible(true); }}
+            className="w-full bg-emerald-600 py-2.5 rounded-xl flex-row items-center justify-center shadow-lg shadow-emerald-500/20"
+          >
+            <CheckCircle2 size={14} color="white" />
+            <Text className="text-white text-[10px] font-black uppercase ml-2">Finalizar</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+
+  const FinalizadaCard = ({ t }: { t: any }) => {
+    return (
+      <TouchableOpacity
+        key={t.id}
+        activeOpacity={0.9}
+        onPress={() => { setSelectedTurno(t); setOrderModalVisible(true); }}
+        className="mb-4 bg-zinc-900 rounded-2xl border border-zinc-800 shadow-sm overflow-hidden"
+      >
+        <View style={{ backgroundColor: FINALIZADAS_COLOR }} className="absolute left-0 top-0 bottom-0 w-1.5" />
+
+        <View className="p-4 pl-5">
+          <View className="flex-row justify-between items-start mb-2">
+            <View>
+              <Text className="text-white font-black text-lg italic tracking-tight">{t.numeroPatente}</Text>
+              {t.numeroOT && (
+                <View className="flex-row items-center mt-1 bg-zinc-800 self-start px-2 py-0.5 rounded">
+                  <Hash size={10} color="#888" />
+                  <Text className="text-zinc-400 text-[10px] font-bold ml-1">{t.numeroOT}</Text>
+                </View>
+              )}
+            </View>
+
+            {t.prioridad === 1 && (
+              <View className="bg-red-500/20 px-2 py-1 rounded border border-red-500/30">
+                <Text className="text-red-500 text-[9px] font-black uppercase">URGENTE</Text>
+              </View>
+            )}
+          </View>
+
+          <Text className="text-zinc-400 text-xs mb-4 leading-5" numberOfLines={2}>
+            {t.reporteSupervisor || t.comentariosChofer || 'Sin descripción detallada.'}
+          </Text>
+
+          {/* Diagnóstico del mecánico: ahora se muestra solamente en el modal al pulsar el botón */}
+
+          <View className="flex-row justify-between items-center border-t border-zinc-800 pt-3">
+            <View className="flex-row items-center">
+              <UserCog size={14} color={t.mecanicoNombre ? FINALIZADAS_COLOR : "#555"} />
+              <Text className={`text-[10px] ml-1.5 font-bold ${t.mecanicoNombre ? 'text-zinc-300' : 'text-zinc-600'}`}>
+                {t.mecanicoNombre || 'SIN ASIGNAR'}
+              </Text>
+            </View>
+
+            {t.horasEstimadas && (
+              <View className="flex-row items-center bg-black/40 px-2 py-1 rounded-lg border border-zinc-800">
+                <Clock size={10} color="#666" />
+                <Text className="text-zinc-500 text-[10px] ml-1 font-mono">{t.horasEstimadas}h</Text>
+              </View>
+            )}
+          </View>
+
+          {/* Removed external 'VER TRABAJO / DIAGNÓSTICO' button per UX: use modal inside card only */}
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
+  const { width, height } = useWindowDimensions();
+  const isWide = width >= 900;
+
+  // Filter state for completed items
+  const [filterPatente, setFilterPatente] = useState('');
+  const filteredFinalizadas = finalizadas.filter((t: any) => {
+    if (!filterPatente.trim()) return true;
+    return (t.numeroPatente || '').toLowerCase().includes(filterPatente.trim().toLowerCase());
+  });
+
+  // Section renderers so we can show them either stacked or in columns
+  const renderEnProceso = () => (
+    <View className="mb-4">
+      <View className="flex-row items-center mb-3">
+        <View className="w-2 h-2 rounded-full bg-yellow-500 mr-2 animate-pulse" />
+        <Text className="text-white font-bold text-sm uppercase tracking-wider">Trabajando Ahora</Text>
+      </View>
+      {enProceso.map(t => <EnTallerCard key={t.id} t={t} />)}
+    </View>
+  );
+
+  const renderPendientes = () => (
+    <View className="mb-4">
+      <View className="flex-row items-center mb-3">
+        <View className="w-2 h-2 rounded-full bg-blue-500 mr-2" />
+        <Text className="text-zinc-400 font-bold text-sm uppercase tracking-wider">Pendientes ({asignadas.length})</Text>
+      </View>
+      {asignadas.length === 0 && enProceso.length === 0 ? (
+        <View className="items-center py-10 opacity-30">
+          <CheckCircle2 size={48} color="#FFF" />
+          <Text className="text-white mt-4 font-bold">¡Todo listo! Sin tareas pendientes.</Text>
+        </View>
+      ) : (
+        asignadas.map(t => <PendingCard key={t.id} t={t} />)
+      )}
+    </View>
+  );
+
+  const renderFinalizadas = () => {
+    if (finalizadas.length === 0) return null;
+
+    const filtered = finalizadas.filter((t: any) => {
+      if (!filterPatente.trim()) return true;
+      return (t.numeroPatente || '').toLowerCase().includes(filterPatente.trim().toLowerCase());
+    });
+
+    const sorted = [...filtered].sort((a: any, b: any) => {
+      const ta = new Date(a.fechaFinReal || a.fechaCreacion || 0).getTime();
+      const tb = new Date(b.fechaFinReal || b.fechaCreacion || 0).getTime();
+      return tb - ta;
+    });
+
+    return (
+      <View className="opacity-50">
+        <View className="mb-3">
+          <Text className="text-zinc-600 font-bold text-xs uppercase tracking-wider mb-2">Completadas Recientemente</Text>
+          <TextInput
+            value={filterPatente}
+            onChangeText={setFilterPatente}
+            placeholder="Filtrar por patente (ej: NIG069)"
+            placeholderTextColor="#666"
+            className="bg-zinc-900 p-2 rounded-md border border-zinc-800 text-white text-sm mb-2"
+          />
+        </View>
+
+        {sorted.length === 0 ? (
+          <Text className="text-zinc-500">No hay coincidencias.</Text>
+        ) : (
+          sorted.map(t => <FinalizadaCard key={t.id} t={t} />)
+        )}
       </View>
     );
   };
@@ -277,44 +538,29 @@ const MecanicoDashboard = ({ onLogout }: { onLogout?: () => void }) => {
           </View>
         </View>
 
-        <ScrollView className="flex-1" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
-
-          {/* EN PROCESO */}
-          {enProceso.length > 0 && (
-            <View className="mb-8">
-              <View className="flex-row items-center mb-3">
-                <View className="w-2 h-2 rounded-full bg-yellow-500 mr-2 animate-pulse" />
-                <Text className="text-white font-bold text-sm uppercase tracking-wider">Trabajando Ahora</Text>
+        {isWide ? (
+          <ScrollView className="flex-1" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
+            <View className="flex-row gap-4">
+              <View style={{ flex: 1, maxWidth: '33%' }}>
+                {renderPendientes()}
               </View>
-              {enProceso.map(t => <TaskCard key={t.id} t={t} />)}
-            </View>
-          )}
 
-          {/* PENDIENTES */}
-          <View className="mb-8">
-            <View className="flex-row items-center mb-3">
-              <View className="w-2 h-2 rounded-full bg-blue-500 mr-2" />
-              <Text className="text-zinc-400 font-bold text-sm uppercase tracking-wider">Pendientes ({asignadas.length})</Text>
-            </View>
-            {asignadas.length === 0 && enProceso.length === 0 ? (
-              <View className="items-center py-10 opacity-30">
-                <CheckCircle2 size={48} color="#FFF" />
-                <Text className="text-white mt-4 font-bold">¡Todo listo! Sin tareas pendientes.</Text>
+              <View style={{ flex: 1, maxWidth: '33%' }}>
+                {enProceso.length > 0 ? renderEnProceso() : <Text className="text-zinc-500">No hay tareas en curso</Text>}
               </View>
-            ) : (
-              asignadas.map(t => <TaskCard key={t.id} t={t} />)
-            )}
-          </View>
 
-          {/* FINALIZADAS */}
-          {finalizadas.length > 0 && (
-            <View className="opacity-50">
-              <Text className="text-zinc-600 font-bold text-xs uppercase tracking-wider mb-3">Completadas Recientemente</Text>
-              {finalizadas.map(t => <TaskCard key={t.id} t={t} />)}
+              <View style={{ flex: 1, maxWidth: '33%' }}>
+                {renderFinalizadas()}
+              </View>
             </View>
-          )}
-
-        </ScrollView>
+          </ScrollView>
+        ) : (
+          <ScrollView className="flex-1" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
+            {renderPendientes()}
+            {renderEnProceso()}
+            {renderFinalizadas()}
+          </ScrollView>
+        )}
       </LinearGradient>
 
       {/* MODAL FINISH */}
@@ -324,13 +570,13 @@ const MecanicoDashboard = ({ onLogout }: { onLogout?: () => void }) => {
             <Text className="text-white text-xl font-bold mb-1">Finalizar Reparación</Text>
             <Text className="text-zinc-500 text-xs mb-4 uppercase tracking-widest">{selectedTurno?.numeroPatente}</Text>
 
-            <Text className="text-zinc-300 text-sm font-bold mb-2">Informe Técnico del Trabajo Realizado *</Text>
+            <Text className="text-zinc-300 text-sm font-bold mb-2">Informe Técnico del Trabajo Realizado y Diagnostico</Text>
             <TextInput
               multiline
               numberOfLines={5}
               value={diagnosticoFinal}
               onChangeText={setDiagnosticoFinal}
-              placeholder="Describe qué reparaste, qué repuestos usaste..."
+              placeholder="Describe qué reparaste, qué repuestos usaste y el Diagnostico del vehiculo...  "
               placeholderTextColor="#555"
               textAlignVertical="top"
               className="bg-black p-4 rounded-xl border border-zinc-700 text-white min-h-[120px] mb-6"
@@ -349,7 +595,7 @@ const MecanicoDashboard = ({ onLogout }: { onLogout?: () => void }) => {
         </View>
       </Modal>
 
-      <TurnoDetailModal visible={detailVisible} turno={selectedTurno} onClose={() => setDetailVisible(false)} readOnly={true} />
+      <WorkshopOrderModal visible={orderModalVisible} turno={selectedTurno} onClose={() => setOrderModalVisible(false)} readOnly={true} />
     </SafeAreaView>
   );
 };

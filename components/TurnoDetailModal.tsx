@@ -1,12 +1,15 @@
-import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Modal, SafeAreaView, Platform, Image } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, Modal, SafeAreaView, Platform, Image, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import {
   Droplet, Disc, Battery, Lightbulb, CircleDot, Image as LucideImage,
-  Info, X, Gauge, Wrench, Clock, Hash, AlertTriangle, CheckCircle, ArrowRight, LineChart
+  Info, X, Gauge, Wrench, Clock, Hash, AlertTriangle, CheckCircle, ArrowRight, LineChart,
+  Lock, Toolbox, Sparkles, ArrowDownCircle, Wind, ArrowUpCircle, Tent
 } from 'lucide-react-native';
 import { BlurView } from 'expo-blur';
 import Animated, { FadeInUp } from 'react-native-reanimated';
+import { doc, updateDoc } from 'firebase/firestore';
+import { db } from '@/firebase/firebaseConfig';
 
 const SINTOMAS_MAP: Record<string, { label: string, Icon: any, color: string }> = {
   aceite: { label: 'Nivel/Presión Aceite', Icon: Droplet, color: '#EF4444' },
@@ -29,6 +32,26 @@ const SINTOMAS_MAP: Record<string, { label: string, Icon: any, color: string }> 
   refrigerante: { label: 'Nivel Refrigerante', Icon: Droplet, color: '#EF4444' },
 };
 
+const CARGA_ITEMS_MAP: Record<string, { label: string; Icon: any; color: string }> = {
+  valvulas: { label: 'Válvulas Cerradas', Icon: Lock, color: '#60A5FA' },
+  tapas_domo: { label: 'Tapas Domo', Icon: Disc, color: '#60A5FA' },
+  precintos: { label: 'Precintos Seguridad', Icon: Lock, color: '#60A5FA' },
+  mangueras: { label: 'Mangueras/Acoples', Icon: Toolbox, color: '#60A5FA' },
+  limpieza: { label: 'Limpieza Exterior', Icon: Sparkles, color: '#60A5FA' },
+  descarga: { label: 'Bocas Descarga', Icon: ArrowDownCircle, color: '#60A5FA' },
+  perdida_aire: { label: 'Pérdida de aire', Icon: Wind, color: '#60A5FA' },
+  levante_eje: { label: 'Levante eje neumático', Icon: ArrowUpCircle, color: '#60A5FA' },
+  fueyes_estado: { label: 'Fueyes / Estado', Icon: Disc, color: '#60A5FA' },
+  luces: { label: 'Luces', Icon: Lightbulb, color: '#60A5FA' },
+  neumaticos: { label: 'Neumáticos', Icon: Disc, color: '#60A5FA' },
+  carpa: { label: 'Estado de carpa', Icon: Tent, color: '#60A5FA' },
+  cajones: { label: 'Cajones de herramientas', Icon: Toolbox, color: '#60A5FA' },
+  auxilio: { label: 'Ruedas de auxilio', Icon: Disc, color: '#60A5FA' },
+};
+
+const CISTERNA_IDS = ['valvulas', 'tapas_domo', 'precintos', 'mangueras', 'limpieza', 'descarga'] as const;
+const SEMIREMOLQUE_IDS = ['perdida_aire', 'levante_eje', 'fueyes_estado', 'luces', 'neumaticos', 'carpa', 'cajones', 'auxilio'] as const;
+
 type TurnoEstado = 'pending' | 'scheduled' | 'in_progress' | 'completed' | 'pending_triage' | 'en_viaje';
 
 interface TurnoDetailModalProps {
@@ -43,6 +66,10 @@ const TurnoDetailModal = ({ visible, turno, onClose, readOnly = false, adminCont
   const router = useRouter();
 
   if (!turno) return null;
+
+  const [informeModalVisible, setInformeModalVisible] = useState(false);
+  const [isLiberando, setIsLiberando] = useState(false);
+  const [showLiberarConfirm, setShowLiberarConfirm] = useState(false);
 
   const parseDate = (dateInput: any): Date | null => {
     if (!dateInput) return null;
@@ -85,6 +112,33 @@ const TurnoDetailModal = ({ visible, turno, onClose, readOnly = false, adminCont
 
   const checksSalida = tipoCarga === 'semiremolque' ? checksSemiremolqueSalida : checksCisternaSalida;
   const checksIngreso = tipoCarga === 'semiremolque' ? checksSemiremolqueIngreso : checksCisternaIngreso;
+  const cargaIds = tipoCarga === 'semiremolque' ? SEMIREMOLQUE_IDS : CISTERNA_IDS;
+  const salidaCargaOk = !!checksSalida && cargaIds.every((id) => checksSalida?.[id] === true);
+  const ingresoCargaOk = turno.controlCargaOk !== undefined
+    ? turno.controlCargaOk
+    : (!!checksIngreso && cargaIds.every((id) => checksIngreso?.[id] === true));
+
+  const handleLiberarUnidad = () => {
+    setShowLiberarConfirm(true);
+  };
+
+  const confirmLiberarUnidad = async () => {
+    if (!turno?.id) return;
+    setIsLiberando(true);
+    try {
+      const turnoRef = doc(db, 'turnos', turno.id);
+      await updateDoc(turnoRef, {
+        estado: 'completed',
+        estadoGeneral: 'ok',
+        resolucionAdmin: 'Liberado por el Administrador de Flota. Falla menor.'
+      });
+      onClose();
+    } catch (error) {
+      setShowLiberarConfirm(false);
+    } finally {
+      setIsLiberando(false);
+    }
+  };
 
   const renderFooterActions = () => {
     if (readOnly) {
@@ -98,35 +152,83 @@ const TurnoDetailModal = ({ visible, turno, onClose, readOnly = false, adminCont
     if (adminContext) {
       return (
         <View className="w-full">
-          <TouchableOpacity
-            onPress={() => {
-              onClose();
-              router.push({ pathname: '/historial-unidad', params: { patente: turno.numeroPatente } });
-            }}
-            className="w-full bg-zinc-800 py-3 rounded-xl flex-row items-center justify-center mb-3 border border-white/10"
-          >
-            <LineChart size={14} color="#A1A1AA" style={{ marginRight: 8 }} />
-            <Text className="text-zinc-300 font-bold text-xs uppercase">Ver Hoja de Vida Completa</Text>
-          </TouchableOpacity>
 
-          <View className="flex-col md:flex-row gap-3 w-full">
-            <TouchableOpacity onPress={onClose} className="flex-1 bg-zinc-900 py-4 rounded-xl items-center border border-zinc-800">
-              <Text className="text-gray-400 font-bold uppercase text-xs">Cerrar</Text>
-            </TouchableOpacity>
+          {(isPending || isScheduled) ? (
+            <View className="flex-col gap-3 w-full">
+              {showLiberarConfirm && (
+                <View className="w-full bg-emerald-500/10 border border-emerald-500/30 rounded-2xl p-4">
+                  <Text className="text-emerald-300 text-xs font-bold uppercase mb-2">Confirmar liberación</Text>
+                  <Text className="text-zinc-200 text-sm mb-4">
+                    ¿Estás seguro de marcar este camión como OPERATIVO? Las fallas reportadas se registrarán como menores y el camión podrá volver a salir.
+                  </Text>
+                  <View className="flex-row gap-3">
+                    <TouchableOpacity
+                      onPress={() => setShowLiberarConfirm(false)}
+                      className="flex-1 bg-zinc-900 py-3 rounded-xl items-center border border-zinc-700"
+                      disabled={isLiberando}
+                    >
+                      <Text className="text-gray-300 font-bold uppercase text-xs">Cancelar</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={confirmLiberarUnidad}
+                      className="flex-1 bg-emerald-600 py-3 rounded-xl items-center"
+                      disabled={isLiberando}
+                    >
+                      {isLiberando ? (
+                        <ActivityIndicator color="#FFFFFF" />
+                      ) : (
+                        <Text className="text-white font-black uppercase text-xs">Confirmar</Text>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
+              <TouchableOpacity
+                onPress={handleLiberarUnidad}
+                disabled={isLiberando}
+                className="w-full py-4 rounded-xl items-center border bg-emerald-600/20 border-emerald-500/50"
+              >
+                {isLiberando ? (
+                  <ActivityIndicator color="#10B981" />
+                ) : (
+                  <Text className="text-white font-black text-xs uppercase">Falla Menor - Mantener Operativo</Text>
+                )}
+              </TouchableOpacity>
 
-            {(isPending || isScheduled) && (
               <TouchableOpacity
                 onPress={() => {
                   onClose();
                   router.push({ pathname: '/solicitud', params: { prefillData: JSON.stringify(turno) } });
                 }}
-                className="flex-[2] bg-red-600 py-4 rounded-xl flex-row items-center justify-center shadow-lg shadow-red-900/40"
+                className="w-full bg-red-600 py-4 rounded-xl flex-row items-center justify-center shadow-lg shadow-red-900/40"
               >
                 <Wrench size={18} color="#FFF" />
-                <Text className="text-white font-black text-xs uppercase ml-2">Gestionar Mantenimiento</Text>
+                <Text className="text-white font-black text-xs uppercase ml-2">Bloquear y Enviar a Taller</Text>
               </TouchableOpacity>
-            )}
-          </View>
+              <TouchableOpacity
+                onPress={() => {
+                  onClose();
+                  router.push({ pathname: '/historial-unidad', params: { patente: turno.numeroPatente } });
+                }}
+                className="w-full bg-zinc-800 py-3 rounded-xl flex-row items-center justify-center mb-3 border border-white/10"
+              >
+                <LineChart size={14} color="#A1A1AA" style={{ marginRight: 8 }} />
+                <Text className="text-zinc-300 font-bold text-xs uppercase">Ver Hoja de Vida Completa</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity onPress={onClose} className="w-full py-2 items-center">
+                <Text className="text-gray-400 font-bold uppercase text-xs">Cerrar sin hacer nada</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View className="flex-col gap-3 w-full">
+              <TouchableOpacity onPress={onClose} className="w-full bg-zinc-900 py-4 rounded-xl items-center border border-zinc-800">
+                <Text className="text-gray-400 font-bold uppercase text-xs">Cerrar</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+
         </View>
       );
     }
@@ -258,29 +360,56 @@ const TurnoDetailModal = ({ visible, turno, onClose, readOnly = false, adminCont
               </View>
 
               {/* BLOQUE CONTROL CARGA (DINÁMICO) */}
-              {(checksSalida || checksIngreso || checksCisternaSalida || checksCisternaIngreso || checksSemiremolqueSalida || checksSemiremolqueIngreso) && (
+              {(checksSalida || checksIngreso || (turno.fallasCargaIngreso && turno.fallasCargaIngreso.length > 0)) && (
                 <View className="mb-8">
                   <Text className="text-blue-500 text-[10px] font-black uppercase tracking-[3px] mb-4">Control {tipoCargaLabel || 'Cisterna'}</Text>
-                  <View className="flex-row gap-4">
+                  <View className="flex-row gap-4 mb-4">
                     <View className="flex-1 bg-zinc-900/50 p-3 rounded-xl border border-white/5">
                       <Text className="text-zinc-500 text-[9px] font-bold uppercase mb-2">SALIDA</Text>
                       {checksSalida ? (
                         <View className="flex-row items-center">
-                          <CheckCircle size={16} color="#10B981" />
-                          <Text className="text-emerald-500 text-xs font-bold ml-2">Verificado OK</Text>
+                          {salidaCargaOk ? <CheckCircle size={16} color="#10B981" /> : <AlertTriangle size={16} color="#EF4444" />}
+                          <Text className={`ml-2 text-xs font-bold ${salidaCargaOk ? 'text-emerald-500' : 'text-red-400'}`}>
+                            {salidaCargaOk ? 'Control OK' : 'Fallas en control de carga'}
+                          </Text>
                         </View>
-                      ) : <Text className="text-zinc-600 text-xs italic">No registrado</Text>}
+                      ) : (
+                        <Text className="text-zinc-600 text-xs italic">No registrado</Text>
+                      )}
                     </View>
 
                     <View className="flex-1 bg-zinc-900/50 p-3 rounded-xl border border-white/5">
                       <Text className="text-zinc-500 text-[9px] font-bold uppercase mb-2">INGRESO</Text>
-                      {checksIngreso ? (
+                      {checksIngreso || turno.controlCargaOk !== undefined ? (
                         <View className="flex-row items-center">
-                          <CheckCircle size={16} color="#10B981" />
-                          <Text className="text-emerald-500 text-xs font-bold ml-2">Verificado OK</Text>
+                          {ingresoCargaOk ? <CheckCircle size={16} color="#10B981" /> : <AlertTriangle size={16} color="#EF4444" />}
+                          <Text className={`ml-2 text-xs font-bold ${ingresoCargaOk ? 'text-emerald-500' : 'text-red-400'}`}>
+                            {ingresoCargaOk ? 'Control OK' : 'Fallas en control de carga'}
+                          </Text>
                         </View>
-                      ) : <Text className="text-zinc-600 text-xs italic">Pendiente</Text>}
+                      ) : (
+                        <Text className="text-zinc-600 text-xs italic">Pendiente</Text>
+                      )}
                     </View>
+                  </View>
+
+                  <View className="bg-zinc-900/50 p-4 rounded-2xl border border-white/5">
+                    <Text className="text-zinc-400 text-[9px] font-bold uppercase mb-2">Fallas registradas en ingreso</Text>
+                    {turno.fallasCargaIngreso && turno.fallasCargaIngreso.length > 0 ? (
+                      <View className="flex-row flex-wrap gap-2">
+                        {turno.fallasCargaIngreso.map((id: string) => {
+                          const data = CARGA_ITEMS_MAP[id] || { label: id, Icon: AlertTriangle, color: '#EF4444' };
+                          return (
+                            <View key={id} className="bg-red-500/10 border border-red-500/30 pl-2 pr-3 py-1.5 rounded-lg flex-row items-center">
+                              <data.Icon size={14} color={data.color} />
+                              <Text className="text-red-200 text-xs font-bold ml-2">{data.label}</Text>
+                            </View>
+                          );
+                        })}
+                      </View>
+                    ) : (
+                      <Text className="text-zinc-500 text-xs">Sin fallas reportadas en el control de carga de ingreso.</Text>
+                    )}
                   </View>
                 </View>
               )}
@@ -309,11 +438,60 @@ const TurnoDetailModal = ({ visible, turno, onClose, readOnly = false, adminCont
                 </Text>
               </View>
 
+              {/* BOTÓN AMARILLO: VER TRABAJO / DIAGNÓSTICO */}
+              <View className="mt-6 mb-6">
+                <TouchableOpacity onPress={() => setInformeModalVisible(true)} className="w-full bg-yellow-500 rounded-2xl py-3 items-center border border-yellow-600">
+                  <Text className="text-black font-black uppercase">VER TRABAJO / DIAGNÓSTICO</Text>
+                </TouchableOpacity>
+              </View>
+
             </ScrollView>
 
             <View className="p-6 border-t border-white/5 bg-[#09090b]">
               {renderFooterActions()}
             </View>
+
+            {/* MODAL: INFORME TÉCNICO / DIAGNÓSTICO (Supervisor) */}
+            {informeModalVisible && (
+              <Modal visible={informeModalVisible} transparent animationType="slide">
+                <View className="flex-1 bg-black/80 justify-center items-center px-6">
+                  <Animated.View entering={FadeInUp} className="w-full max-h-[85%] bg-[#0c0c0e] rounded-2xl border border-yellow-600 overflow-hidden">
+                    <View className="flex-row justify-between items-center px-4 py-3 bg-yellow-500">
+                      <Text className="text-black font-black uppercase">Informe Técnico del Trabajo Realizado y Diagnóstico</Text>
+                      <TouchableOpacity onPress={() => setInformeModalVisible(false)} className="p-2">
+                        <X color="#111" size={18} />
+                      </TouchableOpacity>
+                    </View>
+                    <ScrollView className="p-4">
+                      {(turno.diagnosticoMecanico || turno.informeTecnico || turno.informeTrabajo) ? (
+                        <>
+                          {turno.informeTrabajo && (
+                            <View className="mb-4">
+                              <Text className="text-zinc-400 text-sm font-bold mb-2">Informe de Trabajo</Text>
+                              <Text className="text-zinc-200 text-sm">{turno.informeTrabajo}</Text>
+                            </View>
+                          )}
+                          {turno.informeTecnico && (
+                            <View className="mb-4">
+                              <Text className="text-zinc-400 text-sm font-bold mb-2">Informe Técnico</Text>
+                              <Text className="text-zinc-200 text-sm">{turno.informeTecnico}</Text>
+                            </View>
+                          )}
+                          {turno.diagnosticoMecanico && (
+                            <View className="mb-4">
+                              <Text className="text-zinc-400 text-sm font-bold mb-2">Diagnóstico del Mecánico</Text>
+                              <Text className="text-zinc-200 text-sm">{turno.diagnosticoMecanico}</Text>
+                            </View>
+                          )}
+                        </>
+                      ) : (
+                        <Text className="text-zinc-500">No hay informe técnico o diagnóstico registrado.</Text>
+                      )}
+                    </ScrollView>
+                  </Animated.View>
+                </View>
+              </Modal>
+            )}
 
           </SafeAreaView>
         </Animated.View>

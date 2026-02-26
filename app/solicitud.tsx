@@ -101,7 +101,8 @@ const SolicitudScreen = () => {
         desc: `La unidad ${prefill?.numeroPatente || ''} está en cola de taller. El Jefe de Taller recibirá la notificación.`,
         action: () => {
           if (router.canDismiss()) router.dismissAll();
-          router.replace('/dashboards/superadmin');
+          // Redirect supervisor back to their dashboard
+          router.replace('/dashboards/supervisor');
         }
       });
 
@@ -195,7 +196,7 @@ const SolicitudScreen = () => {
           </View>
 
           {/* 2. Estado de la Unidad (Movilidad) */}
-          <Text className="text-white font-bold mb-3">Estado de Movilidad</Text>
+          {/* <Text className="text-white font-bold mb-3">Estado de Unidad</Text>
           <View className="flex-row bg-zinc-900 rounded-xl p-1 mb-6 border border-zinc-700">
             <TouchableOpacity
               onPress={() => setOperativo(true)}
@@ -207,9 +208,9 @@ const SolicitudScreen = () => {
               onPress={() => setOperativo(false)}
               className={`flex-1 py-3 rounded-lg items-center ${!operativo ? 'bg-red-600' : 'bg-transparent'}`}
             >
-              <Text className={`text-xs font-bold uppercase ${!operativo ? 'text-white' : 'text-gray-500'}`}>No Camina / Grúa</Text>
+              <Text className={`text-xs font-bold uppercase ${!operativo ? 'text-white' : 'text-gray-500'}`}>No Operativa</Text>
             </TouchableOpacity>
-          </View>
+          </View> */}
 
           {/* 3. Prioridad Sugerida */}
           <Text className="text-white font-bold mb-3">Prioridad Sugerida</Text>
