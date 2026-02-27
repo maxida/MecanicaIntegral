@@ -121,16 +121,16 @@ const HomeScreen = () => {
   return (
     <View style={styles.mainContainer}>
       {/* ADMIN Dashboard */}
-      {rol === 'admin' && <AdminDashboard onLogout={handleLogout} />}
+        {!!(rol === 'admin') && <AdminDashboard onLogout={handleLogout} />}
 
       {/* SUPERVISOR Dashboard (incluye rol 'cliente') */}
-      {(rol === 'supervisor' || rol === 'cliente') && <SupervisorDashboard onLogout={handleLogout} />}
+        {!!(rol === 'supervisor' || rol === 'cliente') && <SupervisorDashboard onLogout={handleLogout} />}
 
       {/* MECÁNICO Dashboard (incluye rol 'taller') */}
-      {(rol === 'mecanico' || rol === 'taller') && <MecanicoDashboard onLogout={handleLogout} />}
+        {!!(rol === 'mecanico' || rol === 'taller') && <MecanicoDashboard onLogout={handleLogout} />}
 
       {/* CLIENTE Dashboard para 'chofer' */}
-      {rol === 'chofer' && <ClienteDashboard onLogout={handleLogout} />}
+        {!!(rol === 'chofer') && <ClienteDashboard onLogout={handleLogout} />}
 
       {/* Fallback para cualquier otro rol no reconocido */}
       {(!rol || !['admin', 'supervisor', 'mecanico', 'cliente', 'chofer', 'taller'].includes(String(rol))) && (

@@ -70,6 +70,7 @@ const TurnoDetailModal = ({ visible, turno, onClose, readOnly = false, adminCont
   const [informeModalVisible, setInformeModalVisible] = useState(false);
   const [isLiberando, setIsLiberando] = useState(false);
   const [showLiberarConfirm, setShowLiberarConfirm] = useState(false);
+  const [expandedImage, setExpandedImage] = useState<string | null>(null);
 
   const parseDate = (dateInput: any): Date | null => {
     if (!dateInput) return null;
@@ -243,7 +244,7 @@ const TurnoDetailModal = ({ visible, turno, onClose, readOnly = false, adminCont
   return (
     <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
       <View className="flex-1 bg-black/85 justify-center items-center p-2 md:p-6">
-        {Platform.OS === 'ios' && <BlurView intensity={30} tint="dark" style={{ position: 'absolute', width: '100%', height: '100%' }} />}
+        {!!(Platform.OS === 'ios') && <BlurView intensity={30} tint="dark" style={{ position: 'absolute', width: '100%', height: '100%' }} />}
 
         <Animated.View
           entering={FadeInUp.springify().damping(20)}
@@ -282,6 +283,20 @@ const TurnoDetailModal = ({ visible, turno, onClose, readOnly = false, adminCont
 
             {/* BODY SCROLLABLE */}
             <ScrollView className="flex-1" contentContainerStyle={{ padding: 24 }}>
+
+              {/* BOTÓN: HISTORIA CLÍNICA DE LA UNIDAD */}
+              <View className="mb-6">
+                <TouchableOpacity
+                  onPress={() => {
+                    onClose();
+                    router.push({ pathname: '/historial-unidad', params: { patente: turno.numeroPatente } });
+                  }}
+                  className="w-full bg-blue-600/20 py-4 rounded-xl flex-row items-center justify-center border border-blue-500/30 shadow-lg shadow-blue-900/20"
+                >
+                  <LineChart size={18} color="#60A5FA" style={{ marginRight: 8 }} />
+                  <Text className="text-blue-400 font-black text-xs uppercase tracking-widest">Ver Historia Clínica Completa</Text>
+                </TouchableOpacity>
+              </View>
 
               <Text className="text-zinc-500 text-[10px] font-black uppercase tracking-[3px] mb-4">Resumen del Viaje</Text>
 
@@ -337,7 +352,9 @@ const TurnoDetailModal = ({ visible, turno, onClose, readOnly = false, adminCont
                 {/* FOTO SALIDA */}
                 <View className="flex-1 aspect-video bg-black rounded-xl overflow-hidden border border-white/10 relative">
                   {fotoSalida ? (
-                    <Image source={{ uri: fotoSalida }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                    <TouchableOpacity activeOpacity={0.9} onPress={() => setExpandedImage(fotoSalida)} className="w-full h-full">
+                      <Image source={{ uri: fotoSalida }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                    </TouchableOpacity>
                   ) : (
                     <View className="flex-1 items-center justify-center"><LucideImage size={24} color="#333" /><Text className="text-zinc-700 text-[9px] mt-1">SIN FOTO</Text></View>
                   )}
@@ -349,7 +366,9 @@ const TurnoDetailModal = ({ visible, turno, onClose, readOnly = false, adminCont
                 {/* FOTO LLEGADA */}
                 <View className="flex-1 aspect-video bg-black rounded-xl overflow-hidden border border-white/10 relative">
                   {fotoIngreso ? (
-                    <Image source={{ uri: fotoIngreso }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                    <TouchableOpacity activeOpacity={0.9} onPress={() => setExpandedImage(fotoIngreso)} className="w-full h-full">
+                      <Image source={{ uri: fotoIngreso }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                    </TouchableOpacity>
                   ) : (
                     <View className="flex-1 items-center justify-center"><LucideImage size={24} color="#333" /><Text className="text-zinc-700 text-[9px] mt-1">PENDIENTE</Text></View>
                   )}
@@ -431,18 +450,78 @@ const TurnoDetailModal = ({ visible, turno, onClose, readOnly = false, adminCont
                 </>
               )}
 
+              {turno.estado === 'completed' && (
+                <View className="mb-8">
+                  <Text className="text-emerald-500 text-[10px] font-black uppercase tracking-[3px] mb-3">Ficha de Resolución del Taller</Text>
+                  <View className="bg-emerald-900/10 border border-emerald-500/20 p-5 rounded-3xl">
+
+                    {/* Diagnóstico Final (Cliente/Supervisor) */}
+                    <View className="mb-5">
+                      <Text className="text-emerald-400 text-[10px] font-black uppercase mb-2">Estado de la Unidad / Diagnóstico</Text>
+                      <View className="bg-black/40 p-4 rounded-2xl border border-emerald-500/10">
+                        <Text className="text-zinc-200 text-sm leading-6 italic">
+                          "{turno.diagnosticoMecanico || 'Sin diagnóstico registrado.'}"
+                        </Text>
+                      </View>
+                    </View>
+
+                    {/* Informe Técnico del Mecánico */}
+                    {turno.informeTecnico && (
+                      <View className="mb-5">
+                        <Text className="text-blue-400 text-[10px] font-black uppercase mb-2">Informe Técnico (Detalle del Taller)</Text>
+                        <View className="bg-black/40 p-4 rounded-2xl border border-blue-500/10">
+                          <Text className="text-zinc-300 text-sm leading-6">
+                            {turno.informeTecnico}
+                          </Text>
+                        </View>
+                      </View>
+                    )}
+
+                    {/* Checklist de Tareas Cumplidas */}
+                    {turno.instruccionesMecanico && turno.instruccionesMecanico.length > 0 && (
+                      <View className="mb-5">
+                        <Text className="text-emerald-400 text-[10px] font-black uppercase mb-2">Plan de Trabajo Realizado</Text>
+                        <View className="bg-black/40 p-4 rounded-2xl border border-emerald-500/10">
+                          {turno.instruccionesMecanico.map((tarea: string, idx: number) => (
+                            <View key={idx} className="flex-row items-center mb-2">
+                              <CheckCircle size={14} color="#10B981" />
+                              <Text className="text-zinc-300 text-xs ml-2">{tarea}</Text>
+                            </View>
+                          ))}
+                        </View>
+                      </View>
+                    )}
+
+                    {/* Repuestos */}
+                    {(turno.repuestosTexto || (Array.isArray(turno.repuestosUtilizados) && turno.repuestosUtilizados.length > 0)) && (
+                      <View className="mb-4">
+                        <Text className="text-emerald-400 text-[10px] font-black uppercase mb-2">Repuestos y Consumibles</Text>
+                        <View className="bg-black/40 p-4 rounded-2xl border border-emerald-500/10">
+                          <Text className="text-zinc-300 text-sm leading-6">
+                            {turno.repuestosTexto || (Array.isArray(turno.repuestosUtilizados) ? turno.repuestosUtilizados.join(', ') : '')}
+                          </Text>
+                        </View>
+                      </View>
+                    )}
+
+                    {/* Alerta de Tareas Pendientes */}
+                    {!turno.tareasCompletadas && (
+                      <View className="bg-red-500/10 p-4 rounded-2xl border border-red-500/30 flex-row items-center mt-2">
+                        <AlertTriangle size={24} color="#EF4444" />
+                        <Text className="text-red-300 text-xs font-bold ml-3 flex-1 leading-5">
+                          ATENCIÓN: El mecánico indicó que NO se lograron solucionar todas las fallas reportadas inicialmente.
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                </View>
+              )}
+
               <Text className="text-zinc-500 text-[10px] font-black uppercase tracking-[3px] mb-4">Comentarios del Chofer</Text>
               <View className="bg-zinc-900/50 p-4 rounded-2xl border border-white/5 min-h-[80px]">
                 <Text className="text-zinc-300 text-sm leading-6 italic">
                   "{turno.comentariosChofer || turno.descripcion || 'Sin comentarios adicionales.'}"
                 </Text>
-              </View>
-
-              {/* BOTÓN AMARILLO: VER TRABAJO / DIAGNÓSTICO */}
-              <View className="mt-6 mb-6">
-                <TouchableOpacity onPress={() => setInformeModalVisible(true)} className="w-full bg-yellow-500 rounded-2xl py-3 items-center border border-yellow-600">
-                  <Text className="text-black font-black uppercase">VER TRABAJO / DIAGNÓSTICO</Text>
-                </TouchableOpacity>
               </View>
 
             </ScrollView>
@@ -463,18 +542,12 @@ const TurnoDetailModal = ({ visible, turno, onClose, readOnly = false, adminCont
                       </TouchableOpacity>
                     </View>
                     <ScrollView className="p-4">
-                      {(turno.diagnosticoMecanico || turno.informeTecnico || turno.informeTrabajo) ? (
+                      {(turno.diagnosticoMecanico || turno.informeTrabajo) ? (
                         <>
                           {turno.informeTrabajo && (
                             <View className="mb-4">
                               <Text className="text-zinc-400 text-sm font-bold mb-2">Informe de Trabajo</Text>
                               <Text className="text-zinc-200 text-sm">{turno.informeTrabajo}</Text>
-                            </View>
-                          )}
-                          {turno.informeTecnico && (
-                            <View className="mb-4">
-                              <Text className="text-zinc-400 text-sm font-bold mb-2">Informe Técnico</Text>
-                              <Text className="text-zinc-200 text-sm">{turno.informeTecnico}</Text>
                             </View>
                           )}
                           {turno.diagnosticoMecanico && (
@@ -492,6 +565,17 @@ const TurnoDetailModal = ({ visible, turno, onClose, readOnly = false, adminCont
                 </View>
               </Modal>
             )}
+
+            <Modal visible={!!expandedImage} transparent animationType="fade" onRequestClose={() => setExpandedImage(null)}>
+              <View className="flex-1 bg-black/95 justify-center items-center">
+                <TouchableOpacity onPress={() => setExpandedImage(null)} className="absolute top-10 right-6 p-2 bg-white/10 rounded-full">
+                  <X size={30} color="white" />
+                </TouchableOpacity>
+                {expandedImage && (
+                  <Image source={{ uri: expandedImage }} className="w-full h-full" resizeMode="contain" />
+                )}
+              </View>
+            </Modal>
 
           </SafeAreaView>
         </Animated.View>

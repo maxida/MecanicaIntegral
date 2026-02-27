@@ -86,3 +86,5 @@ declare global {
 export type FormScreenRouteParams = {
   flagConFactura: boolean;
 };
+
+declare module 'react-native-signature-canvas';

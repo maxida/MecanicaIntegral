@@ -103,7 +103,7 @@ const SolicitudScreen = () => {
     <SafeAreaView className="flex-1 bg-black">
       <LinearGradient colors={["#000000", "#121212"]} className="flex-1">
         <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 40, paddingBottom: 60 }}>
-          {loading && <LoadingOverlay message="Creando solicitud..." />}
+          {!!loading && <LoadingOverlay message="Creando solicitud..." />}
           {/* Header */}
           <View className="flex-row items-center mb-8">
             <TouchableOpacity onPress={() => navigation.goBack()} className="mr-4">

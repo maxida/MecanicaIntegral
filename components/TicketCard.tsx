@@ -8,7 +8,7 @@ type Turno = any;
 
 const Badge = ({ label, styleClass, icon: Icon }: { label: string; styleClass: string; icon?: any }) => (
   <View className={`px-2 py-1 rounded-full flex-row items-center space-x-1 ${styleClass}`}>
-    {Icon && <Icon size={10} color={styleClass.includes('text-black') ? '#000' : '#FFF'} />}
+    {!!Icon && <Icon size={10} color={styleClass.includes('text-black') ? '#000' : '#FFF'} />}
     <Text className={`text-[9px] font-black uppercase ${styleClass.includes('text-black') ? 'text-black' : 'text-white'}`}>{label}</Text>
   </View>
 );

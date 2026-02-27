@@ -302,7 +302,7 @@ const LoginScreen = () => {
             <RNAnimated.View style={{ transform: [{ scale: fingerPrintAnim }] }}>
               <Fingerprint size={80} color="#60A5FA" />
             </RNAnimated.View>
-            {biometricLoading && <ActivityIndicator color="#60A5FA" className="mt-6" />}
+            {!!biometricLoading && <ActivityIndicator color="#60A5FA" className="mt-6" />}
             <TouchableOpacity onPress={() => setBiometricModalVisible(false)} className="mt-8">
               <Text className="text-danger font-bold text-[10px] uppercase tracking-[3px]">Cancelar</Text>
             </TouchableOpacity>

@@ -14,7 +14,7 @@ export const GlobalLoadingProvider = ({ children }: { children: React.ReactNode 
   return (
     <ctx.Provider value={{ show, hide }}>
       {children}
-      {count > 0 && <LoadingOverlay message={message} />}
+      {!!(count > 0) && <LoadingOverlay message={message} />}
     </ctx.Provider>
   );
 };

@@ -227,7 +227,7 @@ export default function CheckoutScreen() {
                     placeholder={lastKm ? String(lastKm) : "0"}
                     className="bg-black text-white text-4xl font-black p-3 rounded-xl text-center border border-zinc-700 tracking-widest"
                   />
-                  {lastKm && <Text className="text-zinc-500 text-[10px] text-center mt-2 italic">Anterior: {lastKm.toLocaleString()} km</Text>}
+                  {!!lastKm && <Text className="text-zinc-500 text-[10px] text-center mt-2 italic">Anterior: {lastKm.toLocaleString()} km</Text>}
                 </View>
               )}
             </View>

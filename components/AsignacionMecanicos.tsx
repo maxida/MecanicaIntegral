@@ -147,7 +147,7 @@ const AsignacionMecanicos = () => {
         </View>
 
         <ScrollView contentContainerStyle={styles.content}>
-          {loading && <LoadingOverlay message="Cargando turnos..." />}
+          {!!loading && <LoadingOverlay message="Cargando turnos..." />}
           {!loading && (
             <>
               {/* Turnos sin asignar */}

@@ -169,7 +169,7 @@ const MecanicoDashboard = ({ onLogout }: { onLogout?: () => void }) => {
     <SafeAreaView className="flex-1 bg-black">
       <LinearGradient colors={['#000000', '#121212']} style={{ flex: 1 }}>
         <ScrollView className="px-5 pt-10 pb-15">
-          {loading && <LoadingOverlay message="Actualizando..." />}
+          {!!loading && <LoadingOverlay message="Actualizando..." />}
           {/* Header */}
           <View className="mb-6">
             <View className="flex-row justify-between items-start">

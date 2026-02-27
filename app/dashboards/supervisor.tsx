@@ -3,17 +3,22 @@ import { View, Text, ScrollView, TouchableOpacity, SafeAreaView, TextInput, Acti
 import { MaterialIcons, FontAwesome5, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
+import { useSelector } from 'react-redux';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import { collection, query, orderBy, limit, onSnapshot, getDocs } from 'firebase/firestore';
 import { db } from '@/firebase/firebaseConfig';
 import TurnoDetailModal from '@/components/TurnoDetailModal';
+import AdminTallerTurnoModal from '@/components/AdminTallerTurnoModal';
+import WorkshopOrderModal from '@/components/WorkshopOrderModal';
 import ComplianceWidget from '@/components/ComplianceWidget';
 import { getExpirationStatus } from '@/utils/complianceHelper';
+import { RootState } from '@/redux/store';
 
 type TabType = 'alerta' | 'viaje' | 'taller' | 'todos' | 'vencimientos';
 
 const SuperadminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
   const router = useRouter();
+  const user = useSelector((state: RootState) => state.login.user);
 
   // --- ESTADOS ---
   const [turnos, setTurnos] = useState<any[]>([]);
@@ -23,7 +28,9 @@ const SuperadminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
   const [activeTab, setActiveTab] = useState<TabType>('alerta');
 
   const [selectedTurno, setSelectedTurno] = useState<any>(null);
-  const [modalVisible, setModalVisible] = useState(false);
+  const [adminModalVisible, setAdminModalVisible] = useState(false);
+  const [detailModalVisible, setDetailModalVisible] = useState(false);
+  const [mechanicModalVisible, setMechanicModalVisible] = useState(false);
 
   // Responsive helper for KPI tiles
   const { width } = useWindowDimensions();
@@ -117,9 +124,30 @@ const SuperadminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
     return d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
   };
 
-  const handleOpenDetail = (turno: any) => {
+  const handleOpenTurno = (turno: any) => {
     setSelectedTurno(turno);
-    setModalVisible(true);
+    const role = (user?.rol || user?.role)?.toLowerCase();
+
+    if (role === 'admin' || role === 'admin_taller') {
+      if (turno.estado === 'taller_pendiente') {
+        setAdminModalVisible(true);
+        setDetailModalVisible(false);
+      } else {
+        setDetailModalVisible(true);
+        setAdminModalVisible(false);
+      }
+      setMechanicModalVisible(false);
+    }
+    else if (role === 'mecanico') {
+      setMechanicModalVisible(true);
+      setAdminModalVisible(false);
+      setDetailModalVisible(false);
+    }
+    else {
+      setDetailModalVisible(true);
+      setAdminModalVisible(false);
+      setMechanicModalVisible(false);
+    }
   };
 
   return (
@@ -279,7 +307,7 @@ const SuperadminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
                       <Animated.View key={t.id || index} entering={FadeInUp.delay(index * 50).springify()}>
                         <TouchableOpacity
                           activeOpacity={0.95}
-                          onPress={() => handleOpenDetail(t)}
+                          onPress={() => handleOpenTurno(t)}
                           className={`bg-[#111] mb-4 rounded-2xl border ${borderColor} overflow-hidden`}
                         >
                           <View className="p-4 flex-row justify-between items-start bg-white/5">
@@ -299,11 +327,16 @@ const SuperadminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
                           </View>
 
                           <View className="p-4 flex-row justify-between items-center">
-                            <View>
+                            <View className="flex-1 pr-3">
                               <Text className="text-zinc-500 text-[10px] font-bold uppercase mb-1">Último Evento</Text>
                               <Text className="text-zinc-300 text-xs font-medium">
                                 {t.tipo === 'salida' ? '📤 Salida Registrada' : t.tipo === 'ingreso' ? '📥 Ingreso a Galpón' : '📝 Reporte'}
                               </Text>
+                              {t.estado === 'completed' && (
+                                <Text className="text-zinc-400 text-[11px] mt-2" numberOfLines={2}>
+                                  {t.diagnosticoMecanico || 'Sin diagnóstico registrado.'}
+                                </Text>
+                              )}
                             </View>
                             <View className="bg-white/10 px-3 py-2 rounded-lg">
                               <Text className="text-white text-[10px] font-bold">VER FICHA</Text>
@@ -321,11 +354,24 @@ const SuperadminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
         </ScrollView>
       </LinearGradient>
 
-      <TurnoDetailModal
-        visible={modalVisible}
+      <AdminTallerTurnoModal
+        visible={adminModalVisible}
         turno={selectedTurno}
-        onClose={() => setModalVisible(false)}
+        onClose={() => { setAdminModalVisible(false); setSelectedTurno(null); }}
+      />
+
+      <TurnoDetailModal
+        visible={detailModalVisible}
+        turno={selectedTurno}
+        onClose={() => { setDetailModalVisible(false); setSelectedTurno(null); }}
         adminContext={true}
+      />
+
+      <WorkshopOrderModal
+        visible={mechanicModalVisible}
+        turno={selectedTurno}
+        onClose={() => { setMechanicModalVisible(false); setSelectedTurno(null); }}
+        readOnly
       />
 
     </SafeAreaView>

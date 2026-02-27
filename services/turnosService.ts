@@ -55,7 +55,14 @@ export const crearTurnoService = async (payload: Record<string, any>): Promise<s
 };
 
 // Actualizar turno
-export const actualizarTurnoService = async (id: string, turno: Partial<Turno>): Promise<void> => {
+export const actualizarTurnoService = async (
+  id: string,
+  turno: Partial<Turno> & {
+    horasReales?: number;
+    tareasCompletadas?: boolean;
+    repuestosUtilizados?: string[];
+  }
+): Promise<void> => {
   try {
     const turnoRef = doc(db, TURNOS_COLLECTION, id);
     await updateDoc(turnoRef, turno);

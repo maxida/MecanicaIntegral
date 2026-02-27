@@ -10,6 +10,8 @@ import { RootState } from '@/redux/store';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import { useFocusEffect } from 'expo-router';
 import TurnoDetailModal from '@/components/TurnoDetailModal';
+import AdminTallerTurnoModal from '@/components/AdminTallerTurnoModal';
+import WorkshopOrderModal from '@/components/WorkshopOrderModal';
 import { collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
 import { db } from '@/firebase/firebaseConfig';
 
@@ -31,7 +33,9 @@ const ClienteDashboard = ({ onLogout }: { onLogout?: () => void }) => {
   // Historial (Depende del Chofer Logueado)
   const [historial, setHistorial] = useState<any[]>([]);
   const [selectedTurno, setSelectedTurno] = useState<any | null>(null);
-  const [modalVisible, setModalVisible] = useState(false);
+  const [adminModalVisible, setAdminModalVisible] = useState(false);
+  const [detailModalVisible, setDetailModalVisible] = useState(false);
+  const [mechanicModalVisible, setMechanicModalVisible] = useState(false);
   const [historialPage, setHistorialPage] = useState(0);
   const historialPageSize = 5;
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -171,9 +175,30 @@ const ClienteDashboard = ({ onLogout }: { onLogout?: () => void }) => {
     else if (action === 'sos') Alert.alert("Emergencia", "Enviando alerta...");
   };
 
-  const handleOpenTurnoDetail = (turno: any) => {
+  const handleOpenTurno = (turno: any) => {
     setSelectedTurno(turno);
-    setModalVisible(true);
+    const role = (user?.rol || user?.role)?.toLowerCase();
+
+    if (role === 'admin' || role === 'admin_taller') {
+      if (turno.estado === 'taller_pendiente') {
+        setAdminModalVisible(true);
+        setDetailModalVisible(false);
+      } else {
+        setDetailModalVisible(true);
+        setAdminModalVisible(false);
+      }
+      setMechanicModalVisible(false);
+    }
+    else if (role === 'mecanico') {
+      setMechanicModalVisible(true);
+      setAdminModalVisible(false);
+      setDetailModalVisible(false);
+    }
+    else {
+      setDetailModalVisible(true);
+      setAdminModalVisible(false);
+      setMechanicModalVisible(false);
+    }
   };
 
   return (
@@ -227,7 +252,7 @@ const ClienteDashboard = ({ onLogout }: { onLogout?: () => void }) => {
                 <View className="flex-1 bg-gray-900/50 p-3 rounded-2xl border border-white/5 flex-row items-center">
                   <View className="bg-blue-500/20 p-2 rounded-lg mr-3"><Ionicons name="speedometer" size={18} color="#60A5FA" /></View>
                   <View>
-                    <Text className="text-white font-black text-sm">{kpiLoading ? '...' : kpiData.odometer} {kpiData.odometer !== '-' && !kpiLoading && 'km'}</Text>
+                    <Text className="text-white font-black text-sm">{kpiLoading ? '...' : kpiData.odometer} {!!(kpiData.odometer !== '-' && !kpiLoading) && 'km'}</Text>
                     <Text className="text-gray-500 text-[9px] uppercase font-bold">Odómetro</Text>
                   </View>
                 </View>
@@ -319,7 +344,7 @@ const ClienteDashboard = ({ onLogout }: { onLogout?: () => void }) => {
                 if (estadoLabel === 'completed') badgeColor = 'bg-blue-600';
 
                 return (
-                  <TouchableOpacity key={h.id || i} onPress={() => handleOpenTurnoDetail(h)} className="mb-3 bg-card/40 border border-white/5 p-4 rounded-2xl flex-row justify-between items-start">
+                  <TouchableOpacity key={h.id || i} onPress={() => handleOpenTurno(h)} className="mb-3 bg-card/40 border border-white/5 p-4 rounded-2xl flex-row justify-between items-start">
                     <View className="flex-1 mr-4">
                       {/* TÍTULO: CHOFER + PATENTE */}
                       <View className="flex-row items-center mb-2">
@@ -372,7 +397,23 @@ const ClienteDashboard = ({ onLogout }: { onLogout?: () => void }) => {
             </Pressable>
           </Modal>
 
-          <TurnoDetailModal visible={modalVisible} turno={selectedTurno} onClose={() => setModalVisible(false)} readOnly />
+          <AdminTallerTurnoModal
+            visible={adminModalVisible}
+            turno={selectedTurno}
+            onClose={() => { setAdminModalVisible(false); setSelectedTurno(null); }}
+          />
+          <TurnoDetailModal
+            visible={detailModalVisible}
+            turno={selectedTurno}
+            onClose={() => { setDetailModalVisible(false); setSelectedTurno(null); }}
+            readOnly
+          />
+          <WorkshopOrderModal
+            visible={mechanicModalVisible}
+            turno={selectedTurno}
+            onClose={() => { setMechanicModalVisible(false); setSelectedTurno(null); }}
+            readOnly
+          />
 
         </ScrollView>
       </LinearGradient>

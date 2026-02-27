@@ -445,12 +445,12 @@ const NovedadesChoferForm = () => {
           >
             <LinearGradient colors={['#3B82F6', '#1D4ED8']} className="py-5 items-center">
               <Text className="text-white text-lg font-black italic uppercase">Cerrar Viaje</Text>
-              {activeTripId && <Text className="text-blue-200 text-[10px] font-bold mt-1">ACTUALIZANDO ORDEN #{activeTripId.slice(0, 5)}</Text>}
+              {!!activeTripId && <Text className="text-blue-200 text-[10px] font-bold mt-1">ACTUALIZANDO ORDEN #{activeTripId.slice(0, 5)}</Text>}
             </LinearGradient>
           </TouchableOpacity>
         </View>
 
-        {saving && <LoadingOverlay message="Cerrando viaje..." />}
+        {!!saving && <LoadingOverlay message="Cerrando viaje..." />}
 
         <ActionModal visible={modal.visible} type={modal.type} title={modal.title} description={modal.desc} onConfirm={modal.action} />
 

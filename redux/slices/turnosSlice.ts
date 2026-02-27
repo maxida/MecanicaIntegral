@@ -31,6 +31,9 @@ export interface Turno {
   tiempoTrabajado?: number; // en minutos
   notasMecanico?: string;
   diagnosticoMecanico?: string | null;
+  horasReales?: number | null;
+  tareasCompletadas?: boolean | null;
+  repuestosUtilizados?: string[] | null;
 }
 
 interface TurnosState {

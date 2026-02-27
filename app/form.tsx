@@ -283,7 +283,7 @@ const FormScreen = () => {
                         />
                     </View>
                 </View>
-                {errors.patente && <Text style={styles.errorText}>{errors.patente}</Text>}
+                {!!errors.patente && <Text style={styles.errorText}>{errors.patente}</Text>}
 
                 <View style={styles.inputGroup}>
                     <MaterialIcons name="qr-code" size={20} color="#666" style={styles.inputIcon} />

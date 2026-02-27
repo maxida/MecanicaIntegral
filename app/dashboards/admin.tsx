@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { View, Text, ScrollView, SafeAreaView, TouchableOpacity, useWindowDimensions, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, SafeAreaView, TouchableOpacity, useWindowDimensions, ActivityIndicator, Alert } from 'react-native';
 import { Wrench, LogOut, AlertTriangle, UserCog, Clock, Hash, Activity, Users, TrendingUp } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useDispatch, useSelector } from 'react-redux';
@@ -10,6 +10,8 @@ import { suscribirseATurnos } from '@/services/turnosService';
 import LoadingOverlay from '@/components/LoadingOverlay';
 import WorkshopOrderModal from '@/components/WorkshopOrderModal';
 import PresupuestoModal from '@/components/PresupuestoModal';
+import AdminTallerTurnoModal from '@/components/AdminTallerTurnoModal';
+import TurnoDetailModal from '@/components/TurnoDetailModal';
 
 const COLUMN_COLORS = {
   solicitudes: '#F97316',
@@ -25,12 +27,49 @@ const AdminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
   const router = useRouter();
 
   const turnos = useSelector((state: RootState) => state.turnos.turnos);
+  const userRole = useSelector((state: RootState) => state.login.user?.rol || state.login.user?.role);
+  console.log('[AdminDashboard] userRole from Redux:', userRole);
+
   const [loading, setLoading] = useState(true);
 
   const [selectedTurno, setSelectedTurno] = useState<any>(null);
   const [orderModalVisible, setOrderModalVisible] = useState(false);
+  const [adminModalVisible, setAdminModalVisible] = useState(false);
+  const [detailModalVisible, setDetailModalVisible] = useState(false);
   const [showPresupuestoModal, setShowPresupuestoModal] = useState(false);
   const [activeTab, setActiveTab] = useState<'solicitudes' | 'asignados' | 'en_proceso' | 'finalizados'>('solicitudes');
+
+  const handleOpenTurno = (turno: any) => {
+    setSelectedTurno(turno);
+
+    // Forzamos a que sea string por si viene undefined
+    const role = userRole ? userRole.toLowerCase() : 'SIN_ROL';
+
+    // TRAMPA PARA VER LA VERDAD
+    Alert.alert("DEBUG TRAMPA", `Tu rol en Redux es: "${role}"\nEl estado del turno es: "${turno.estado}"`);
+
+    if (role === 'admin' || role === 'admin_taller') {
+      if (turno.estado !== 'completed') {
+        setAdminModalVisible(true);
+        setDetailModalVisible(false);
+      } else {
+        setDetailModalVisible(true);
+        setAdminModalVisible(false);
+      }
+      setOrderModalVisible(false);
+
+    } else if (role === 'mecanico') {
+      setOrderModalVisible(true);
+      setAdminModalVisible(false);
+      setDetailModalVisible(false);
+
+    } else {
+      // SI CAE ACÁ ES PORQUE EL ROL NO ES 'admin'
+      setDetailModalVisible(true);
+      setAdminModalVisible(false);
+      setOrderModalVisible(false);
+    }
+  };
 
   // 1. Suscripción
   useEffect(() => {
@@ -43,7 +82,7 @@ const AdminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
 
   // 2. Filtros
   const workshopTurnos = useMemo(() => {
-    return turnos.filter(t => ['taller_pendiente', 'scheduled', 'in_progress', 'completed'].includes(t.estado));
+    return turnos.filter(t => ['taller_pendiente', 'scheduled', 'asignado_mecanico', 'in_progress', 'completed'].includes(t.estado));
   }, [turnos]);
 
   // 3. KPIs DE TALLER (Cálculo en tiempo real)
@@ -62,7 +101,8 @@ const AdminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
 
   const columns = useMemo(() => [
     { id: 'solicitudes', title: 'Nuevas', color: COLUMN_COLORS.solicitudes, data: workshopTurnos.filter(t => t.estado === 'taller_pendiente') },
-    { id: 'asignados', title: 'Asignadas', color: COLUMN_COLORS.asignados, data: workshopTurnos.filter(t => t.estado === 'scheduled') },
+    // AQUÍ ESTÁ LA CLAVE: Agregamos el estado real para la columna de Asignadas
+    { id: 'asignados', title: 'Asignadas', color: COLUMN_COLORS.asignados, data: workshopTurnos.filter(t => t.estado === 'asignado_mecanico') },
     { id: 'en_proceso', title: 'En Taller', color: COLUMN_COLORS.en_proceso, data: workshopTurnos.filter(t => t.estado === 'in_progress') },
     { id: 'finalizados', title: 'Completadas', color: COLUMN_COLORS.finalizados, data: workshopTurnos.filter(t => t.estado === 'completed') },
   ], [workshopTurnos]);
@@ -72,7 +112,7 @@ const AdminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
     <TouchableOpacity
       key={t.id}
       activeOpacity={0.9}
-      onPress={() => { setSelectedTurno(t); setOrderModalVisible(true); }}
+      onPress={() => handleOpenTurno(t)}
       className="mb-4 bg-zinc-900 rounded-2xl border border-zinc-800 shadow-sm overflow-hidden"
     >
       <View style={{ backgroundColor: color }} className="absolute left-0 top-0 bottom-0 w-1.5" />
@@ -81,7 +121,7 @@ const AdminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
         <View className="flex-row justify-between items-start mb-2">
           <View>
             <Text className="text-white font-black text-lg italic tracking-tight">{t.numeroPatente}</Text>
-            {t.numeroOT && (
+            {!!t.numeroOT && (
               <View className="flex-row items-center mt-1 bg-zinc-800 self-start px-2 py-0.5 rounded">
                 <Hash size={10} color="#888" />
                 <Text className="text-zinc-400 text-[10px] font-bold ml-1">{t.numeroOT}</Text>
@@ -102,13 +142,13 @@ const AdminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
 
         <View className="flex-row justify-between items-center border-t border-zinc-800 pt-3">
           <View className="flex-row items-center">
-            <UserCog size={14} color={t.mecanicoNombre ? color : "#555"} />
-            <Text className={`text-[10px] ml-1.5 font-bold ${t.mecanicoNombre ? 'text-zinc-300' : 'text-zinc-600'}`}>
-              {t.mecanicoNombre || 'SIN ASIGNAR'}
+            <UserCog size={14} color={t.mecanicoNombre || t.mecanicoId ? color : "#555"} />
+            <Text className={`text-[10px] ml-1.5 font-bold ${t.mecanicoNombre || t.mecanicoId ? 'text-zinc-300' : 'text-zinc-600'}`}>
+              {t.mecanicoNombre ? t.mecanicoNombre : (t.mecanicoId ? 'MECÁNICO ASIGNADO' : 'SIN ASIGNAR')}
             </Text>
           </View>
 
-          {t.horasEstimadas && (
+          {!!t.horasEstimadas && (
             <View className="flex-row items-center bg-black/40 px-2 py-1 rounded-lg border border-zinc-800">
               <Clock size={10} color="#666" />
               <Text className="text-zinc-500 text-[10px] ml-1 font-mono">{t.horasEstimadas}h</Text>
@@ -124,7 +164,7 @@ const AdminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
   return (
     <SafeAreaView className="flex-1 bg-[#050505]">
       <LinearGradient colors={['#111', '#000']} className="flex-1 px-4">
-        {loading && <LoadingOverlay message="Sincronizando Taller..." />}
+        {!!loading && <LoadingOverlay message="Sincronizando Taller..." />}
 
         {/* HEADER */}
         <View className="flex-row justify-between items-center mt-6 mb-6">
@@ -231,6 +271,19 @@ const AdminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
         visible={orderModalVisible}
         turno={selectedTurno}
         onClose={() => { setOrderModalVisible(false); setSelectedTurno(null); }}
+      />
+
+      <AdminTallerTurnoModal
+        visible={adminModalVisible}
+        turno={selectedTurno}
+        onClose={() => { setAdminModalVisible(false); setSelectedTurno(null); }}
+      />
+
+      <TurnoDetailModal
+        visible={detailModalVisible}
+        turno={selectedTurno}
+        onClose={() => { setDetailModalVisible(false); setSelectedTurno(null); }}
+        readOnly
       />
 
       {/* MODAL PRESUPUESTO */}

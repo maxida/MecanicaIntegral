@@ -178,7 +178,7 @@ const CalendarioTurnos = () => {
         </View>
 
         <ScrollView contentContainerStyle={styles.content}>
-          {loading && <LoadingOverlay message="Cargando calendario..." />}
+          {!!loading && <LoadingOverlay message="Cargando calendario..." />}
           {/* Días de la semana */}
           <View style={styles.weekDaysContainer}>
             {['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sab'].map((dia, idx) => (
