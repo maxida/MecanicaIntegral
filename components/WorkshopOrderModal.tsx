@@ -14,8 +14,11 @@ import {
 	CheckCircle,
 	CheckCircle2,
 	CheckSquare,
+	ClipboardCheck,
+	Pencil,
 	Receipt,
-	Square
+	Square,
+	Wrench
 } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import Animated, { FadeInUp } from 'react-native-reanimated';
@@ -30,50 +33,57 @@ interface WorkshopOrderModalProps {
 	readOnly?: boolean;
 	onStart?: (turno: any) => void;
 	onFinish?: (turno: any) => void;
+	onEditComplete?: (turno: any) => void;
 	tareasCompletadas?: Record<number, boolean>;
 	setTareasCompletadas?: any;
 }
 
-const WorkshopOrderModal = ({ visible, turno, onClose, readOnly = false, onStart, onFinish, tareasCompletadas, setTareasCompletadas }: WorkshopOrderModalProps) => {
+const WorkshopOrderModal = ({ visible, turno, onClose, readOnly = false, onStart, onFinish, onEditComplete, tareasCompletadas, setTareasCompletadas }: WorkshopOrderModalProps) => {
 	const router = useRouter();
 	if (!turno) return null;
 
 	const [loading, setLoading] = useState(false);
 	const [mecanicos, setMecanicos] = useState<any[]>([]);
+
+	// Estados principales
 	const [mecanicoId, setMecanicoId] = useState(turno.mecanicoId || '');
 	const [mecanicoNombre, setMecanicoNombre] = useState(turno.mecanicoNombre || '');
 	const [horasEstimadas, setHorasEstimadas] = useState(turno.horasEstimadas || '');
-	const [instrucciones, setInstrucciones] = useState(turno.instruccionesAdmin || '');
 	const [numeroOT, setNumeroOT] = useState(turno.numeroOT || '');
+	const [instrucciones, setInstrucciones] = useState(turno.instruccionesAdmin || '');
 
-	// Mantener el estado sincronizado cuando cambia el turno que se pasa como prop
+	// Estados de Auditoría (Admin)
+	const [horasReales, setHorasReales] = useState(turno.horasReales?.toString() || '');
+	const [informeTecnico, setInformeTecnico] = useState(turno.informeTecnico || '');
+	const [diagnosticoMecanico, setDiagnosticoMecanico] = useState(turno.diagnosticoMecanico || '');
+	const [repuestosTexto, setRepuestosTexto] = useState(turno.repuestosTexto || (Array.isArray(turno.repuestosUtilizados) ? turno.repuestosUtilizados.join(', ') : ''));
+
+	const [showMecanicoPicker, setShowMecanicoPicker] = useState(false);
+	const [docModalVisible, setDocModalVisible] = useState(false);
+	const [docType, setDocType] = useState<'asistencia' | 'reparacion' | null>(null);
+	const [DocGen, setDocGen] = useState<any>(null);
+	const [presupuestoModalVisible, setPresupuestoModalVisible] = useState(false);
+
+	// Sincronizar datos al abrir modal
 	useEffect(() => {
 		if (!turno) return;
 		setMecanicoId(turno.mecanicoId || '');
 		setMecanicoNombre(turno.mecanicoNombre || '');
 		setHorasEstimadas(turno.horasEstimadas || '');
-		setInstrucciones(turno.instruccionesAdmin || '');
 		setNumeroOT(turno.numeroOT || '');
+		setInstrucciones(turno.instruccionesAdmin || '');
+		setHorasReales(turno.horasReales?.toString() || '');
+		setInformeTecnico(turno.informeTecnico || '');
+		setDiagnosticoMecanico(turno.diagnosticoMecanico || '');
+		setRepuestosTexto(turno.repuestosTexto || (Array.isArray(turno.repuestosUtilizados) ? turno.repuestosUtilizados.join(', ') : ''));
 	}, [turno]);
-	const [showMecanicoPicker, setShowMecanicoPicker] = useState(false);
-
-	// Estados para Documentos (PDF)
-	const [docModalVisible, setDocModalVisible] = useState(false);
-	const [docType, setDocType] = useState<'asistencia' | 'reparacion' | null>(null);
-	const [DocGen, setDocGen] = useState<any>(null);
-
-	// Informe / Diagnóstico modal
-	const [informeModalVisible, setInformeModalVisible] = useState(false);
-
-	// Presupuesto modal
-	const [presupuestoModalVisible, setPresupuestoModalVisible] = useState(false);
 
 	const isEditable = !readOnly && (turno.estado === 'taller_pendiente' || turno.estado === 'scheduled');
 	const isFinished = turno.estado === 'completed';
 	const isInProgress = turno.estado === 'in_progress';
 	const isAssigned = turno.estado === 'scheduled';
 
-	// 1. Cargar lista de mecánicos
+	// Cargar lista de mecánicos (Solo Admin)
 	useEffect(() => {
 		if (visible && !readOnly) {
 			const fetchMecanicos = async () => {
@@ -86,7 +96,7 @@ const WorkshopOrderModal = ({ visible, turno, onClose, readOnly = false, onStart
 		}
 	}, [visible, readOnly]);
 
-	// 2. Cargar Generador de PDF
+	// Cargar Generador de PDF
 	const openDoc = async (type: 'asistencia' | 'reparacion') => {
 		setDocType(type);
 		setDocModalVisible(true);
@@ -98,6 +108,7 @@ const WorkshopOrderModal = ({ visible, turno, onClose, readOnly = false, onStart
 		}
 	};
 
+	// Guardar Cambios (Admin)
 	const handleUpdateOrder = async () => {
 		if (readOnly) return;
 		setLoading(true);
@@ -108,11 +119,13 @@ const WorkshopOrderModal = ({ visible, turno, onClose, readOnly = false, onStart
 				mecanicoNombre,
 				horasEstimadas,
 				instruccionesAdmin: instrucciones,
-				// Si estaba pendiente y ahora tiene mecánico, pasa a scheduled
+				horasReales: horasReales ? Number(horasReales) : null,
+				informeTecnico,
+				diagnosticoMecanico,
+				repuestosTexto,
 				estado: (turno.estado === 'taller_pendiente' && mecanicoId) ? 'scheduled' : turno.estado
 			};
 
-			// No permitir actualizar numeroOT si ya está en 'scheduled' (Asignadas)
 			if (turno.estado !== 'scheduled') {
 				payload.numeroOT = numeroOT;
 			}
@@ -178,7 +191,6 @@ const WorkshopOrderModal = ({ visible, turno, onClose, readOnly = false, onStart
 								<Text className="text-zinc-500 text-[10px] font-bold uppercase mb-2">Falla Reportada</Text>
 								<Text className="text-zinc-300 text-sm italic">"{turno.reporteSupervisor || turno.comentariosChofer || 'Sin comentarios'}"</Text>
 
-								{/* Síntomas Tags */}
 								{!!(turno.sintomasReportados || turno.sintomas)?.length && (
 									<View className="flex-row flex-wrap gap-2 mt-3">
 										{(turno.sintomasReportados || turno.sintomas).map((s: string, i: number) => (
@@ -190,7 +202,6 @@ const WorkshopOrderModal = ({ visible, turno, onClose, readOnly = false, onStart
 								)}
 							</View>
 
-							{/* Foto Evidencia */}
 							<View className="w-32 h-32 bg-zinc-900 rounded-2xl overflow-hidden border border-white/10">
 								{(turno.fotoTableroIngreso || turno.fotoTablero) ? (
 									<Image source={{ uri: turno.fotoTableroIngreso || turno.fotoTablero }} className="w-full h-full" resizeMode="cover" />
@@ -257,7 +268,7 @@ const WorkshopOrderModal = ({ visible, turno, onClose, readOnly = false, onStart
 								)}
 							</View>
 
-							{/* Instrucciones */}
+							{/* Instrucciones / Checklist */}
 							{readOnly ? (
 								<View className="mb-4">
 									<Text className="text-zinc-500 text-[10px] font-black uppercase tracking-wider mb-2">Checklist de Tareas</Text>
@@ -269,7 +280,7 @@ const WorkshopOrderModal = ({ visible, turno, onClose, readOnly = false, onStart
 										if (listaTareas.length === 0) return <Text className="text-zinc-600 text-xs">Sin tareas asignadas.</Text>;
 
 										return listaTareas.map((tarea: string, index: number) => {
-											const checked = !!(tareasCompletadas && tareasCompletadas[index]);
+											const checked = isFinished ? true : !!(tareasCompletadas && tareasCompletadas[index]);
 											return (
 												<TouchableOpacity
 													key={index}
@@ -297,11 +308,102 @@ const WorkshopOrderModal = ({ visible, turno, onClose, readOnly = false, onStart
 									editable={!readOnly}
 								/>
 							)}
+
+							{/* BOTÓN CHECK-IN GLOBAL */}
+							<TouchableOpacity 
+								onPress={() => { onClose(); router.push({ pathname: '/taller/checkin', params: { id: turno.id } }); }}
+								className="bg-orange-500/10 py-3 rounded-xl border border-orange-500/30 flex-row items-center justify-center mb-6 mt-4"
+							>
+								<ClipboardCheck size={16} color="#F97316" />
+								<Text className="text-orange-500 font-bold ml-2 uppercase text-[10px] tracking-widest">Ver / Editar Check-in del Vehículo</Text>
+							</TouchableOpacity>
+
+							{/* SECCIÓN RESUMEN Y EDICIÓN PARA EL MECÁNICO */}
+							{readOnly && turno.estado === 'completed' && (
+								<View className="mb-8 border-t border-white/10 pt-6">
+									<Text className="text-emerald-500 text-[10px] font-black uppercase tracking-[3px] mb-4">Tu Resumen de Trabajo</Text>
+								
+									<View className="flex-row gap-4 mb-4">
+										<View className="flex-1 bg-black/40 p-4 rounded-xl border border-white/5">
+											<Text className="text-zinc-500 text-[10px] font-bold uppercase mb-1">Horas Reales</Text>
+											<Text className="text-white font-bold">{turno.horasReales ? `${turno.horasReales} hrs` : '--'}</Text>
+										</View>
+										<View className="flex-[2] bg-black/40 p-4 rounded-xl border border-white/5">
+											<Text className="text-zinc-500 text-[10px] font-bold uppercase mb-1">Repuestos Utilizados</Text>
+											<Text className="text-zinc-300 text-xs">
+												{turno.repuestosTexto || (Array.isArray(turno.repuestosUtilizados) ? turno.repuestosUtilizados.join(', ') : 'Ninguno registrado')}
+											</Text>
+										</View>
+									</View>
+
+									{turno.informeTecnico && (
+										<View className="bg-blue-900/10 p-4 rounded-xl border border-blue-500/20 mb-4">
+											<Text className="text-blue-400 text-[10px] font-bold uppercase mb-1">Tu Informe Técnico</Text>
+											<Text className="text-blue-100 text-sm leading-5">{turno.informeTecnico}</Text>
+										</View>
+									)}
+
+									{turno.diagnosticoMecanico && (
+										<View className="bg-emerald-900/10 p-4 rounded-xl border border-emerald-500/20 mb-4">
+											<Text className="text-emerald-400 text-[10px] font-bold uppercase mb-1">Diagnóstico para el Cliente</Text>
+											<Text className="text-emerald-100 text-sm leading-5 italic">"{turno.diagnosticoMecanico}"</Text>
+										</View>
+									)}
+
+									<TouchableOpacity 
+										onPress={() => { onClose(); onEditComplete && onEditComplete(turno); }}
+										className="bg-blue-600/20 py-3 rounded-xl border border-blue-500/30 flex-row items-center justify-center mt-2"
+									>
+										<Pencil size={14} color="#60A5FA" />
+										<Text className="text-blue-400 font-bold ml-2 uppercase text-[10px] tracking-widest">Editar Informe / Repuestos</Text>
+									</TouchableOpacity>
+								</View>
+							)}
 						</View>
 
+						{/* SECCIÓN 3: AUDITORÍA (SOLO ADMIN) */}
+						{!readOnly && (turno.estado === 'completed' || turno.estado === 'in_progress' || turno.estado === 'asignado_mecanico') && (
+							<View className="mb-8 border-t border-white/10 pt-6">
+
+								<Text className="text-emerald-500 text-[10px] font-black uppercase tracking-[3px] mb-4">Resolución del Mecánico (Editable)</Text>
+
+								{/* Checklist (Lectura) */}
+								{turno.instruccionesMecanico && turno.instruccionesMecanico.length > 0 && (
+									<View className="bg-black/40 p-4 rounded-xl border border-white/5 mb-4">
+										<Text className="text-zinc-500 text-[10px] font-bold uppercase mb-3">Plan de Tareas</Text>
+										{turno.instruccionesMecanico.map((tarea: string, idx: number) => (
+											<View key={idx} className="flex-row items-center mb-2">
+												<CheckCircle size={14} color="#10B981" />
+												<Text className="text-zinc-300 text-xs ml-2">{tarea}</Text>
+											</View>
+										))}
+									</View>
+								)}
+
+								{/* Edición de Horas y Repuestos */}
+								<View className="flex-row gap-4 mb-4">
+									<View className="flex-1">
+										<Text className="text-zinc-400 text-[10px] font-bold uppercase mb-2">Horas Reales</Text>
+										<TextInput value={String(horasReales)} onChangeText={setHorasReales} keyboardType="numeric" className="bg-zinc-900 p-4 rounded-xl border border-white/10 text-white font-bold" />
+									</View>
+									<View className="flex-[2]">
+										<Text className="text-zinc-400 text-[10px] font-bold uppercase mb-2">Repuestos Utilizados</Text>
+										<TextInput multiline numberOfLines={2} value={repuestosTexto} onChangeText={setRepuestosTexto} className="bg-zinc-900 p-4 rounded-xl border border-white/10 text-white" />
+									</View>
+								</View>
+
+								{/* Edición de Informes */}
+								<Text className="text-blue-400 text-[10px] font-bold uppercase mb-2">Informe Técnico (Uso Interno)</Text>
+								<TextInput multiline numberOfLines={3} value={informeTecnico} onChangeText={setInformeTecnico} className="bg-zinc-900 p-4 rounded-xl border border-blue-500/20 text-white mb-4 min-h-[80px]" textAlignVertical="top" />
+
+								<Text className="text-emerald-400 text-[10px] font-bold uppercase mb-2">Diagnóstico para Cliente / Presupuesto</Text>
+								<TextInput multiline numberOfLines={3} value={diagnosticoMecanico} onChangeText={setDiagnosticoMecanico} className="bg-zinc-900 p-4 rounded-xl border border-emerald-500/20 text-white min-h-[80px]" textAlignVertical="top" />
+							</View>
+						)}
+
+						{/* SECCIÓN 4: DOCUMENTACIÓN TÉCNICA (SOLO ADMIN) */}
 						{!readOnly && (
 							<>
-								{/* SECCIÓN 3: DOCUMENTACIÓN TÉCNICA (PDFs) */}
 								<Text className="text-zinc-500 text-[10px] font-black uppercase tracking-[3px] mb-4">Documentación y Certificados</Text>
 								<View className="flex-row gap-3 mb-10">
 									<TouchableOpacity onPress={() => openDoc('asistencia')} className="flex-1 bg-orange-500/10 p-4 rounded-2xl border border-orange-500/20 items-center">
@@ -317,16 +419,6 @@ const WorkshopOrderModal = ({ visible, turno, onClose, readOnly = false, onStart
 										<Text className="text-emerald-200 text-[10px] font-bold mt-2 uppercase">Presupuesto</Text>
 									</TouchableOpacity>
 								</View>
-
-								{/* BOTÓN AMARILLO: VER TRABAJO / DIAGNÓSTICO */}
-								<View className="mb-8">
-									<TouchableOpacity
-										onPress={() => setInformeModalVisible(true)}
-										className="w-full bg-yellow-500 rounded-2xl py-4 items-center border border-yellow-600 shadow-sm"
-									>
-										<Text className="text-black font-black uppercase">VER TRABAJO / DIAGNÓSTICO</Text>
-									</TouchableOpacity>
-								</View>
 							</>
 						)}
 
@@ -336,11 +428,12 @@ const WorkshopOrderModal = ({ visible, turno, onClose, readOnly = false, onStart
 					<View className="p-6 border-t border-white/5 bg-[#0c0c0e] flex-row gap-3">
 						<TouchableOpacity
 							onPress={onClose}
-							className={`py-4 rounded-2xl bg-zinc-800 items-center ${readOnly ? 'flex-1' : 'flex-1'}`}
+							className={`py-4 rounded-2xl bg-zinc-800 items-center flex-1`}
 						>
 							<Text className="text-zinc-400 font-black uppercase text-xs">Cerrar</Text>
 						</TouchableOpacity>
 
+						{/* Acciones para Mecánico (ReadOnly) */}
 						{!!readOnly && (
 							<>
 								{isFinished ? (
@@ -367,65 +460,34 @@ const WorkshopOrderModal = ({ visible, turno, onClose, readOnly = false, onStart
 								) : null}
 							</>
 						)}
+
+						{/* Acción de Guardar para Admin (!readOnly) */}
+						{!readOnly && (
+							<TouchableOpacity
+								onPress={handleUpdateOrder}
+								disabled={loading}
+								className="flex-[2] py-4 rounded-2xl bg-blue-600 items-center flex-row justify-center shadow-lg shadow-blue-900/40"
+							>
+								{loading ? (
+									<ActivityIndicator color="white" />
+								) : (
+									<View className="flex-row items-center">
+										<Save size={16} color="white" style={{ marginRight: 8 }} />
+										<Text className="text-white font-black uppercase text-xs">Guardar Cambios</Text>
+									</View>
+								)}
+							</TouchableOpacity>
+						)}
 					</View>
 				</Animated.View>
 			</View>
 
-			{/* COMPONENTE GENERADOR DE PDF */}
+			{/* COMPONENTES SECUNDARIOS */}
 			{!!docType && !!DocGen && (
-				<DocGen
-					visible={docModalVisible}
-					onClose={() => { setDocModalVisible(false); setDocType(null); }}
-					docType={docType}
-					turno={turno}
-				/>
+				<DocGen visible={docModalVisible} onClose={() => { setDocModalVisible(false); setDocType(null); }} docType={docType} turno={turno} />
 			)}
-
-			{/* MODAL PRESUPUESTO */}
 			{!!presupuestoModalVisible && (
 				<PresupuestoModal visible={presupuestoModalVisible} onClose={() => setPresupuestoModalVisible(false)} prefill={turno} />
-			)}
-
-			{/* MODAL: INFORME TÉCNICO / DIAGNÓSTICO (amarillo) */}
-			{!!informeModalVisible && (
-				<Modal visible={informeModalVisible} transparent animationType="slide">
-					<View className="flex-1 bg-black/80 justify-center items-center px-6">
-						<Animated.View entering={FadeInUp} className="w-full max-h-[85%] bg-[#0c0c0e] rounded-2xl border border-yellow-600 overflow-hidden">
-							<View className="flex-row justify-between items-center px-4 py-3 bg-yellow-500">
-								<Text className="text-black font-black uppercase">Informe Técnico del Trabajo Realizado y Diagnóstico</Text>
-								<TouchableOpacity onPress={() => setInformeModalVisible(false)} className="p-2">
-									<X color="#111" size={18} />
-								</TouchableOpacity>
-							</View>
-							<ScrollView className="p-4">
-								{(turno.diagnosticoMecanico || turno.informeTecnico || turno.informeTrabajo) ? (
-									<View>
-										{!!turno.informeTrabajo && (
-											<View className="mb-4">
-												<Text className="text-zinc-400 text-sm font-bold mb-2">Informe de Trabajo</Text>
-												<Text className="text-zinc-200 text-sm">{turno.informeTrabajo}</Text>
-											</View>
-										)}
-										{!!turno.informeTecnico && (
-											<View className="mb-4">
-												<Text className="text-zinc-400 text-sm font-bold mb-2">Informe Técnico</Text>
-												<Text className="text-zinc-200 text-sm">{turno.informeTecnico}</Text>
-											</View>
-										)}
-										{!!turno.diagnosticoMecanico && (
-											<View className="mb-4">
-												<Text className="text-zinc-400 text-sm font-bold mb-2">Comentarios del Mecánico</Text>
-												<Text className="text-zinc-200 text-sm">{turno.diagnosticoMecanico}</Text>
-											</View>
-										)}
-									</View>
-								) : (
-									<Text className="text-zinc-500">No hay informe técnico o diagnóstico registrado.</Text>
-								)}
-							</ScrollView>
-						</Animated.View>
-					</View>
-				</Modal>
 			)}
 		</Modal>
 	);

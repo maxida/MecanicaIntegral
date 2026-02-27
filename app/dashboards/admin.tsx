@@ -41,30 +41,23 @@ const AdminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
 
   const handleOpenTurno = (turno: any) => {
     setSelectedTurno(turno);
-
-    // Forzamos a que sea string por si viene undefined
     const role = userRole ? userRole.toLowerCase() : 'SIN_ROL';
 
-    // TRAMPA PARA VER LA VERDAD
-    Alert.alert("DEBUG TRAMPA", `Tu rol en Redux es: "${role}"\nEl estado del turno es: "${turno.estado}"`);
-
     if (role === 'admin' || role === 'admin_taller') {
-      if (turno.estado !== 'completed') {
+      if (turno.estado === 'taller_pendiente') {
         setAdminModalVisible(true);
+        setOrderModalVisible(false);
         setDetailModalVisible(false);
       } else {
-        setDetailModalVisible(true);
+        setOrderModalVisible(true);
         setAdminModalVisible(false);
+        setDetailModalVisible(false);
       }
-      setOrderModalVisible(false);
-
     } else if (role === 'mecanico') {
       setOrderModalVisible(true);
       setAdminModalVisible(false);
       setDetailModalVisible(false);
-
     } else {
-      // SI CAE ACÁ ES PORQUE EL ROL NO ES 'admin'
       setDetailModalVisible(true);
       setAdminModalVisible(false);
       setOrderModalVisible(false);

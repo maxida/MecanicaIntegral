@@ -206,7 +206,7 @@ const TurnoDetailModal = ({ visible, turno, onClose, readOnly = false, adminCont
                 <Wrench size={18} color="#FFF" />
                 <Text className="text-white font-black text-xs uppercase ml-2">Bloquear y Enviar a Taller</Text>
               </TouchableOpacity>
-              <TouchableOpacity
+              {/* <TouchableOpacity
                 onPress={() => {
                   onClose();
                   router.push({ pathname: '/historial-unidad', params: { patente: turno.numeroPatente } });
@@ -215,7 +215,7 @@ const TurnoDetailModal = ({ visible, turno, onClose, readOnly = false, adminCont
               >
                 <LineChart size={14} color="#A1A1AA" style={{ marginRight: 8 }} />
                 <Text className="text-zinc-300 font-bold text-xs uppercase">Ver Hoja de Vida Completa</Text>
-              </TouchableOpacity>
+              </TouchableOpacity> */}
 
               <TouchableOpacity onPress={onClose} className="w-full py-2 items-center">
                 <Text className="text-gray-400 font-bold uppercase text-xs">Cerrar sin hacer nada</Text>

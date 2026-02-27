@@ -123,16 +123,18 @@ const MecanicoDashboard = ({ onLogout }: { onLogout?: () => void }) => {
     }
     setActionLoading(true);
     try {
-      const fechaFin = new Date();
-      let horasCalculadas = 0;
-      if (selectedTurno?.fechaInicioReal) {
+      let horasCalculadas = selectedTurno.horasReales || 0;
+      let fechaFinReal = selectedTurno.fechaFinReal || new Date().toISOString();
+
+      if (selectedTurno.estado !== 'completed' && selectedTurno?.fechaInicioReal) {
         const start = new Date(selectedTurno.fechaInicioReal).getTime();
-        horasCalculadas = (fechaFin.getTime() - start) / (1000 * 60 * 60);
+        horasCalculadas = (new Date().getTime() - start) / (1000 * 60 * 60);
+        fechaFinReal = new Date().toISOString();
       }
 
       const payload: any = {
         estado: 'completed',
-        fechaFinReal: fechaFin.toISOString(),
+        fechaFinReal: fechaFinReal,
         horasReales: Number(horasCalculadas.toFixed(2)),
         tareasCompletadas: problemasResueltos,
         repuestosTexto: repuestosInput.trim(),
@@ -155,6 +157,7 @@ const MecanicoDashboard = ({ onLogout }: { onLogout?: () => void }) => {
       setActionLoading(false);
     }
   };
+
 
   // --- CARD COMPONENT ---
   const TaskCard = ({ t }: { t: any }) => {
@@ -686,7 +689,7 @@ const MecanicoDashboard = ({ onLogout }: { onLogout?: () => void }) => {
       <Modal visible={finishModalVisible} transparent animationType="slide">
         <View className="flex-1 bg-black/90 justify-end">
           <View className="bg-zinc-900 rounded-t-3xl p-6 border-t border-white/10 max-h-[90%]">
-            
+
             {/* HEADER CON X */}
             <View className="flex-row justify-between items-center mb-1">
               <Text className="text-white text-xl font-bold">Finalizar Reparación</Text>
@@ -697,7 +700,7 @@ const MecanicoDashboard = ({ onLogout }: { onLogout?: () => void }) => {
             <Text className="text-zinc-500 text-xs mb-4 uppercase tracking-widest">{selectedTurno?.numeroPatente}</Text>
 
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 12 }}>
-              
+
               {/* 1. RELOJ AUTOMÁTICO */}
               <Text className="text-zinc-300 text-sm font-bold mb-2">Tiempo de Trabajo Registrado</Text>
               <View className="bg-blue-900/10 p-4 rounded-xl border border-blue-500/20 flex-row justify-between items-center mb-6">
@@ -710,6 +713,7 @@ const MecanicoDashboard = ({ onLogout }: { onLogout?: () => void }) => {
                 </View>
                 <Text className="text-white font-mono font-black text-xl">
                   {(() => {
+                    if (selectedTurno?.estado === 'completed') return `${selectedTurno.horasReales}h (Modo Edición)`;
                     if (!selectedTurno?.fechaInicioReal) return "0.0h";
                     const start = new Date(selectedTurno.fechaInicioReal).getTime();
                     const diff = (new Date().getTime() - start) / (1000 * 60 * 60);
@@ -819,6 +823,15 @@ const MecanicoDashboard = ({ onLogout }: { onLogout?: () => void }) => {
         }}
         tareasCompletadas={tareasCompletadas}
         setTareasCompletadas={setTareasCompletadas}
+        onEditComplete={(t) => {
+          setSelectedTurno(t);
+          setDiagnosticoFinal(t.diagnosticoMecanico || '');
+          setInformeTecnico(t.informeTecnico || '');
+          setRepuestosInput(t.repuestosTexto || (Array.isArray(t.repuestosUtilizados) ? t.repuestosUtilizados.join(', ') : ''));
+          setProblemasResueltos(t.tareasCompletadas ?? true);
+          setFinishModalVisible(true);
+        }}
+        
       />
     </SafeAreaView>
   );
