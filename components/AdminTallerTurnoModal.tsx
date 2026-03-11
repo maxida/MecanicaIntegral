@@ -139,6 +139,7 @@ const AdminTallerTurnoModal = ({ visible, turno, onClose }: AdminTallerTurnoModa
 		try {
 			const nuevaSolicitud = {
 				createdAt: new Date().toISOString(),
+				empresaId: turno?.empresaId || 'oasis',
 				horasEstimadas: horas.toString(),
 				instruccionesAdmin: instrucciones.join('\n'),
 				mecanicoId: selectedMecanico.id,
@@ -152,6 +153,7 @@ const AdminTallerTurnoModal = ({ visible, turno, onClose }: AdminTallerTurnoModa
 
 			const turnoRef = doc(db, 'turnos', turno.id);
 			await updateDoc(turnoRef, {
+				empresaId: turno?.empresaId || 'oasis',
 				estado: 'asignado_mecanico',
 				mecanicoId: selectedMecanico.id,
 				mecanicoNombre: selectedMecanico.nombre || selectedMecanico.name,
@@ -183,7 +185,14 @@ const AdminTallerTurnoModal = ({ visible, turno, onClose }: AdminTallerTurnoModa
 										{isAlert ? 'REPORTE CON NOVEDADES' : 'OPERATIVO NORMAL'}
 									</Text>
 								</View>
-								<Text className="text-white text-2xl font-black italic mt-2">{turno?.numeroPatente || 'S/D'}</Text>
+								<View className="flex-row items-center gap-2 mt-2">
+									<Text className="text-white text-2xl font-black italic">{turno?.numeroPatente || 'S/D'}</Text>
+									<View className={`px-2 py-0.5 rounded border ${(turno?.empresaId || 'oasis') === 'lafabrica' ? 'bg-purple-500/20 border-purple-500/40' : 'bg-cyan-500/20 border-cyan-500/40'}`}>
+										<Text className={`text-[9px] font-black uppercase ${(turno?.empresaId || 'oasis') === 'lafabrica' ? 'text-purple-300' : 'text-cyan-300'}`}>
+											{(turno?.empresaId || 'oasis') === 'lafabrica' ? 'LA FABRICA' : 'OASIS'}
+										</Text>
+									</View>
+								</View>
 								<View className="flex-row items-center mt-2">
 									<Calendar size={12} color="#A1A1AA" />
 									<Text className="text-zinc-400 text-xs ml-2">{fechaLabel}</Text>

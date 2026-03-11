@@ -4,7 +4,7 @@ import { useRouter } from 'expo-router';
 import {
   Droplet, Disc, Battery, Lightbulb, CircleDot, Image as LucideImage,
   Info, X, Gauge, Wrench, Clock, Hash, AlertTriangle, CheckCircle, ArrowRight, LineChart,
-  Lock, Toolbox, Sparkles, ArrowDownCircle, Wind, ArrowUpCircle, Tent
+  Lock, Toolbox, Sparkles, ArrowDownCircle, Wind, ArrowUpCircle, Tent, Thermometer, Snowflake, Fuel
 } from 'lucide-react-native';
 import { BlurView } from 'expo-blur';
 import Animated, { FadeInUp } from 'react-native-reanimated';
@@ -47,10 +47,15 @@ const CARGA_ITEMS_MAP: Record<string, { label: string; Icon: any; color: string 
   carpa: { label: 'Estado de carpa', Icon: Tent, color: '#60A5FA' },
   cajones: { label: 'Cajones de herramientas', Icon: Toolbox, color: '#60A5FA' },
   auxilio: { label: 'Ruedas de auxilio', Icon: Disc, color: '#60A5FA' },
+  temp_equipo: { label: 'Temperatura Equipo', Icon: Thermometer, color: '#60A5FA' },
+  burletes: { label: 'Burletes y Puertas', Icon: Lock, color: '#60A5FA' },
+  combustible_frio: { label: 'Diésel Equipo Frío', Icon: Fuel, color: '#60A5FA' },
+  limpieza_senasa: { label: 'Permiso / Desinfección', Icon: Sparkles, color: '#60A5FA' },
 };
 
 const CISTERNA_IDS = ['valvulas', 'tapas_domo', 'precintos', 'mangueras', 'limpieza', 'descarga'] as const;
 const SEMIREMOLQUE_IDS = ['perdida_aire', 'levante_eje', 'fueyes_estado', 'luces', 'neumaticos', 'carpa', 'cajones', 'auxilio'] as const;
+const REFRIGERADO_IDS = ['temp_equipo', 'burletes', 'combustible_frio', 'limpieza_senasa'] as const;
 
 type TurnoEstado = 'pending' | 'scheduled' | 'in_progress' | 'completed' | 'pending_triage' | 'en_viaje';
 
@@ -102,18 +107,22 @@ const TurnoDetailModal = ({ visible, turno, onClose, readOnly = false, adminCont
   const isScheduled = turnoEstado === 'scheduled';
 
   // Tipo de Carga
-  const tipoCarga: 'cisterna' | 'semiremolque' | undefined = turno.tipoCarga;
-  const tipoCargaLabel = tipoCarga === 'semiremolque' ? 'Semiremolque' : tipoCarga === 'cisterna' ? 'Cisterna' : null;
+  const tipoCarga: 'cisterna' | 'semiremolque' | 'refrigerado' | undefined = turno.tipoCarga;
+  const tipoCargaLabel = tipoCarga === 'semiremolque' ? 'Semiremolque' : tipoCarga === 'cisterna' ? 'Cisterna' : tipoCarga === 'refrigerado' ? 'Cámara de Frío' : null;
 
   // Checklists por tipo de carga
   const checksCisternaSalida = turno.checklistCisternaSalida;
   const checksCisternaIngreso = turno.checklistCisternaIngreso;
   const checksSemiremolqueSalida = turno.checklistSemiremolqueSalida;
   const checksSemiremolqueIngreso = turno.checklistSemiremolqueIngreso;
+  const checksRefrigeradoSalida = turno.checklistRefrigeradoSalida;
+  const checksRefrigeradoIngreso = turno.checklistRefrigeradoIngreso;
 
-  const checksSalida = tipoCarga === 'semiremolque' ? checksSemiremolqueSalida : checksCisternaSalida;
-  const checksIngreso = tipoCarga === 'semiremolque' ? checksSemiremolqueIngreso : checksCisternaIngreso;
-  const cargaIds = tipoCarga === 'semiremolque' ? SEMIREMOLQUE_IDS : CISTERNA_IDS;
+  const checksSalida = tipoCarga === 'semiremolque' ? checksSemiremolqueSalida : tipoCarga === 'refrigerado' ? checksRefrigeradoSalida : checksCisternaSalida;
+  const checksIngreso = tipoCarga === 'semiremolque' ? checksSemiremolqueIngreso : tipoCarga === 'refrigerado' ? checksRefrigeradoIngreso : checksCisternaIngreso;
+  
+  const cargaIds = tipoCarga === 'semiremolque' ? SEMIREMOLQUE_IDS : tipoCarga === 'refrigerado' ? REFRIGERADO_IDS : CISTERNA_IDS;
+  
   const salidaCargaOk = !!checksSalida && cargaIds.every((id) => checksSalida?.[id] === true);
   const ingresoCargaOk = turno.controlCargaOk !== undefined
     ? turno.controlCargaOk
@@ -261,7 +270,14 @@ const TurnoDetailModal = ({ visible, turno, onClose, readOnly = false, adminCont
                     {isAlert ? 'REPORTE CON NOVEDADES' : 'OPERATIVO NORMAL'}
                   </Text>
                 </View>
-                <Text className="text-white text-4xl font-black italic tracking-tighter">{turno.numeroPatente}</Text>
+                <View className="flex-row items-center gap-2">
+                  <Text className="text-white text-4xl font-black italic tracking-tighter">{turno.numeroPatente}</Text>
+                  <View className={`px-2 py-0.5 rounded border ${(turno?.empresaId || 'oasis') === 'lafabrica' ? 'bg-purple-500/20 border-purple-500/40' : 'bg-cyan-500/20 border-cyan-500/40'}`}>
+                    <Text className={`text-[9px] font-black uppercase ${(turno?.empresaId || 'oasis') === 'lafabrica' ? 'text-purple-300' : 'text-cyan-300'}`}>
+                      {(turno?.empresaId || 'oasis') === 'lafabrica' ? 'LA FABRICA' : 'OASIS'}
+                    </Text>
+                  </View>
+                </View>
                 <Text className="text-zinc-500 text-xs mt-1 font-bold uppercase tracking-widest">CHOFER ACTUAL: {turno.chofer || 'S/D'}</Text>
                 {tipoCargaLabel && (
                   <View className="self-start mt-2 bg-white/5 border border-white/10 px-2 py-1 rounded-full">

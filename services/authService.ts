@@ -17,11 +17,12 @@ export interface UsuarioAuth {
   name: string;
   role: 'admin' | 'supervisor' | 'mecanico' | 'cliente';
   id: string;
+  empresaId?: string;
 }
 
 // Obtener rol del usuario desde Firestore
 // Buscar usuario en Firestore por uid o email y devolver sus datos
-export const obtenerUsuarioFirestore = async (params: { uid?: string; email?: string; }): Promise<{ name?: string; role?: string; uid?: string } | null> => {
+export const obtenerUsuarioFirestore = async (params: { uid?: string; email?: string; }): Promise<{ name?: string; role?: string; uid?: string; empresaId?: string } | null> => {
   try {
     const { uid, email } = params;
 
@@ -31,7 +32,12 @@ export const obtenerUsuarioFirestore = async (params: { uid?: string; email?: st
       const snapUid = await getDocs(qUid);
       if (!snapUid.empty) {
         const data = snapUid.docs[0].data();
-        return { name: data.name || data.nombre || '', role: data.role || data.rol || '', uid: data.uid || uid };
+        return {
+          name: data.name || data.nombre || '',
+          role: data.role || data.rol || '',
+          uid: data.uid || uid,
+          empresaId: data.empresaId || undefined,
+        };
       }
     }
 
@@ -41,7 +47,12 @@ export const obtenerUsuarioFirestore = async (params: { uid?: string; email?: st
       const snapEmail = await getDocs(qEmail);
       if (!snapEmail.empty) {
         const data = snapEmail.docs[0].data();
-        return { name: data.name || data.nombre || '', role: data.role || data.rol || '', uid: data.uid || snapEmail.docs[0].id };
+        return {
+          name: data.name || data.nombre || '',
+          role: data.role || data.rol || '',
+          uid: data.uid || snapEmail.docs[0].id,
+          empresaId: data.empresaId || undefined,
+        };
       }
     }
 
@@ -73,6 +84,7 @@ export const loginWithEmail = async (email: string, password: string): Promise<U
       name: usuarioDoc.name || user.displayName || email.split('@')[0],
       role: usuarioDoc.role as 'admin' | 'supervisor' | 'mecanico' | 'cliente',
       id: user.uid,
+      empresaId: usuarioDoc.empresaId,
     };
   } catch (firebaseError: any) {
     // Si Firebase falla, intentar con usuarios locales (para desarrollo)

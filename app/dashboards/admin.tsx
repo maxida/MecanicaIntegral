@@ -27,7 +27,7 @@ const AdminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
   const router = useRouter();
 
   const turnos = useSelector((state: RootState) => state.turnos.turnos);
-  const userRole = useSelector((state: RootState) => state.login.user?.rol || state.login.user?.role);
+  const userRole = useSelector((state: RootState) => state.login.user?.rol);
   console.log('[AdminDashboard] userRole from Redux:', userRole);
 
   const [loading, setLoading] = useState(true);
@@ -75,59 +75,85 @@ const AdminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
 
   // 2. Filtros
   const workshopTurnos = useMemo(() => {
-    return turnos.filter(t => ['taller_pendiente', 'scheduled', 'asignado_mecanico', 'in_progress', 'completed'].includes(t.estado));
+    return turnos.filter((t) => {
+      const estado = String((t as any).estado || '');
+      if (estado === 'taller_pendiente' || estado === 'scheduled' || estado === 'asignado_mecanico' || estado === 'in_progress') {
+        return true;
+      }
+
+      // Solo considerar "completed" si realmente pasó por taller/mecánico
+      if (estado === 'completed') {
+        return !!(t.mecanicoId || t.mecanicoNombre || t.diagnosticoMecanico || t.tareasCompletadas);
+      }
+
+      return false;
+    });
   }, [turnos]);
 
   // 3. KPIs DE TALLER (Cálculo en tiempo real)
   const workshopKpis = useMemo(() => {
-    const enReparacion = workshopTurnos.filter(t => t.estado === 'in_progress').length;
+    const enReparacion = workshopTurnos.filter(t => String((t as any).estado || '') === 'in_progress').length;
 
     // Mecánicos únicos trabajando actualmente
     const mecanicosActivos = new Set(
-      workshopTurnos.filter(t => t.estado === 'in_progress' && t.mecanicoId).map(t => t.mecanicoId)
+      workshopTurnos.filter(t => String((t as any).estado || '') === 'in_progress' && t.mecanicoId).map(t => t.mecanicoId)
     ).size;
 
-    const colaEspera = workshopTurnos.filter(t => t.estado === 'taller_pendiente' || t.estado === 'scheduled').length;
+    const colaEspera = workshopTurnos.filter(t => {
+      const estado = String((t as any).estado || '');
+      return estado === 'taller_pendiente' || estado === 'scheduled';
+    }).length;
 
     return { enReparacion, mecanicosActivos, colaEspera };
   }, [workshopTurnos]);
 
   const columns = useMemo(() => [
-    { id: 'solicitudes', title: 'Nuevas', color: COLUMN_COLORS.solicitudes, data: workshopTurnos.filter(t => t.estado === 'taller_pendiente') },
+    { id: 'solicitudes', title: 'Nuevas', color: COLUMN_COLORS.solicitudes, data: workshopTurnos.filter(t => String((t as any).estado || '') === 'taller_pendiente') },
     // AQUÍ ESTÁ LA CLAVE: Agregamos el estado real para la columna de Asignadas
-    { id: 'asignados', title: 'Asignadas', color: COLUMN_COLORS.asignados, data: workshopTurnos.filter(t => t.estado === 'asignado_mecanico') },
-    { id: 'en_proceso', title: 'En Taller', color: COLUMN_COLORS.en_proceso, data: workshopTurnos.filter(t => t.estado === 'in_progress') },
-    { id: 'finalizados', title: 'Completadas', color: COLUMN_COLORS.finalizados, data: workshopTurnos.filter(t => t.estado === 'completed') },
+    { id: 'asignados', title: 'Asignadas', color: COLUMN_COLORS.asignados, data: workshopTurnos.filter(t => String((t as any).estado || '') === 'asignado_mecanico') },
+    { id: 'en_proceso', title: 'En Taller', color: COLUMN_COLORS.en_proceso, data: workshopTurnos.filter(t => String((t as any).estado || '') === 'in_progress') },
+    { id: 'finalizados', title: 'Completadas', color: COLUMN_COLORS.finalizados, data: workshopTurnos.filter(t => String((t as any).estado || '') === 'completed') },
   ], [workshopTurnos]);
 
   // 4. Render Card
-  const renderWorkshopCard = (t: any, color: string) => (
-    <TouchableOpacity
-      key={t.id}
-      activeOpacity={0.9}
-      onPress={() => handleOpenTurno(t)}
-      className="mb-4 bg-zinc-900 rounded-2xl border border-zinc-800 shadow-sm overflow-hidden"
-    >
-      <View style={{ backgroundColor: color }} className="absolute left-0 top-0 bottom-0 w-1.5" />
+  const renderWorkshopCard = (t: any, color: string) => {
+    const empresaTag = (t.empresaId || 'oasis').toString().toLowerCase() === 'lafabrica' ? 'LA FABRICA' : 'OASIS';
+    const empresaTagClass = empresaTag === 'LA FABRICA'
+      ? 'bg-purple-500/20 border-purple-500/40 text-purple-300'
+      : 'bg-cyan-500/20 border-cyan-500/40 text-cyan-300';
 
-      <View className="p-4 pl-5">
-        <View className="flex-row justify-between items-start mb-2">
-          <View>
-            <Text className="text-white font-black text-lg italic tracking-tight">{t.numeroPatente}</Text>
-            {!!t.numeroOT && (
-              <View className="flex-row items-center mt-1 bg-zinc-800 self-start px-2 py-0.5 rounded">
-                <Hash size={10} color="#888" />
-                <Text className="text-zinc-400 text-[10px] font-bold ml-1">{t.numeroOT}</Text>
+    return (
+      <TouchableOpacity
+        key={t.id}
+        activeOpacity={0.9}
+        onPress={() => handleOpenTurno(t)}
+        className="mb-4 bg-zinc-900 rounded-2xl border border-zinc-800 shadow-sm overflow-hidden"
+      >
+        <View style={{ backgroundColor: color }} className="absolute left-0 top-0 bottom-0 w-1.5" />
+
+        <View className="p-4 pl-5">
+          <View className="flex-row justify-between items-start mb-2">
+            <View>
+              <View className="flex-row items-center gap-2">
+                <Text className="text-white font-black text-lg italic tracking-tight">{t.numeroPatente}</Text>
+                <View className={`px-2 py-0.5 rounded border ${empresaTagClass}`}>
+                  <Text className={`text-[9px] font-black uppercase ${empresaTagClass.split(' ').includes('text-purple-300') ? 'text-purple-300' : 'text-cyan-300'}`}>{empresaTag}</Text>
+                </View>
+              </View>
+              {!!t.numeroOT && (
+                <View className="flex-row items-center mt-1 bg-zinc-800 self-start px-2 py-0.5 rounded">
+                  <Hash size={10} color="#888" />
+                  <Text className="text-zinc-400 text-[10px] font-bold ml-1">{t.numeroOT}</Text>
+                </View>
+              )}
+            </View>
+
+            {t.prioridad === 1 && (
+              <View className="bg-red-500/20 px-2 py-1 rounded border border-red-500/30">
+                <Text className="text-red-500 text-[9px] font-black uppercase">URGENTE</Text>
               </View>
             )}
           </View>
-
-          {t.prioridad === 1 && (
-            <View className="bg-red-500/20 px-2 py-1 rounded border border-red-500/30">
-              <Text className="text-red-500 text-[9px] font-black uppercase">URGENTE</Text>
-            </View>
-          )}
-        </View>
 
         <Text className="text-zinc-400 text-xs mb-4 leading-5" numberOfLines={2}>
           {t.reporteSupervisor || t.comentariosChofer || 'Sin descripción detallada.'}
@@ -150,9 +176,10 @@ const AdminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
         </View>
 
         {/* per-card quick actions removed (handled inside modal) */}
-      </View>
-    </TouchableOpacity>
-  );
+        </View>
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <SafeAreaView className="flex-1 bg-[#050505]">

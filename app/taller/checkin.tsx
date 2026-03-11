@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { View, Text, ScrollView, SafeAreaView, TouchableOpacity, Image, TextInput, Modal, Alert } from 'react-native';
 import { CheckCircle2, Circle, Camera, PenTool, X } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -6,7 +6,7 @@ import SignatureScreen from 'react-native-signature-canvas';
 import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { collection, query, where, getDocs, updateDoc, doc, limit, orderBy } from 'firebase/firestore';
+import { collection, query, where, getDocs, updateDoc, doc, limit, orderBy, getDoc } from 'firebase/firestore';
 import { db, storage } from '@/firebase/firebaseConfig';
 import LoadingOverlay from '@/components/LoadingOverlay';
 
@@ -18,30 +18,72 @@ const INSPECCION_ZONAS = [
 
 export default function TallerCheckinScreen() {
   const router = useRouter();
-  const { patente } = useLocalSearchParams();
+  const { patente: paramPatente, id: turnoId } = useLocalSearchParams();
 
-  const initialChecks = useMemo(() => {
-    const map: Record<string, boolean> = {};
-    INSPECCION_ZONAS.forEach((zona) => {
-      zona.items.forEach((item) => {
-        map[`${zona.id}:${item}`] = false;
-      });
-    });
-    return map;
-  }, []);
+  const [turnoData, setTurnoData] = useState<any>(null);
+  const [patenteState, setPatenteState] = useState<string>((paramPatente as string) || '');
+  const [tipoCarga, setTipoCarga] = useState<string | null>(null);
 
-  const [checks, setChecks] = useState<Record<string, boolean>>(initialChecks);
+  const [checks, setChecks] = useState<Record<string, boolean>>({});
   const [observaciones, setObservaciones] = useState('');
   const [firmaChofer, setFirmaChofer] = useState<string | null>(null);
   const [firmaAsesor, setFirmaAsesor] = useState<string | null>(null);
   const [modalFirma, setModalFirma] = useState<'chofer' | 'asesor' | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [fotos, setFotos] = useState<{ frente: string | null; atras: string | null; latIzq: string | null; latDer: string | null }>({
-    frente: null,
-    atras: null,
-    latIzq: null,
-    latDer: null,
+    frente: null, atras: null, latIzq: null, latDer: null,
   });
+
+  // 1. Zonas Dinámicas basadas en tipoCarga
+  const zonasDinamicas = useMemo(() => {
+    const zonas = [...INSPECCION_ZONAS];
+    if (tipoCarga === 'refrigerado') {
+      zonas.push({ id: 'refrigerado', titulo: 'Cámara de Frío', items: ['Temperatura Equipo', 'Burletes y Puertas', 'Diésel Equipo Frío', 'Permiso / Desinfección'] });
+    } else if (tipoCarga === 'cisterna') {
+      zonas.push({ id: 'cisterna', titulo: 'Cisterna', items: ['Válvulas Cerradas', 'Tapas Domo', 'Precintos Seguridad', 'Mangueras/Acoples', 'Bocas Descarga'] });
+    } else if (tipoCarga === 'semiremolque') {
+      zonas.push({ id: 'semiremolque', titulo: 'Semiremolque', items: ['Pérdida de aire', 'Levante eje', 'Fueyes / Estado', 'Estado de carpa'] });
+    }
+    return zonas;
+  }, [tipoCarga]);
+
+  // 2. Cargar Turno Existente (Modo Edición)
+  useEffect(() => {
+    const loadTurno = async () => {
+      if (!turnoId) return;
+      try {
+        const docRef = doc(db, 'turnos', turnoId as string);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          setTurnoData({ id: docSnap.id, ...data });
+          setPatenteState(data.numeroPatente || paramPatente);
+          setTipoCarga(data.tipoCarga || null);
+          
+          if (data.checkinTaller) {
+            if (data.checkinTaller.inspeccion) setChecks(data.checkinTaller.inspeccion);
+            if (data.checkinTaller.observaciones) setObservaciones(data.checkinTaller.observaciones);
+            if (data.checkinTaller.fotos) setFotos(data.checkinTaller.fotos);
+            if (data.checkinTaller.firmas) {
+              setFirmaChofer(data.checkinTaller.firmas.chofer);
+              setFirmaAsesor(data.checkinTaller.firmas.asesor);
+            }
+          }
+        }
+      } catch (error) { console.error("Error cargando turno:", error); }
+    };
+    loadTurno();
+  }, [turnoId]);
+
+  // 3. Inicializar Checks si es nuevo
+  useEffect(() => {
+    if (turnoData?.checkinTaller) return; 
+    const map: Record<string, boolean> = {};
+    zonasDinamicas.forEach((zona) => {
+      zona.items.forEach((item) => { map[`${zona.id}:${item}`] = false; });
+    });
+    setChecks(prev => ({...map, ...prev}));
+  }, [zonasDinamicas, turnoData]);
 
   const toggleItem = (key: string) => {
     setChecks((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -70,8 +112,14 @@ export default function TallerCheckinScreen() {
     return await getDownloadURL(storageRef);
   };
 
+  const safeUpload = async (uri: string | null, path: string) => {
+    if (!uri) return null;
+    if (uri.startsWith('http')) return uri; // Ya es una URL de Firebase
+    return await uploadMediaToStorage(uri, path);
+  };
+
   const handleGuardarRecepcion = async () => {
-    if (!patente) return Alert.alert('Error', 'No se encontró la patente.');
+    if (!turnoId) return Alert.alert('Error', 'No se encontró el ID del turno para guardar el check-in.');
     if (!fotos.frente || !fotos.atras || !fotos.latIzq || !fotos.latDer) {
       return Alert.alert('Faltan Fotos', 'Debes adjuntar las 4 fotos del camión.');
     }
@@ -82,47 +130,35 @@ export default function TallerCheckinScreen() {
     setIsSaving(true);
     try {
       const timestamp = Date.now();
+      const p = patenteState || 'UNIDAD';
+
       const [urlFrente, urlAtras, urlLatIzq, urlLatDer] = await Promise.all([
-        uploadMediaToStorage(fotos.frente, `recepciones/${patente}_frente_${timestamp}.jpg`),
-        uploadMediaToStorage(fotos.atras, `recepciones/${patente}_atras_${timestamp}.jpg`),
-        uploadMediaToStorage(fotos.latIzq, `recepciones/${patente}_lateral_izq_${timestamp}.jpg`),
-        uploadMediaToStorage(fotos.latDer, `recepciones/${patente}_lateral_der_${timestamp}.jpg`),
+        safeUpload(fotos.frente, `recepciones/${p}_frente_${timestamp}.jpg`),
+        safeUpload(fotos.atras, `recepciones/${p}_atras_${timestamp}.jpg`),
+        safeUpload(fotos.latIzq, `recepciones/${p}_lateral_izq_${timestamp}.jpg`),
+        safeUpload(fotos.latDer, `recepciones/${p}_lateral_der_${timestamp}.jpg`),
       ]);
 
       const [firmaChoferUrl, firmaAsesorUrl] = await Promise.all([
-        uploadMediaToStorage(firmaChofer, `recepciones/${patente}_firma_chofer_${timestamp}.png`),
-        uploadMediaToStorage(firmaAsesor, `recepciones/${patente}_firma_asesor_${timestamp}.png`),
+        safeUpload(firmaChofer, `recepciones/${p}_firma_chofer_${timestamp}.png`),
+        safeUpload(firmaAsesor, `recepciones/${p}_firma_asesor_${timestamp}.png`),
       ]);
 
-      const col = collection(db, 'turnos');
-      const q = query(
-        col,
-        where('numeroPatente', '==', patente),
-        where('estado', '==', 'taller_pendiente'),
-        orderBy('fechaCreacion', 'desc'),
-        limit(1)
-      );
-      const snap = await getDocs(q);
-      if (snap.empty) {
-        Alert.alert('Sin turno', 'No se encontró un turno activo para esta unidad.');
-        return;
-      }
+      const estadoActual = turnoData?.estado === 'taller_pendiente' ? 'en_taller' : (turnoData?.estado || 'en_taller');
 
-      const turnoDoc = snap.docs[0];
-      const estadoItems = checks;
-      await updateDoc(doc(db, 'turnos', turnoDoc.id), {
-        estado: 'en_taller',
+      await updateDoc(doc(db, 'turnos', turnoId as string), {
+        estado: estadoActual,
         checkinTaller: {
           fotos: { frente: urlFrente, atras: urlAtras, latIzq: urlLatIzq, latDer: urlLatDer },
-          inspeccion: estadoItems,
+          inspeccion: checks,
           observaciones: observaciones || null,
           firmas: { chofer: firmaChoferUrl, asesor: firmaAsesorUrl },
-          fechaRecepcion: new Date().toISOString(),
+          fechaRecepcion: turnoData?.checkinTaller?.fechaRecepcion || new Date().toISOString(),
         }
       });
 
       Alert.alert('Recepción guardada', 'El check-in del taller se registró correctamente.');
-      router.replace('/home');
+      router.back();
     } catch (error) {
       Alert.alert('Error', 'No se pudo guardar la recepción.');
     } finally {
@@ -140,7 +176,7 @@ export default function TallerCheckinScreen() {
             <Text className="text-zinc-500 text-xs mt-1">Estándar SCANIA</Text>
           </View>
 
-          {INSPECCION_ZONAS.map((zona) => (
+          {zonasDinamicas.map((zona) => (
             <View key={zona.id} className="mb-5">
               <Text className="text-blue-400 text-[10px] font-black uppercase tracking-[3px] mb-3">{zona.titulo}</Text>
               <View className="bg-zinc-900/70 border border-white/10 rounded-2xl p-3">

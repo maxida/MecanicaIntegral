@@ -112,6 +112,7 @@ const LoginScreen = () => {
             rol,
             id: usuarioAuth.uid,
             nombre: usuarioAuth.name || (usuarioAuth as any).displayName || usuarioAuth.email.split('@')[0],
+            empresaId: usuarioAuth.empresaId,
           },
           rol,
         })
@@ -200,6 +201,7 @@ const LoginScreen = () => {
             rol,
             id: usuarioAuth.uid,
             nombre: usuarioAuth.name || (usuarioAuth as any).displayName || usuarioAuth.email.split('@')[0],
+            empresaId: usuarioAuth.empresaId,
           },
           rol,
         })
