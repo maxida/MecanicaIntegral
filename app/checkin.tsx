@@ -236,13 +236,13 @@ const NovedadesChoferForm = () => {
     if (!photoUri) return showModal('warning', 'Foto', 'Debes tomar una foto del tablero.');
     if (!tipoCargaViaje) return showModal('warning', 'Tipo de Carga', 'Selecciona el tipo de carga.');
 
-    const cargaOk = cargaItems.length > 0 ? cargaItems.every(item => checksCarga[item.id] === true) : true;
-    const fallasCarga = cargaItems.filter(item => checksCarga[item.id] !== true).map(item => item.id);
+    const fallasCarga = cargaItems.filter(item => checksCarga[item.id] === true).map(item => item.id);
+    const cargaOk = fallasCarga.length === 0;
 
     setSaving(true);
     try {
       const photoUrl = await uploadImageToStorage(photoUri);
-      const issuesFound = selectedIssues.length > 0;
+      const issuesFound = selectedIssues.length > 0 || fallasCarga.length > 0;
 
       const closureData = {
         tipo: 'ingreso',
@@ -351,7 +351,13 @@ const NovedadesChoferForm = () => {
 
 
 
-          <Text className="text-gray-500 text-l font-black uppercase tracking-[3px] mb-3 mt-4">Reporte de Novedades</Text>
+          <View className="mb-3 mt-4 bg-blue-500/10 border border-blue-500/30 rounded-2xl p-3 flex-row items-start">
+            <AlertTriangle size={16} color="#60A5FA" style={{ marginTop: 1 }} />
+            <Text className="text-blue-300 text-[11px] font-bold ml-2 leading-4 flex-1">
+              Marcá únicamente los problemas detectados. Si la unidad está en buen estado, no tildes ningún ítem.
+            </Text>
+          </View>
+          <Text className="text-gray-500 text-l font-black uppercase tracking-[3px] mb-3">Reporte de Novedades</Text>
           <View className="mb-1">
             {VEHICLE_CHECKLIST_ITEMS.map((group) => (
               <View key={group.category} className="mb-4">
@@ -451,7 +457,13 @@ const NovedadesChoferForm = () => {
           <View className="mb-16 mt-4">
             {tipoCargaViaje ? (
               <>
-                <Text className="text-blue-400 text-[10px] font-black uppercase tracking-[3px] mb-3 ml-1">Control {tipoCargaLabel} (Ingreso)</Text>
+                <Text className="text-blue-400 text-[10px] font-black uppercase tracking-[3px] ml-1">Control {tipoCargaLabel} (Ingreso)</Text>
+                <View className="mb-3 mt-4 bg-blue-500/10 border border-blue-500/30 rounded-2xl p-3 flex-row items-start">
+                  <AlertTriangle size={16} color="#60A5FA" style={{ marginTop: 1 }} />
+                  <Text className="text-blue-300 text-[11px] font-bold ml-2 leading-4 flex-1">
+                    Marcá únicamente los problemas detectados. Si la unidad está en buen estado, no tildes ningún ítem.
+                  </Text>
+                </View>
                 <View className="bg-blue-900/10 p-4 rounded-3xl border border-blue-500/30">
                   <View className="flex-row flex-wrap justify-between">
                     {cargaItems.map((item) => {
