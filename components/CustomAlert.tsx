@@ -3,6 +3,15 @@ import { Modal, View, Text, TouchableOpacity } from 'react-native';
 import { BlurView } from 'expo-blur';
 
 type ButtonSpec = { text: string; onPress?: () => void; style?: any };
+type CustomAlertProps = {
+	visible: boolean;
+	title: string;
+	message?: string;
+	showCancel?: boolean;
+	onConfirm?: () => void;
+	onCancel?: () => void;
+	onClose?: () => void;
+};
 
 let subscriber: ((payload: { title: string; message?: string; buttons?: ButtonSpec[] }) => void) | null = null;
 
@@ -58,4 +67,45 @@ export const CustomAlertProvider = ({ children }: { children: React.ReactNode })
 	);
 };
 
-export default { alert } as const;
+const CustomAlertModal = ({
+	visible,
+	title,
+	message,
+	showCancel,
+	onConfirm,
+	onCancel,
+	onClose,
+}: CustomAlertProps) => {
+	return (
+		<Modal
+			visible={visible}
+			transparent
+			animationType="fade"
+			presentationStyle="overFullScreen"
+			statusBarTranslucent
+			onRequestClose={onClose || onCancel || onConfirm}
+		>
+			<View className="flex-1 justify-center items-center" style={{ zIndex: 9999, elevation: 9999 }}>
+				<BlurView intensity={60} tint="dark" className="absolute inset-0" />
+				<View className="w-[90%] bg-[#0b0b0b] rounded-2xl p-6 border border-white/10">
+					<Text className="text-white text-lg font-bold mb-2">{title}</Text>
+					{!!message ? <Text className="text-gray-300 mb-4">{message}</Text> : null}
+					<View className="flex-row justify-end space-x-3">
+						{!!showCancel && (
+							<TouchableOpacity onPress={onCancel || onClose} className="px-4 py-2 rounded-xl bg-white/5">
+								<Text className="text-white">Cancelar</Text>
+							</TouchableOpacity>
+						)}
+						<TouchableOpacity onPress={onConfirm || onClose} className="px-4 py-2 rounded-xl bg-white/5">
+							<Text className="text-white">Aceptar</Text>
+						</TouchableOpacity>
+					</View>
+				</View>
+			</View>
+		</Modal>
+	);
+};
+
+const CustomAlert = Object.assign(CustomAlertModal, { alert });
+
+export default CustomAlert;

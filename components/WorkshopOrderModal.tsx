@@ -40,7 +40,7 @@ interface WorkshopOrderModalProps {
 
 const WorkshopOrderModal = ({ visible, turno, onClose, readOnly = false, onStart, onFinish, onEditComplete, tareasCompletadas, setTareasCompletadas }: WorkshopOrderModalProps) => {
 	const router = useRouter();
-	if (!turno) return null;
+	if (!visible || !turno) return null;
 
 	const [loading, setLoading] = useState(false);
 	const [mecanicos, setMecanicos] = useState<any[]>([]);

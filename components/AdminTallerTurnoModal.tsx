@@ -43,7 +43,7 @@ const getInitialInstrucciones = (t: any) => {
 };
 
 const AdminTallerTurnoModal = ({ visible, turno, onClose }: AdminTallerTurnoModalProps) => {
-	if (!turno) return null;
+	if (!visible || !turno) return null;
 
 	const [tareaInput, setTareaInput] = useState('');
 	const [instrucciones, setInstrucciones] = useState<string[]>(getInitialInstrucciones(turno));
@@ -227,7 +227,7 @@ const AdminTallerTurnoModal = ({ visible, turno, onClose }: AdminTallerTurnoModa
 						<TouchableOpacity
 							disabled={!turno?.checkinTaller}
 							className={`mb-6 rounded-2xl p-4 border ${turno?.checkinTaller ? 'bg-blue-600/20 border-blue-500/40' : 'bg-zinc-800 border-zinc-700'}`}
-							onPress={() => Alert.alert('Recepción', 'Abrirá la hoja de check-in (PDF).')}
+							onPress={() => CustomAlert.alert('Recepción', 'Abrirá la hoja de check-in (PDF).')}
 						>
 							<View className="flex-row items-center justify-between">
 								<View className="flex-row items-center">

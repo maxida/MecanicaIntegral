@@ -18,11 +18,14 @@ export interface UsuarioAuth {
   role: 'admin' | 'supervisor' | 'mecanico' | 'cliente';
   id: string;
   empresaId?: string;
+  fotoPerfil?: string;
+  docId?: string;
+  correo?: string;
 }
 
 // Obtener rol del usuario desde Firestore
 // Buscar usuario en Firestore por uid o email y devolver sus datos
-export const obtenerUsuarioFirestore = async (params: { uid?: string; email?: string; }): Promise<{ name?: string; role?: string; uid?: string; empresaId?: string } | null> => {
+export const obtenerUsuarioFirestore = async (params: { uid?: string; email?: string; }): Promise<{ name?: string; role?: string; uid?: string; empresaId?: string; fotoPerfil?: string; docId?: string; email?: string; correo?: string } | null> => {
   try {
     const { uid, email } = params;
 
@@ -31,12 +34,17 @@ export const obtenerUsuarioFirestore = async (params: { uid?: string; email?: st
       const qUid = query(collection(db, USUARIOS_COLLECTION), where('uid', '==', uid));
       const snapUid = await getDocs(qUid);
       if (!snapUid.empty) {
+        const docSnap = snapUid.docs[0];
         const data = snapUid.docs[0].data();
         return {
           name: data.name || data.nombre || '',
           role: data.role || data.rol || '',
           uid: data.uid || uid,
           empresaId: data.empresaId || undefined,
+          fotoPerfil: data.fotoPerfil || data.photoURL || undefined,
+          docId: docSnap.id,
+          email: data.email || '',
+          correo: data.correo || data.email || '',
         };
       }
     }
@@ -52,6 +60,27 @@ export const obtenerUsuarioFirestore = async (params: { uid?: string; email?: st
           role: data.role || data.rol || '',
           uid: data.uid || snapEmail.docs[0].id,
           empresaId: data.empresaId || undefined,
+          fotoPerfil: data.fotoPerfil || data.photoURL || undefined,
+          docId: snapEmail.docs[0].id,
+          email: data.email || email,
+          correo: data.correo || data.email || email,
+        };
+      }
+
+      // Fallback por si el proyecto guarda el correo en el campo 'correo'
+      const qCorreo = query(collection(db, USUARIOS_COLLECTION), where('correo', '==', email));
+      const snapCorreo = await getDocs(qCorreo);
+      if (!snapCorreo.empty) {
+        const data = snapCorreo.docs[0].data();
+        return {
+          name: data.name || data.nombre || '',
+          role: data.role || data.rol || '',
+          uid: data.uid || snapCorreo.docs[0].id,
+          empresaId: data.empresaId || undefined,
+          fotoPerfil: data.fotoPerfil || data.photoURL || undefined,
+          docId: snapCorreo.docs[0].id,
+          email: data.email || data.correo || email,
+          correo: data.correo || data.email || email,
         };
       }
     }
@@ -80,11 +109,14 @@ export const loginWithEmail = async (email: string, password: string): Promise<U
 
     return {
       uid: user.uid,
-      email: user.email || '',
+      email: usuarioDoc.email || user.email || '',
       name: usuarioDoc.name || user.displayName || email.split('@')[0],
       role: usuarioDoc.role as 'admin' | 'supervisor' | 'mecanico' | 'cliente',
-      id: user.uid,
+      id: usuarioDoc.docId || user.uid,
       empresaId: usuarioDoc.empresaId,
+      fotoPerfil: usuarioDoc.fotoPerfil,
+      docId: usuarioDoc.docId || user.uid,
+      correo: usuarioDoc.correo || usuarioDoc.email || user.email || '',
     };
   } catch (firebaseError: any) {
     // Si Firebase falla, intentar con usuarios locales (para desarrollo)
@@ -96,8 +128,8 @@ export const loginWithEmail = async (email: string, password: string): Promise<U
       return {
         uid: localUser.uid,
         email: localUser.email,
-        name: localUser.name,
-        role: localUser.role as 'admin' | 'supervisor' | 'mecanico' | 'cliente',
+        name: (localUser as any).name || localUser.nombre,
+        role: ((localUser as any).role || localUser.rol) as 'admin' | 'supervisor' | 'mecanico' | 'cliente',
         id: localUser.uid,
       };
     }

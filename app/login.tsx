@@ -19,6 +19,8 @@ import { useRouter } from 'expo-router';
 import { useDispatch } from 'react-redux';
 import { login, loginFailure } from '../redux/slices/loginSlice';
 import { loginWithEmail } from '@/services/authService';
+import { getAuth, sendPasswordResetEmail } from 'firebase/auth';
+import CustomAlert from '@/components/CustomAlert';
 import * as LocalAuthentication from 'expo-local-authentication';
 import * as SecureStore from 'expo-secure-store';
 import Animated, { FadeInUp, FadeInDown, useSharedValue, useAnimatedStyle, withRepeat, withTiming, interpolate } from 'react-native-reanimated';
@@ -48,6 +50,21 @@ const LoginScreen = () => {
   const [biometricModalVisible, setBiometricModalVisible] = useState(false);
   const [biometricLoading, setBiometricLoading] = useState(false);
   const [hasStoredCredentials, setHasStoredCredentials] = useState(false);
+
+  // --- ESTADO ALERTAS ---
+  const [alertConfig, setAlertConfig] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    showCancel?: boolean;
+    onConfirm?: () => void;
+  }>({ visible: false, title: '', message: '' });
+
+  const showAlert = (title: string, message: string, showCancel = false, onConfirm?: () => void) => {
+    setAlertConfig({ visible: true, title, message, showCancel, onConfirm });
+  };
+
+  const closeAlert = () => setAlertConfig(prev => ({ ...prev, visible: false }));
 
   const glowAnim = useSharedValue(0);
   const fingerPrintAnim = useRef(new RNAnimated.Value(1)).current;
@@ -88,6 +105,40 @@ const LoginScreen = () => {
     }
   };
 
+  const handleForgotPassword = () => {
+    const emailToUse = username.trim().toLowerCase();
+
+    if (!emailToUse || !emailToUse.includes('@')) {
+      showAlert('Atención', 'Por favor, escribe un email corporativo válido en el campo superior antes de solicitar el reseteo.');
+      return;
+    }
+
+    showAlert(
+      'Recuperar Acceso',
+      `Te enviaremos un enlace seguro a:\n\n${emailToUse}\n\n¿Deseas restablecer tu contraseña?`,
+      true,
+      async () => {
+        closeAlert();
+        setIsLoading(true);
+        try {
+          const auth = getAuth();
+          auth.languageCode = 'es';
+          await sendPasswordResetEmail(auth, emailToUse);
+          showAlert('¡Enlace Enviado!', 'Revisa tu bandeja de entrada o la carpeta de SPAM para restablecer tu acceso.');
+        } catch (error: any) {
+          console.error('Error al recuperar clave:', error);
+          let errorMsg = 'Hubo un problema al enviar el correo. Intenta nuevamente.';
+          if (error.code === 'auth/user-not-found') {
+            errorMsg = 'No existe una cuenta registrada con ese correo.';
+          }
+          showAlert('Error', errorMsg);
+        } finally {
+          setIsLoading(false);
+        }
+      }
+    );
+  };
+
   // Manual login
   const handleLogin = async () => {
     if (!username.trim() || !password) {
@@ -109,10 +160,14 @@ const LoginScreen = () => {
           usuario: {
             username: usuarioAuth.email,
             email: usuarioAuth.email,
+            correo: (usuarioAuth as any).correo || usuarioAuth.email,
             rol,
-            id: usuarioAuth.uid,
+            id: usuarioAuth.id || usuarioAuth.uid,
+            role: rol,
+            name: usuarioAuth.name || (usuarioAuth as any).displayName || usuarioAuth.email.split('@')[0],
             nombre: usuarioAuth.name || (usuarioAuth as any).displayName || usuarioAuth.email.split('@')[0],
             empresaId: usuarioAuth.empresaId,
+            fotoPerfil: (usuarioAuth as any).fotoPerfil || null,
           },
           rol,
         })
@@ -198,10 +253,14 @@ const LoginScreen = () => {
           usuario: {
             username: usuarioAuth.email,
             email: usuarioAuth.email,
+            correo: (usuarioAuth as any).correo || usuarioAuth.email,
             rol,
-            id: usuarioAuth.uid,
+            id: usuarioAuth.id || usuarioAuth.uid,
+            role: rol,
+            name: usuarioAuth.name || (usuarioAuth as any).displayName || usuarioAuth.email.split('@')[0],
             nombre: usuarioAuth.name || (usuarioAuth as any).displayName || usuarioAuth.email.split('@')[0],
             empresaId: usuarioAuth.empresaId,
+            fotoPerfil: (usuarioAuth as any).fotoPerfil || null,
           },
           rol,
         })
@@ -281,7 +340,7 @@ const LoginScreen = () => {
                     </TouchableOpacity>
                   )}
 
-                  <TouchableOpacity className="mt-6 items-center">
+                  <TouchableOpacity activeOpacity={0.7} onPress={handleForgotPassword} className="mt-6 items-center py-2">
                     <Text className="text-primary/60 font-bold text-[11px] uppercase tracking-widest">¿Olvidaste tu acceso?</Text>
                   </TouchableOpacity>
                 </View>
@@ -311,6 +370,19 @@ const LoginScreen = () => {
           </View>
         </View>
       </Modal>
+
+      <CustomAlert
+        visible={alertConfig.visible}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        showCancel={alertConfig.showCancel}
+        onConfirm={() => {
+          if (alertConfig.onConfirm) alertConfig.onConfirm();
+          else closeAlert();
+        }}
+        onCancel={closeAlert}
+        onClose={closeAlert}
+      />
     </View>
   );
 };

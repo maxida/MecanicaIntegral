@@ -76,7 +76,7 @@ const ComplianceWidget = ({ vehicles, onPress }: ComplianceWidgetProps) => {
 					{warningCount > 0 && (
 						<View>
 							<Text className="text-yellow-500 text-3xl font-black">{warningCount}</Text>
-							<Text className="text-yellow-200 text-[10px] font-bold uppercase">Vencen en 30 días</Text>
+							<Text className="text-yellow-200 text-[10px] font-bold uppercase">Vencen en 30 días o menos</Text>
 						</View>
 					)}
 				</View>

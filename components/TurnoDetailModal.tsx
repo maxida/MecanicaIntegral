@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Modal, SafeAreaView, Platform, Image, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useSelector } from 'react-redux';
 import {
   Droplet, Disc, Battery, Lightbulb, CircleDot, Image as LucideImage,
   Info, X, Gauge, Wrench, Clock, Hash, AlertTriangle, CheckCircle, ArrowRight, LineChart,
@@ -10,6 +11,7 @@ import { BlurView } from 'expo-blur';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '@/firebase/firebaseConfig';
+import { RootState } from '@/redux/store';
 
 const SINTOMAS_MAP: Record<string, { label: string, Icon: any, color: string }> = {
   aceite: { label: 'Nivel/Presión Aceite', Icon: Droplet, color: '#EF4444' },
@@ -69,13 +71,14 @@ interface TurnoDetailModalProps {
 
 const TurnoDetailModal = ({ visible, turno, onClose, readOnly = false, adminContext = false }: TurnoDetailModalProps) => {
   const router = useRouter();
-
-  if (!turno) return null;
+  const userRole = useSelector((state: RootState) => state.login.user?.rol?.toLowerCase());
 
   const [informeModalVisible, setInformeModalVisible] = useState(false);
   const [isLiberando, setIsLiberando] = useState(false);
   const [showLiberarConfirm, setShowLiberarConfirm] = useState(false);
   const [expandedImage, setExpandedImage] = useState<string | null>(null);
+
+  if (!visible || !turno) return null;
 
   const parseDate = (dateInput: any): Date | null => {
     if (!dateInput) return null;
@@ -120,9 +123,9 @@ const TurnoDetailModal = ({ visible, turno, onClose, readOnly = false, adminCont
 
   const checksSalida = tipoCarga === 'semiremolque' ? checksSemiremolqueSalida : tipoCarga === 'refrigerado' ? checksRefrigeradoSalida : checksCisternaSalida;
   const checksIngreso = tipoCarga === 'semiremolque' ? checksSemiremolqueIngreso : tipoCarga === 'refrigerado' ? checksRefrigeradoIngreso : checksCisternaIngreso;
-  
+
   const cargaIds = tipoCarga === 'semiremolque' ? SEMIREMOLQUE_IDS : tipoCarga === 'refrigerado' ? REFRIGERADO_IDS : CISTERNA_IDS;
-  
+
   const salidaCargaOk = !!checksSalida && cargaIds.every((id) => checksSalida?.[id] === true);
   const ingresoCargaOk = turno.controlCargaOk !== undefined
     ? turno.controlCargaOk
@@ -300,19 +303,23 @@ const TurnoDetailModal = ({ visible, turno, onClose, readOnly = false, adminCont
             {/* BODY SCROLLABLE */}
             <ScrollView className="flex-1" contentContainerStyle={{ padding: 24 }}>
 
-              {/* BOTÓN: HISTORIA CLÍNICA DE LA UNIDAD */}
-              <View className="mb-6">
-                <TouchableOpacity
-                  onPress={() => {
-                    onClose();
-                    router.push({ pathname: '/historial-unidad', params: { patente: turno.numeroPatente } });
-                  }}
-                  className="w-full bg-blue-600/20 py-4 rounded-xl flex-row items-center justify-center border border-blue-500/30 shadow-lg shadow-blue-900/20"
-                >
-                  <LineChart size={18} color="#60A5FA" style={{ marginRight: 8 }} />
-                  <Text className="text-blue-400 font-black text-xs uppercase tracking-widest">Ver Historia Clínica Completa</Text>
-                </TouchableOpacity>
-              </View>
+              {userRole === 'cliente' && (
+                <>
+                  {/* BOTÓN: HISTORIA CLÍNICA DE LA UNIDAD */}
+                  <View className="mb-6">
+                    <TouchableOpacity
+                      onPress={() => {
+                        onClose();
+                        router.push({ pathname: '/historial-unidad', params: { patente: turno.numeroPatente } });
+                      }}
+                      className="w-full bg-blue-600/20 py-4 rounded-xl flex-row items-center justify-center border border-blue-500/30 shadow-lg shadow-blue-900/20"
+                    >
+                      <LineChart size={18} color="#60A5FA" style={{ marginRight: 8 }} />
+                      <Text className="text-blue-400 font-black text-xs uppercase tracking-widest">Ver Historia Clínica Completa</Text>
+                    </TouchableOpacity>
+                  </View>
+                </>
+              )}
 
               <Text className="text-zinc-500 text-[10px] font-black uppercase tracking-[3px] mb-4">Resumen del Viaje</Text>
 
@@ -466,7 +473,8 @@ const TurnoDetailModal = ({ visible, turno, onClose, readOnly = false, adminCont
                 </>
               )}
 
-              {turno.estado === 'completed' && (
+              {/* FICHA DE RESOLUCIÓN DEL TALLER (Solo si pasó por el mecánico) */}
+              {turno.estado === 'completed' && (turno.diagnosticoMecanico || turno.informeTecnico || turno.mecanicoId) && (
                 <View className="mb-8">
                   <Text className="text-emerald-500 text-[10px] font-black uppercase tracking-[3px] mb-3">Ficha de Resolución del Taller</Text>
                   <View className="bg-emerald-900/10 border border-emerald-500/20 p-5 rounded-3xl">
