@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, SafeAreaView, TouchableOpacity, ActivityIndicator, Image, Platform } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ArrowLeft, ArrowDownCircle, ArrowUpCircle, Camera, Check, ChevronRight, Disc, Droplet, Eye, FileText, Fuel, Gauge, Lightbulb, Lock, Sparkles, Tent, Toolbox, Wind } from 'lucide-react-native';
+import { ArrowLeft, ArrowDownCircle, ArrowUpCircle, Camera, Check, ChevronRight, Disc, Droplet, Eye, FileText, Fuel, Gauge, Lightbulb, Lock, Sparkles, Tent, Thermometer, Toolbox, Wind } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { collection, addDoc, serverTimestamp, query, where, orderBy, limit, getDocs } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -9,6 +9,8 @@ import { db, storage } from '@/firebase/firebaseConfig';
 import * as ImagePicker from 'expo-image-picker';
 import NumberInput from '@/components/NumberInput';
 import ActionModal, { ActionModalType } from '@/components/ActionModal';
+import { useSelector } from 'react-redux';
+import { RootState } from '@/redux/store';
 
 // --- ITEMS TRACTOR ---
 type ChecklistItem = { id: string; label: string; icon: React.ComponentType<{ size?: number; color?: string }> };
@@ -44,21 +46,30 @@ const ITEMS_SEMIREMOLQUE: ChecklistItem[] = [
   { id: 'auxilio', label: 'Ruedas de auxilio', icon: Disc },
 ];
 
+const ITEMS_REFRIGERADO: ChecklistItem[] = [
+  { id: 'temp_equipo', label: 'Temperatura Equipo', icon: Thermometer },
+  { id: 'burletes', label: 'Burletes y Puertas', icon: Lock },
+  { id: 'combustible_frio', label: 'Diésel Equipo Frío', icon: Fuel },
+  { id: 'limpieza_senasa', label: 'Permiso / Desinfección', icon: Sparkles },
+];
+
 export default function CheckoutScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
+  const user = useSelector((state: RootState) => state.login.user);
   const { numeroPatente, choferName } = params;
 
   const [kmSalida, setKmSalida] = useState<string | number>('');
   const [lastKm, setLastKm] = useState<number | null>(null);
   const [fuel, setFuel] = useState<number | null>(null);
   const [photoUri, setPhotoUri] = useState<string | null>(null);
-  const [tipoCarga, setTipoCarga] = useState<'cisterna' | 'semiremolque' | null>(null);
+  const [tipoCarga, setTipoCarga] = useState<'cisterna' | 'semiremolque' | 'refrigerado' | null>(null);
 
   // Checklists separados
   const [checksTractor, setChecksTractor] = useState<Record<string, boolean>>({});
   const [checksCisterna, setChecksCisterna] = useState<Record<string, boolean>>({});
   const [checksSemiremolque, setChecksSemiremolque] = useState<Record<string, boolean>>({});
+  const [checksRefrigerado, setChecksRefrigerado] = useState<Record<string, boolean>>({});
 
   const [loading, setLoading] = useState(false);
   const [fetchingData, setFetchingData] = useState(true);
@@ -90,6 +101,7 @@ export default function CheckoutScreen() {
   const toggleCheckTractor = (id: string) => setChecksTractor(prev => ({ ...prev, [id]: !prev[id] }));
   const toggleCheckCisterna = (id: string) => setChecksCisterna(prev => ({ ...prev, [id]: !prev[id] }));
   const toggleCheckSemiremolque = (id: string) => setChecksSemiremolque(prev => ({ ...prev, [id]: !prev[id] }));
+  const toggleCheckRefrigerado = (id: string) => setChecksRefrigerado(prev => ({ ...prev, [id]: !prev[id] }));
 
   // CÁMARA
   // Cambiado: adjuntar imagen desde galería en lugar de abrir cámara
@@ -146,8 +158,10 @@ export default function CheckoutScreen() {
     const tractorOk = ITEMS_TRACTOR.every(item => checksTractor[item.id] === true);
     const cisternaOk = ITEMS_CISTERNA.every(item => checksCisterna[item.id] === true);
     const semiremolqueOk = ITEMS_SEMIREMOLQUE.every(item => checksSemiremolque[item.id] === true);
+    const refrigeradoOk = ITEMS_REFRIGERADO.every(item => checksRefrigerado[item.id] === true);
     if (tipoCarga === 'cisterna') return tractorOk && cisternaOk;
     if (tipoCarga === 'semiremolque') return tractorOk && semiremolqueOk;
+    if (tipoCarga === 'refrigerado') return tractorOk && refrigeradoOk;
     return false;
   };
 
@@ -163,6 +177,7 @@ export default function CheckoutScreen() {
       const payload = {
         tipo: 'salida',
         estado: 'en_viaje',
+        empresaId: user?.empresaId || 'oasis',
         numeroPatente,
         chofer: choferName,
         kilometrajeSalida: Number(kmSalida),
@@ -173,7 +188,9 @@ export default function CheckoutScreen() {
         checklistSalida: checksTractor,
         ...(tipoCarga === 'cisterna'
           ? { checklistCisternaSalida: checksCisterna }
-          : { checklistSemiremolqueSalida: checksSemiremolque }),
+          : tipoCarga === 'semiremolque'
+            ? { checklistSemiremolqueSalida: checksSemiremolque }
+            : { checklistRefrigeradoSalida: checksRefrigerado }),
 
         fechaSalida: serverTimestamp(),
         fechaCreacion: new Date().toISOString(),
@@ -221,7 +238,7 @@ export default function CheckoutScreen() {
               {fetchingData ? <ActivityIndicator size="small" color="#34D399" /> : (
                 <View>
                   <NumberInput
-                    value={kmSalida}
+                    value={typeof kmSalida === 'number' ? kmSalida : 0}
                     onChangeText={(val: any) => setKmSalida(val ? Number(val) : '')}
                     decimalPlaces={0}
                     placeholder={lastKm ? String(lastKm) : "0"}
@@ -303,6 +320,17 @@ export default function CheckoutScreen() {
                   <Text className={`ml-2 text-xs font-bold ${tipoCarga === 'semiremolque' ? 'text-white' : 'text-gray-500'}`}>Semiremolque</Text>
                 </View>
               </TouchableOpacity>
+
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={() => setTipoCarga('refrigerado')}
+                className={`flex-1 p-4 rounded-2xl border ${tipoCarga === 'refrigerado' ? 'bg-cyan-900/30 border-cyan-500/60' : 'bg-zinc-900 border-zinc-800'}`}
+              >
+                <View className="flex-row items-center">
+                  <Thermometer size={18} color={tipoCarga === 'refrigerado' ? '#22D3EE' : '#666'} />
+                  <Text className={`ml-2 text-xs font-bold ${tipoCarga === 'refrigerado' ? 'text-white' : 'text-gray-500'}`}>Cámara de Frío</Text>
+                </View>
+              </TouchableOpacity>
             </View>
           </View>
 
@@ -339,6 +367,28 @@ export default function CheckoutScreen() {
                     const Icon = item.icon;
                     return (
                       <TouchableOpacity key={item.id} activeOpacity={0.7} onPress={() => toggleCheckSemiremolque(item.id)} className={`w-[48%] mb-3 p-3 rounded-2xl border flex-row items-center ${isChecked ? 'bg-blue-600/30 border-blue-400' : 'bg-black border-zinc-800'}`}>
+                        <View className={`w-8 h-8 rounded-full items-center justify-center mr-3 ${isChecked ? 'bg-blue-500' : 'bg-zinc-800 border border-zinc-600'}`}>
+                          {isChecked ? <Check size={16} color="white" /> : <Icon size={16} color="#666" />}
+                        </View>
+                        <Text className={`text-xs font-bold ${isChecked ? 'text-white' : 'text-gray-500'}`}>{item.label}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+            </View>
+          )}
+
+          {tipoCarga === 'refrigerado' && (
+            <View className="mb-8">
+              <Text className="text-blue-400 text-[10px] font-black uppercase tracking-[3px] mb-3 ml-1">Control Cámara de Frío</Text>
+              <View className="bg-blue-900/10 p-4 rounded-3xl border border-blue-500/30">
+                <View className="flex-row flex-wrap justify-between">
+                  {ITEMS_REFRIGERADO.map((item) => {
+                    const isChecked = checksRefrigerado[item.id];
+                    const Icon = item.icon;
+                    return (
+                      <TouchableOpacity key={item.id} activeOpacity={0.7} onPress={() => toggleCheckRefrigerado(item.id)} className={`w-[48%] mb-3 p-3 rounded-2xl border flex-row items-center ${isChecked ? 'bg-blue-600/30 border-blue-400' : 'bg-black border-zinc-800'}`}>
                         <View className={`w-8 h-8 rounded-full items-center justify-center mr-3 ${isChecked ? 'bg-blue-500' : 'bg-zinc-800 border border-zinc-600'}`}>
                           {isChecked ? <Check size={16} color="white" /> : <Icon size={16} color="#666" />}
                         </View>

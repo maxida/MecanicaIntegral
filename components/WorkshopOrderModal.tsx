@@ -115,6 +115,7 @@ const WorkshopOrderModal = ({ visible, turno, onClose, readOnly = false, onStart
 		try {
 			const ref = doc(db, 'turnos', turno.id);
 			const payload: any = {
+				empresaId: turno.empresaId || 'oasis',
 				mecanicoId,
 				mecanicoNombre,
 				horasEstimadas,
@@ -155,7 +156,14 @@ const WorkshopOrderModal = ({ visible, turno, onClose, readOnly = false, onStart
 								<Hash size={10} color="#F97316" />
 								<Text className="text-orange-500 text-[10px] font-black uppercase ml-1">Orden de Trabajo</Text>
 							</View>
-							<Text className="text-white text-3xl font-black italic">{turno.numeroPatente}</Text>
+							<View className="flex-row items-center gap-2">
+								<Text className="text-white text-3xl font-black italic">{turno.numeroPatente}</Text>
+								<View className={`px-2 py-0.5 rounded border ${(turno.empresaId || 'oasis') === 'lafabrica' ? 'bg-purple-500/20 border-purple-500/40' : 'bg-cyan-500/20 border-cyan-500/40'}`}>
+									<Text className={`text-[9px] font-black uppercase ${(turno.empresaId || 'oasis') === 'lafabrica' ? 'text-purple-300' : 'text-cyan-300'}`}>
+										{(turno.empresaId || 'oasis') === 'lafabrica' ? 'LA FABRICA' : 'OASIS'}
+									</Text>
+								</View>
+							</View>
 						</View>
 						<TouchableOpacity onPress={onClose} className="bg-white/5 p-3 rounded-full">
 							<X color="#666" size={24} />

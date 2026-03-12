@@ -63,6 +63,7 @@ const SolicitudScreen = () => {
       // Datos puros para el Admin de Taller
       const ordenTaller = {
         estado: 'taller_pendiente', // Nuevo estado: Esperando asignación en taller
+        empresaId: user?.empresaId || 'oasis', // ESTAMPA MULTI-CLIENTE
 
         // Clasificación del Trabajo
         tipoIngreso: tipoServicio, // Correctivo/Preventivo

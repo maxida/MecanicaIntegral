@@ -1,13 +1,19 @@
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy, onSnapshot } from 'firebase/firestore';
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy, onSnapshot, where } from 'firebase/firestore';
 import { db } from '@/firebase/firebaseConfig';
 import { Turno } from '@/redux/slices/turnosSlice';
 
 const TURNOS_COLLECTION = 'turnos';
 
 // Obtener todos los turnos
-export const obtenerTurnos = async (): Promise<Turno[]> => {
+export const obtenerTurnos = async (empresaId?: string): Promise<Turno[]> => {
   try {
-    const q = query(collection(db, TURNOS_COLLECTION), orderBy('fechaReparacion', 'asc'));
+    let q;
+    if (empresaId && empresaId !== 'TALLER') {
+      q = query(collection(db, TURNOS_COLLECTION), where('empresaId', '==', empresaId), orderBy('fechaReparacion', 'asc'));
+    } else {
+      q = query(collection(db, TURNOS_COLLECTION), orderBy('fechaReparacion', 'asc'));
+    }
+    
     const querySnapshot = await getDocs(q);
     const turnos: Turno[] = [];
     
@@ -138,9 +144,21 @@ export const crearTurnosPrueba = async (): Promise<void> => {
 };
 
 // Configurar listener en tiempo real para turnos
-export const suscribirseATurnos = (callback: (turnos: Turno[]) => void) => {
-  // Use fechaCreacion to ensure all tickets are retrieved, even those without a repair date
-  const q = query(collection(db, TURNOS_COLLECTION), orderBy('fechaCreacion', 'desc'));
+export const suscribirseATurnos = (callback: (turnos: Turno[]) => void, empresaId?: string) => {
+  let q;
+
+  if (empresaId && empresaId !== 'TALLER') {
+    q = query(
+      collection(db, TURNOS_COLLECTION),
+      where('empresaId', '==', empresaId),
+      orderBy('fechaCreacion', 'desc')
+    );
+  } else {
+    q = query(
+      collection(db, TURNOS_COLLECTION),
+      orderBy('fechaCreacion', 'desc')
+    );
+  }
 
   return onSnapshot(q, (querySnapshot) => {
     const turnos: Turno[] = [];
@@ -157,10 +175,24 @@ export const suscribirseATurnos = (callback: (turnos: Turno[]) => void) => {
 };
 
 // Suscribirse únicamente a turnos en estado 'pending_triage'
-export const suscribirseAPendingTriage = (callback: (turnos: Turno[]) => void) => {
+export const suscribirseAPendingTriage = (callback: (turnos: Turno[]) => void, empresaId?: string) => {
   try {
-    const { query: qFn, where } = require('firebase/firestore');
-    const q = qFn(collection(db, TURNOS_COLLECTION), where('estado', '==', 'pending_triage'), orderBy('fechaCreacion', 'desc'));
+    let q;
+    if (empresaId && empresaId !== 'TALLER') {
+      q = query(
+        collection(db, TURNOS_COLLECTION),
+        where('estado', '==', 'pending_triage'),
+        where('empresaId', '==', empresaId),
+        orderBy('fechaCreacion', 'desc')
+      );
+    } else {
+      q = query(
+        collection(db, TURNOS_COLLECTION),
+        where('estado', '==', 'pending_triage'),
+        orderBy('fechaCreacion', 'desc')
+      );
+    }
+
     return onSnapshot(q, (querySnapshot: any) => {
       const turnos: Turno[] = [];
       querySnapshot.forEach((doc: any) => {

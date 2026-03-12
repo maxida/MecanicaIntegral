@@ -24,11 +24,13 @@ import {
   Disc,
   Droplet,
   Eye,
+  Fuel,
   Gauge,
   Hand,
   Lightbulb,
   Lock,
   Snowflake,
+  Thermometer,
   Sparkles,
   Square,
   Tent,
@@ -103,6 +105,13 @@ const ITEMS_SEMIREMOLQUE: ChecklistItem[] = [
   { id: 'auxilio', label: 'Ruedas de auxilio', icon: Disc },
 ];
 
+const ITEMS_REFRIGERADO: ChecklistItem[] = [
+  { id: 'temp_equipo', label: 'Temperatura Equipo', icon: Thermometer },
+  { id: 'burletes', label: 'Burletes y Puertas', icon: Lock },
+  { id: 'combustible_frio', label: 'Diésel Equipo Frío', icon: Fuel },
+  { id: 'limpieza_senasa', label: 'Permiso / Desinfección', icon: Sparkles },
+];
+
 const NovedadesChoferForm = () => {
   const router = useRouter();
   const user = useSelector((state: RootState) => state.login.user);
@@ -121,9 +130,10 @@ const NovedadesChoferForm = () => {
   const [activeTripId, setActiveTripId] = useState<string | null>(null);
   const [startKm, setStartKm] = useState<number | null>(null);
 
-  const [tipoCargaViaje, setTipoCargaViaje] = useState<'cisterna' | 'semiremolque' | null>(null);
+  const [tipoCargaViaje, setTipoCargaViaje] = useState<'cisterna' | 'semiremolque' | 'refrigerado' | null>(null);
   const [checksCisterna, setChecksCisterna] = useState<Record<string, boolean>>({});
   const [checksSemiremolque, setChecksSemiremolque] = useState<Record<string, boolean>>({});
+  const [checksRefrigerado, setChecksRefrigerado] = useState<Record<string, boolean>>({});
 
   const [modal, setModal] = useState<{ visible: boolean; type: ActionModalType; title: string; desc: string; action: () => void }>({
     visible: false, type: 'success', title: '', desc: '', action: () => { },
@@ -162,10 +172,29 @@ const NovedadesChoferForm = () => {
   const toggleIssue = (id: string) => setSelectedIssues(prev => prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id]);
   const toggleCheckCisterna = (id: string) => setChecksCisterna(prev => ({ ...prev, [id]: !prev[id] }));
   const toggleCheckSemiremolque = (id: string) => setChecksSemiremolque(prev => ({ ...prev, [id]: !prev[id] }));
+  const toggleCheckRefrigerado = (id: string) => setChecksRefrigerado(prev => ({ ...prev, [id]: !prev[id] }));
 
-  const cargaItems = tipoCargaViaje ? (tipoCargaViaje === 'semiremolque' ? ITEMS_SEMIREMOLQUE : ITEMS_CISTERNA) : [];
-  const checksCarga = tipoCargaViaje ? (tipoCargaViaje === 'semiremolque' ? checksSemiremolque : checksCisterna) : {};
-  const tipoCargaLabel = tipoCargaViaje === 'semiremolque' ? 'Semiremolque' : tipoCargaViaje === 'cisterna' ? 'Cisterna' : null;
+  const cargaItems = tipoCargaViaje
+    ? (tipoCargaViaje === 'semiremolque'
+      ? ITEMS_SEMIREMOLQUE
+      : tipoCargaViaje === 'refrigerado'
+        ? ITEMS_REFRIGERADO
+        : ITEMS_CISTERNA)
+    : [];
+  const checksCarga = tipoCargaViaje
+    ? (tipoCargaViaje === 'semiremolque'
+      ? checksSemiremolque
+      : tipoCargaViaje === 'refrigerado'
+        ? checksRefrigerado
+        : checksCisterna)
+    : {};
+  const tipoCargaLabel = tipoCargaViaje === 'semiremolque'
+    ? 'Semiremolque'
+    : tipoCargaViaje === 'refrigerado'
+      ? 'Cámara de Frío'
+      : tipoCargaViaje === 'cisterna'
+        ? 'Cisterna'
+        : null;
 
   // Cambiado: ahora adjuntar desde GALERÍA en lugar de abrir la cámara
   const takePhoto = async () => {
@@ -207,17 +236,18 @@ const NovedadesChoferForm = () => {
     if (!photoUri) return showModal('warning', 'Foto', 'Debes tomar una foto del tablero.');
     if (!tipoCargaViaje) return showModal('warning', 'Tipo de Carga', 'Selecciona el tipo de carga.');
 
-    const cargaOk = cargaItems.length > 0 ? cargaItems.every(item => checksCarga[item.id] === true) : true;
-    const fallasCarga = cargaItems.filter(item => checksCarga[item.id] !== true).map(item => item.id);
+    const fallasCarga = cargaItems.filter(item => checksCarga[item.id] === true).map(item => item.id);
+    const cargaOk = fallasCarga.length === 0;
 
     setSaving(true);
     try {
       const photoUrl = await uploadImageToStorage(photoUri);
-      const issuesFound = selectedIssues.length > 0;
+      const issuesFound = selectedIssues.length > 0 || fallasCarga.length > 0;
 
       const closureData = {
         tipo: 'ingreso',
         estado: issuesFound ? 'pending_triage' : 'completed',
+        empresaId: user?.empresaId || 'oasis',
         kilometrajeIngreso: kmValue,
         nivelNaftaIngreso: fuel,
         fotoTableroIngreso: photoUrl,
@@ -226,7 +256,9 @@ const NovedadesChoferForm = () => {
 
         ...(tipoCargaViaje === 'semiremolque'
           ? { checklistSemiremolqueIngreso: checksSemiremolque }
-          : { checklistCisternaIngreso: checksCisterna }),
+          : tipoCargaViaje === 'refrigerado'
+            ? { checklistRefrigeradoIngreso: checksRefrigerado }
+            : { checklistCisternaIngreso: checksCisterna }),
 
         sintomas: selectedIssues,
         controlCargaOk: cargaOk,
@@ -291,7 +323,7 @@ const NovedadesChoferForm = () => {
               <Text className="text-gray-500 text-[8px] font-bold uppercase mb-2">Kilometraje Llegada</Text>
               <NumberInput
                 className="text-white text-2xl font-black text-center z-10"
-                value={km}
+                value={typeof km === 'number' ? km : 0}
                 onChangeText={(val: any) => { if (val === '' || val === null) setKm(''); else setKm(Number(val)); }}
                 decimalPlaces={0}
                 placeholder={startKm ? String(startKm + 50) : "0"}
@@ -319,7 +351,13 @@ const NovedadesChoferForm = () => {
 
 
 
-          <Text className="text-gray-500 text-l font-black uppercase tracking-[3px] mb-3 mt-4">Reporte de Novedades</Text>
+          <View className="mb-3 mt-4 bg-blue-500/10 border border-blue-500/30 rounded-2xl p-3 flex-row items-start">
+            <AlertTriangle size={16} color="#60A5FA" style={{ marginTop: 1 }} />
+            <Text className="text-blue-300 text-[11px] font-bold ml-2 leading-4 flex-1">
+              Marcá únicamente los problemas detectados. Si la unidad está en buen estado, no tildes ningún ítem.
+            </Text>
+          </View>
+          <Text className="text-gray-500 text-l font-black uppercase tracking-[3px] mb-3">Reporte de Novedades</Text>
           <View className="mb-1">
             {VEHICLE_CHECKLIST_ITEMS.map((group) => (
               <View key={group.category} className="mb-4">
@@ -401,6 +439,17 @@ const NovedadesChoferForm = () => {
                     <Text className={`ml-2 text-xs font-bold ${tipoCargaViaje === 'semiremolque' ? 'text-white' : 'text-gray-500'}`}>Semiremolque</Text>
                   </View>
                 </TouchableOpacity>
+
+                <TouchableOpacity
+                  activeOpacity={0.8}
+                  onPress={() => setTipoCargaViaje('refrigerado')}
+                  className={`flex-1 p-4 rounded-2xl border ${tipoCargaViaje === 'refrigerado' ? 'bg-cyan-900/30 border-cyan-500/60' : 'bg-zinc-900 border-zinc-800'}`}
+                >
+                  <View className="flex-row items-center">
+                    <Thermometer size={18} color={tipoCargaViaje === 'refrigerado' ? '#22D3EE' : '#666'} />
+                    <Text className={`ml-2 text-xs font-bold ${tipoCargaViaje === 'refrigerado' ? 'text-white' : 'text-gray-500'}`}>Cámara de Frío</Text>
+                  </View>
+                </TouchableOpacity>
               </View>
             )}
           </View>
@@ -408,14 +457,20 @@ const NovedadesChoferForm = () => {
           <View className="mb-16 mt-4">
             {tipoCargaViaje ? (
               <>
-                <Text className="text-blue-400 text-[10px] font-black uppercase tracking-[3px] mb-3 ml-1">Control {tipoCargaLabel} (Ingreso)</Text>
+                <Text className="text-blue-400 text-[10px] font-black uppercase tracking-[3px] ml-1">Control {tipoCargaLabel} (Ingreso)</Text>
+                <View className="mb-3 mt-4 bg-blue-500/10 border border-blue-500/30 rounded-2xl p-3 flex-row items-start">
+                  <AlertTriangle size={16} color="#60A5FA" style={{ marginTop: 1 }} />
+                  <Text className="text-blue-300 text-[11px] font-bold ml-2 leading-4 flex-1">
+                    Marcá únicamente los problemas detectados. Si la unidad está en buen estado, no tildes ningún ítem.
+                  </Text>
+                </View>
                 <View className="bg-blue-900/10 p-4 rounded-3xl border border-blue-500/30">
                   <View className="flex-row flex-wrap justify-between">
                     {cargaItems.map((item) => {
                       const isChecked = checksCarga[item.id as keyof typeof checksCarga];
                       const Icon = item.icon;
                       return (
-                        <TouchableOpacity key={item.id} activeOpacity={0.7} onPress={() => (tipoCargaViaje === 'semiremolque' ? toggleCheckSemiremolque(item.id) : toggleCheckCisterna(item.id))} className={`w-[48%] mb-3 p-3 rounded-2xl border flex-row items-center ${isChecked ? 'bg-blue-600/30 border-blue-400' : 'bg-black border-zinc-800'}`}>
+                        <TouchableOpacity key={item.id} activeOpacity={0.7} onPress={() => (tipoCargaViaje === 'semiremolque' ? toggleCheckSemiremolque(item.id) : tipoCargaViaje === 'refrigerado' ? toggleCheckRefrigerado(item.id) : toggleCheckCisterna(item.id))} className={`w-[48%] mb-3 p-3 rounded-2xl border flex-row items-center ${isChecked ? 'bg-blue-600/30 border-blue-400' : 'bg-black border-zinc-800'}`}>
                           <View className={`w-8 h-8 rounded-full items-center justify-center mr-3 ${isChecked ? 'bg-blue-500' : 'bg-zinc-800 border border-zinc-600'}`}>
                             {isChecked ? <Check size={16} color="white" /> : <Icon size={16} color="#666" />}
                           </View>

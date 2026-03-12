@@ -17,6 +17,7 @@ export interface UsuarioLogin {
   rol: UserRole;
   id: string;
   nombre: string;
+  empresaId?: string;
 }
 
 export interface ClienteDuenoCamion extends Usuario {

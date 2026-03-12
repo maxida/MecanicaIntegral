@@ -5,7 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useSelector } from 'react-redux';
 import Animated, { FadeInUp } from 'react-native-reanimated';
-import { collection, query, orderBy, limit, onSnapshot, getDocs } from 'firebase/firestore';
+import { collection, query, orderBy, limit, onSnapshot, getDocs, where } from 'firebase/firestore';
 import { db } from '@/firebase/firebaseConfig';
 import TurnoDetailModal from '@/components/TurnoDetailModal';
 import AdminTallerTurnoModal from '@/components/AdminTallerTurnoModal';
@@ -37,29 +37,61 @@ const SuperadminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
   const isWideScreen = width >= 2900;
   const tileStyle = isWideScreen ? { flex: 1, minWidth: 0 } : { width: 260 } as any;
 
-  // 1. Cargar Vehículos
+  // 1. Cargar Vehículos filtrados por empresa
   useEffect(() => {
     const fetchVehicles = async () => {
       try {
-        const col = collection(db, 'vehiculo');
-        const snap = await getDocs(col);
-        const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        const userEmpresaId = user?.empresaId || 'oasis';
+        console.log('🏢 [Dashboard] user completo desde Redux:', JSON.stringify(user));
+        console.log('🔑 [Dashboard] empresaId resuelto (vehículos):', userEmpresaId);
+
+        let q: ReturnType<typeof query> | ReturnType<typeof collection>;
+        if (userEmpresaId !== 'TALLER') {
+          console.log(`🔍 [Dashboard] Consultando vehiculo WHERE empresaId == "${userEmpresaId}"`);
+          q = query(collection(db, 'vehiculo'), where('empresaId', '==', userEmpresaId));
+        } else {
+          console.log('🔍 [Dashboard] Rol TALLER: descargando TODOS los vehículos.');
+          q = collection(db, 'vehiculo');
+        }
+
+        const snap = await getDocs(q as any);
+        console.log(`✅ [Dashboard] Vehículos encontrados: ${snap.size}`);
+        const list = snap.docs.map(d => ({ id: d.id, ...(d.data() as Record<string, any>) }));
         setVehiclesData(list);
-      } catch (e) { console.error("Error cargando vehiculos", e); }
+      } catch (e: any) {
+        console.error('🔴 [Dashboard] Error cargando vehículos:', e?.message || e);
+        console.error('🔴 [Dashboard] Detalle error vehículos:', e);
+      }
     };
     fetchVehicles();
-  }, []);
+  }, [user]);
 
-  // 2. Suscripción a Turnos
+  // 2. Suscripción a Turnos filtrados por empresa
   useEffect(() => {
-    const q = query(collection(db, 'turnos'), orderBy('fechaCreacion', 'desc'), limit(50));
+    const userEmpresaId = user?.empresaId || 'oasis';
+    console.log('🔑 [Dashboard] empresaId resuelto (turnos):', userEmpresaId);
+
+    let q;
+    if (userEmpresaId !== 'TALLER') {
+      console.log(`🔍 [Dashboard] Suscribiendo a turnos WHERE empresaId == "${userEmpresaId}"`);
+      q = query(collection(db, 'turnos'), where('empresaId', '==', userEmpresaId), orderBy('fechaCreacion', 'desc'), limit(50));
+    } else {
+      console.log('🔍 [Dashboard] Rol TALLER: suscribiendo a TODOS los turnos.');
+      q = query(collection(db, 'turnos'), orderBy('fechaCreacion', 'desc'), limit(50));
+    }
+
     const unsubscribe = onSnapshot(q, (snapshot) => {
+      console.log(`✅ [Dashboard] Turnos recibidos en tiempo real: ${snapshot.size}`);
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setTurnos(data);
       setLoading(false);
-    }, (error) => { setLoading(false); });
+    }, (error: any) => {
+      console.error('🔴 [Dashboard] Error en listener de turnos:', error?.message || error);
+      console.error('🔴 [Dashboard] ¿Falta índice compuesto en Firestore? Revisa la consola de Firebase.');
+      setLoading(false);
+    });
     return () => unsubscribe();
-  }, []);
+  }, [user]);
 
   // 3. KPIs Turnos (CORREGIDO PARA INCLUIR taller_pendiente)
   const kpis = useMemo(() => {
@@ -126,7 +158,7 @@ const SuperadminDashboard = ({ onLogout }: { onLogout?: () => void }) => {
 
   const handleOpenTurno = (turno: any) => {
     setSelectedTurno(turno);
-    const role = (user?.rol || user?.role)?.toLowerCase();
+    const role = user?.rol?.toLowerCase();
 
     if (role === 'admin' || role === 'admin_taller') {
       if (turno.estado === 'taller_pendiente') {

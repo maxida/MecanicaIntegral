@@ -51,21 +51,41 @@ const ClienteDashboard = ({ onLogout }: { onLogout?: () => void }) => {
 
   // --- CARGA DE DATOS ---
 
-  // 1. Vehículos (Al inicio)
+  // 1. Vehículos filtrados por empresa del chofer
   useFocusEffect(
     useCallback(() => {
       const fetchVehicles = async () => {
         try {
-          const col = collection(db, 'vehiculo');
-          const q = query(col, orderBy('numeroPatente'), limit(100));
+          const userEmpresaId = user?.empresaId || 'oasis';
+          console.log('🚛 [ClienteDashboard] empresaId resuelto:', userEmpresaId);
+
+          let q;
+          if (userEmpresaId !== 'TALLER') {
+            console.log(`🔍 [ClienteDashboard] Consultando vehiculo WHERE empresaId == "${userEmpresaId}"`);
+            q = query(
+              collection(db, 'vehiculo'),
+              where('empresaId', '==', userEmpresaId),
+              orderBy('numeroPatente'),
+              limit(100)
+            );
+          } else {
+            console.log('🔍 [ClienteDashboard] Rol TALLER: descargando TODOS los vehículos.');
+            q = query(collection(db, 'vehiculo'), orderBy('numeroPatente'), limit(100));
+          }
+
           const snap = await getDocs(q);
+          console.log(`✅ [ClienteDashboard] Vehículos encontrados: ${snap.size}`);
           const list = snap.docs.map(d => d.data().numeroPatente).filter(Boolean);
           setVehicleList(list);
-        } catch (err) { console.error(err); }
-        finally { setLoadingVehicles(false); }
+        } catch (err: any) {
+          console.error('🔴 [ClienteDashboard] Error cargando vehículos:', err?.message || err);
+          console.error('🔴 [ClienteDashboard] ¿Falta índice compuesto (empresaId + numeroPatente)?', err);
+        } finally {
+          setLoadingVehicles(false);
+        }
       };
       fetchVehicles();
-    }, [])
+    }, [user])
   );
 
   // 2. Historial DEL CHOFER (Siempre visible, no depende de selección de camión)
@@ -177,7 +197,7 @@ const ClienteDashboard = ({ onLogout }: { onLogout?: () => void }) => {
 
   const handleOpenTurno = (turno: any) => {
     setSelectedTurno(turno);
-    const role = (user?.rol || user?.role)?.toLowerCase();
+    const role = user?.rol?.toLowerCase();
 
     if (role === 'admin' || role === 'admin_taller') {
       if (turno.estado === 'taller_pendiente') {
